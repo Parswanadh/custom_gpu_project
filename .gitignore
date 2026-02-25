@@ -1,0 +1,31 @@
+# Weights (large binary files)
+weights/
+*.bin
+*.npz
+*.safetensors
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Simulation outputs
+*.vcd
+*.lxt
+*.fst
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Build
+*.exe
+*.out

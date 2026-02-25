@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BitbyBit GPU — Architecture Visualization</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0a0e1a;
+            color: #e0e6f0;
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background grid */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-image: 
+                linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+            position: relative;
+        }
+
+        .header::after {
+            content: '';
+            display: block;
+            width: 200px;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #38bdf8, #a78bfa, transparent);
+            margin: 20px auto;
+        }
+
+        .chip-name {
+            font-size: 72px;
+            font-weight: 900;
+            letter-spacing: -2px;
+            background: linear-gradient(135deg, #38bdf8, #a78bfa, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: none;
+        }
+
+        .chip-subtitle {
+            font-size: 20px;
+            font-weight: 300;
+            color: #94a3b8;
+            margin-top: 8px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            margin: 40px 0;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 36px;
+            font-weight: 700;
+            color: #38bdf8;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
+        /* Chip die visualization */
+        .chip-die-container {
+            display: flex;
+            justify-content: center;
+            margin: 50px 0;
+        }
+
+        .chip-die {
+            width: 900px;
+            height: 700px;
+            background: linear-gradient(145deg, #0f1729, #141e33);
+            border: 3px solid #1e3a5f;
+            border-radius: 6px;
+            position: relative;
+            box-shadow: 
+                0 0 60px rgba(56, 189, 248, 0.08),
+                inset 0 0 60px rgba(56, 189, 248, 0.02);
+        }
+
+        /* IO Pads */
+        .io-pads-top, .io-pads-bottom {
+            position: absolute;
+            left: 20px; right: 20px;
+            display: flex;
+            justify-content: space-around;
+        }
+        .io-pads-top { top: -8px; }
+        .io-pads-bottom { bottom: -8px; }
+        .io-pads-left, .io-pads-right {
+            position: absolute;
+            top: 20px; bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+        .io-pads-left { left: -8px; }
+        .io-pads-right { right: -8px; }
+
+        .io-pad {
+            width: 16px; height: 8px;
+            background: #c4a44a;
+            border-radius: 1px;
+            box-shadow: 0 0 4px rgba(196, 164, 74, 0.5);
+        }
+        .io-pads-left .io-pad,
+        .io-pads-right .io-pad {
+            width: 8px; height: 16px;
+        }
+
+        /* Functional blocks */
+        .block {
+            position: absolute;
+            border-radius: 6px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.1);
+            overflow: hidden;
+        }
+
+        .block::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 4px,
+                rgba(255,255,255,0.02) 4px,
+                rgba(255,255,255,0.02) 5px
+            );
+            pointer-events: none;
+        }
+
+        .block:hover {
+            transform: scale(1.03);
+            z-index: 10;
+            box-shadow: 0 0 30px rgba(255,255,255,0.15);
+        }
+
+        .block-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            text-align: center;
+            z-index: 2;
+        }
+
+        .block-detail {
+            font-size: 9px;
+            color: rgba(255,255,255,0.7);
+            margin-top: 4px;
+            text-align: center;
+            z-index: 2;
+        }
+
+        /* Specific blocks */
+        .embedding {
+            left: 30px; top: 30px;
+            width: 250px; height: 100px;
+            background: linear-gradient(135deg, #0d9488, #14b8a6);
+            border-color: #2dd4bf;
+        }
+
+        .systolic {
+            left: 300px; top: 30px;
+            width: 370px; height: 310px;
+            background: linear-gradient(135deg, #6d28d9, #7c3aed);
+            border-color: #a78bfa;
+        }
+
+        .pe-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-top: 10px;
+            z-index: 2;
+        }
+
+        .pe-cell {
+            width: 50px; height: 50px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(167, 139, 250, 0.3);
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 8px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .attention {
+            left: 690px; top: 30px;
+            width: 180px; height: 310px;
+            background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+            border-color: #60a5fa;
+        }
+
+        .attn-sub {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+            z-index: 2;
+        }
+
+        .attn-qkv {
+            width: 38px; height: 28px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(96, 165, 250, 0.3);
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 700;
+            color: #bfdbfe;
+        }
+
+        .softmax-block {
+            left: 690px; top: 360px;
+            width: 180px; height: 90px;
+            background: linear-gradient(135deg, #be185d, #ec4899);
+            border-color: #f472b6;
+        }
+
+        .ffn {
+            left: 30px; top: 360px;
+            width: 300px; height: 150px;
+            background: linear-gradient(135deg, #15803d, #22c55e);
+            border-color: #4ade80;
+        }
+
+        .gelu-inner {
+            margin-top: 8px;
+            padding: 4px 10px;
+            background: rgba(255,255,255,0.12);
+            border-radius: 3px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: #86efac;
+            z-index: 2;
+        }
+
+        .layernorm {
+            left: 350px; top: 360px;
+            width: 150px; height: 90px;
+            background: linear-gradient(135deg, #c2410c, #f97316);
+            border-color: #fb923c;
+        }
+
+        .layernorm2 {
+            left: 520px; top: 360px;
+            width: 150px; height: 90px;
+            background: linear-gradient(135deg, #c2410c, #f97316);
+            border-color: #fb923c;
+        }
+
+        .sparse-mem {
+            left: 30px; top: 530px;
+            width: 250px; height: 120px;
+            background: linear-gradient(135deg, #a16207, #eab308);
+            border-color: #facc15;
+        }
+
+        .dequantizer {
+            left: 300px; top: 530px;
+            width: 200px; height: 120px;
+            background: linear-gradient(135deg, #92400e, #d97706);
+            border-color: #fbbf24;
+        }
+
+        .zero-detect {
+            left: 520px; top: 470px;
+            width: 160px; height: 80px;
+            background: linear-gradient(135deg, #1e40af, #2563eb);
+            border-color: #3b82f6;
+        }
+
+        .mac-unit {
+            left: 520px; top: 570px;
+            width: 160px; height: 80px;
+            background: linear-gradient(135deg, #581c87, #9333ea);
+            border-color: #a855f7;
+        }
+
+        .var-alu {
+            left: 700px; top: 470px;
+            width: 170px; height: 180px;
+            background: linear-gradient(135deg, #831843, #be185d);
+            border-color: #ec4899;
+        }
+
+        /* Data bus lines */
+        .data-bus {
+            position: absolute;
+            background: rgba(56, 189, 248, 0.3);
+            z-index: 3;
+        }
+        .data-bus.h { height: 2px; }
+        .data-bus.v { width: 2px; }
+
+        .bus-label {
+            position: absolute;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 8px;
+            color: #38bdf8;
+            z-index: 4;
+        }
+
+        /* Module table */
+        .module-table {
+            margin: 60px auto;
+            max-width: 1100px;
+        }
+
+        .module-table h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #e2e8f0;
+        }
+
+        .layer-section {
+            margin-bottom: 30px;
+        }
+
+        .layer-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            color: #a78bfa;
+            margin-bottom: 12px;
+            padding-left: 10px;
+            border-left: 3px solid #a78bfa;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 12px;
+        }
+
+        .module-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 8px;
+            padding: 16px;
+            transition: all 0.2s;
+        }
+
+        .module-card:hover {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,255,255,0.12);
+        }
+
+        .module-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            color: #38bdf8;
+        }
+
+        .module-desc {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        .module-status {
+            display: inline-block;
+            margin-top: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 3px;
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        /* Pipeline animation */
+        .pipeline-section {
+            margin: 60px auto;
+            max-width: 1100px;
+        }
+
+        .pipeline-section h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 30px;
+            color: #e2e8f0;
+        }
+
+        .pipeline {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 20px 0;
+        }
+
+        .pipe-stage {
+            flex-shrink: 0;
+            padding: 16px 20px;
+            border-radius: 8px;
+            text-align: center;
+            min-width: 120px;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: pipeAppear 0.5s ease forwards;
+        }
+
+        .pipe-stage:nth-child(1) { animation-delay: 0.2s; background: linear-gradient(135deg, #0d9488, #14b8a6); }
+        .pipe-stage:nth-child(3) { animation-delay: 0.5s; background: linear-gradient(135deg, #c2410c, #f97316); }
+        .pipe-stage:nth-child(5) { animation-delay: 0.8s; background: linear-gradient(135deg, #1d4ed8, #3b82f6); }
+        .pipe-stage:nth-child(7) { animation-delay: 1.1s; background: linear-gradient(135deg, #c2410c, #f97316); }
+        .pipe-stage:nth-child(9) { animation-delay: 1.4s; background: linear-gradient(135deg, #15803d, #22c55e); }
+        .pipe-stage:nth-child(11) { animation-delay: 1.7s; background: linear-gradient(135deg, #6d28d9, #7c3aed); }
+
+        @keyframes pipeAppear {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .pipe-arrow {
+            flex-shrink: 0;
+            font-size: 24px;
+            color: #475569;
+            opacity: 0;
+            animation: pipeAppear 0.3s ease forwards;
+        }
+        .pipe-arrow:nth-child(2) { animation-delay: 0.35s; }
+        .pipe-arrow:nth-child(4) { animation-delay: 0.65s; }
+        .pipe-arrow:nth-child(6) { animation-delay: 0.95s; }
+        .pipe-arrow:nth-child(8) { animation-delay: 1.25s; }
+        .pipe-arrow:nth-child(10) { animation-delay: 1.55s; }
+
+        .pipe-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .pipe-detail {
+            font-size: 9px;
+            color: rgba(255,255,255,0.7);
+            margin-top: 4px;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 80px;
+            padding: 30px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .footer .tech {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #475569;
+            margin-top: 8px;
+        }
+
+        /* Pulse animation for active feel */
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+            50% { box-shadow: 0 0 20px 5px rgba(56, 189, 248, 0.1); }
+        }
+
+        .chip-die { animation: pulse 4s infinite; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="chip-name">BitbyBit GPU</div>
+            <div class="chip-subtitle">Custom Architecture for GPT-2 Inference</div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-bar">
+            <div class="stat">
+                <div class="stat-value">16</div>
+                <div class="stat-label">Verilog Modules</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">67</div>
+                <div class="stat-label">Tests Passing</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">130</div>
+                <div class="stat-label">Cycles / Token</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">Q8.8</div>
+                <div class="stat-label">Fixed Point</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">~90%</div>
+                <div class="stat-label">Zero-Skip Savings</div>
+            </div>
+        </div>
+
+        <!-- Chip Die -->
+        <div class="chip-die-container">
+            <div class="chip-die">
+                <!-- IO Pads -->
+                <div class="io-pads-top">
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                </div>
+                <div class="io-pads-bottom">
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                </div>
+                <div class="io-pads-left">
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                </div>
+                <div class="io-pads-right">
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                    <div class="io-pad"></div><div class="io-pad"></div><div class="io-pad"></div>
+                </div>
+
+                <!-- Functional Blocks -->
+                <div class="block embedding" title="Token + Position Embedding Lookup Table">
+                    <div class="block-name">Embedding Lookup</div>
+                    <div class="block-detail">Token + Position Tables</div>
+                    <div class="block-detail">16 Vocab × 4 Dims</div>
+                </div>
+
+                <div class="block systolic" title="4×4 Weight-Stationary Systolic Array with Zero-Skip">
+                    <div class="block-name">Systolic Array</div>
+                    <div class="block-detail">Matrix-Vector Engine</div>
+                    <div class="pe-grid">
+                        <div class="pe-cell">PE<br>0,0</div>
+                        <div class="pe-cell">PE<br>0,1</div>
+                        <div class="pe-cell">PE<br>0,2</div>
+                        <div class="pe-cell">PE<br>0,3</div>
+                        <div class="pe-cell">PE<br>1,0</div>
+                        <div class="pe-cell">PE<br>1,1</div>
+                        <div class="pe-cell">PE<br>1,2</div>
+                        <div class="pe-cell">PE<br>1,3</div>
+                        <div class="pe-cell">PE<br>2,0</div>
+                        <div class="pe-cell">PE<br>2,1</div>
+                        <div class="pe-cell">PE<br>2,2</div>
+                        <div class="pe-cell">PE<br>2,3</div>
+                        <div class="pe-cell">PE<br>3,0</div>
+                        <div class="pe-cell">PE<br>3,1</div>
+                        <div class="pe-cell">PE<br>3,2</div>
+                        <div class="pe-cell">PE<br>3,3</div>
+                    </div>
+                </div>
+
+                <div class="block attention" title="Multi-Head Self-Attention with Q/K/V Projections">
+                    <div class="block-name">Attention Unit</div>
+                    <div class="block-detail">Multi-Head Self-Attention</div>
+                    <div class="attn-sub">
+                        <div class="attn-qkv">Q</div>
+                        <div class="attn-qkv">K</div>
+                        <div class="attn-qkv">V</div>
+                    </div>
+                    <div class="block-detail" style="margin-top:10px">Score = Q·K^T / √d</div>
+                    <div class="block-detail">Output = Softmax × V</div>
+                    <div class="attn-sub" style="margin-top:10px">
+                        <div class="attn-qkv" style="width:120px;">W_output</div>
+                    </div>
+                </div>
+
+                <div class="block softmax-block" title="LUT-based Softmax with Max-Subtract Stability">
+                    <div class="block-name">Softmax</div>
+                    <div class="block-detail">exp(x) LUT + Normalize</div>
+                </div>
+
+                <div class="block ffn" title="Feed-Forward Network: Linear → GELU → Linear">
+                    <div class="block-name">FFN Block</div>
+                    <div class="block-detail">Linear(4→8) → GELU → Linear(8→4)</div>
+                    <div class="gelu-inner">GELU(x) ≈ piecewise-linear</div>
+                </div>
+
+                <div class="block layernorm" title="Layer Normalization with γ/β">
+                    <div class="block-name">LayerNorm 1</div>
+                    <div class="block-detail">μ, σ², normalize</div>
+                    <div class="block-detail">γ · x̂ + β</div>
+                </div>
+
+                <div class="block layernorm2" title="Layer Normalization with γ/β">
+                    <div class="block-name">LayerNorm 2</div>
+                    <div class="block-detail">μ, σ², normalize</div>
+                    <div class="block-detail">γ · x̂ + β</div>
+                </div>
+
+                <div class="block sparse-mem" title="Compressed Sparse Row Format Memory Controller">
+                    <div class="block-name">Sparse Memory Ctrl</div>
+                    <div class="block-detail">CSR Format Storage</div>
+                    <div class="block-detail">Only stores non-zeros</div>
+                    <div class="block-detail">Up to 10× compression</div>
+                </div>
+
+                <div class="block dequantizer" title="Fused INT4 → INT8 Dequantization">
+                    <div class="block-name">Fused Dequantizer</div>
+                    <div class="block-detail">INT4 → INT8 On-Chip</div>
+                    <div class="block-detail">Zero-Latency Pipeline</div>
+                </div>
+
+                <div class="block zero-detect" title="Zero-Detection Multiplier with Skip Logic">
+                    <div class="block-name">Zero-Detect Mult</div>
+                    <div class="block-detail">Skip if a=0 or b=0</div>
+                </div>
+
+                <div class="block mac-unit" title="Multiply-Accumulate Unit with Clear">
+                    <div class="block-name">MAC Unit</div>
+                    <div class="block-detail">acc += a × b</div>
+                </div>
+
+                <div class="block var-alu" title="Variable Precision ALU: 4/8/16-bit">
+                    <div class="block-name">Variable Precision ALU</div>
+                    <div class="block-detail">4×4-bit parallel</div>
+                    <div class="block-detail">2×8-bit parallel</div>
+                    <div class="block-detail">1×16-bit full</div>
+                    <div class="block-detail" style="margin-top:8px">Runtime Switchable</div>
+                </div>
+
+                <!-- Data bus lines -->
+                <div class="data-bus h" style="left:280px; top:80px; width:20px;"></div>
+                <div class="data-bus h" style="left:670px; top:80px; width:20px;"></div>
+                <div class="data-bus v" style="left:450px; top:340px; height:20px;"></div>
+                <div class="data-bus h" style="left:330px; top:400px; width:20px;"></div>
+                <div class="bus-label" style="left:250px; top:64px;">16-bit Q8.8</div>
+            </div>
+        </div>
+
+        <!-- Pipeline Flow -->
+        <div class="pipeline-section">
+            <h2>🔄 Inference Pipeline</h2>
+            <div class="pipeline">
+                <div class="pipe-stage">
+                    <div class="pipe-name">Embedding</div>
+                    <div class="pipe-detail">Token + Position</div>
+                </div>
+                <div class="pipe-arrow">→</div>
+                <div class="pipe-stage">
+                    <div class="pipe-name">LayerNorm</div>
+                    <div class="pipe-detail">μ, σ², normalize</div>
+                </div>
+                <div class="pipe-arrow">→</div>
+                <div class="pipe-stage">
+                    <div class="pipe-name">Attention</div>
+                    <div class="pipe-detail">Q·K^T → Softmax → V</div>
+                </div>
+                <div class="pipe-arrow">→</div>
+                <div class="pipe-stage">
+                    <div class="pipe-name">LayerNorm</div>
+                    <div class="pipe-detail">+ Residual</div>
+                </div>
+                <div class="pipe-arrow">→</div>
+                <div class="pipe-stage">
+                    <div class="pipe-name">FFN</div>
+                    <div class="pipe-detail">Lin→GELU→Lin</div>
+                </div>
+                <div class="pipe-arrow">→</div>
+                <div class="pipe-stage">
+                    <div class="pipe-name">Argmax</div>
+                    <div class="pipe-detail">Next Token</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Module List -->
+        <div class="module-table">
+            <h2>📦 Module Inventory</h2>
+
+            <div class="layer-section">
+                <div class="layer-title">LAYER 1 — CORE COMPUTE PRIMITIVES</div>
+                <div class="modules-grid">
+                    <div class="module-card">
+                        <div class="module-name">zero_detect_mult.v</div>
+                        <div class="module-desc">Multiplier with zero-skip bypass</div>
+                        <div class="module-status">✓ 7/7 PASS</div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-name">variable_precision_alu.v</div>
+                        <div class="module-desc">4/8/16-bit runtime switchable</div>
+                        <div class="module-status">✓ 6/6 PASS</div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-name">sparse_memory_ctrl.v</div>
+                        <div class="module-desc">CSR sparse weight storage</div>
+                        <div class="module-status">✓ 6/6 PASS</div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-name">fused_dequantizer.v</div>
+                        <div class="module-desc">INT4→INT8 on-chip conversion</div>
+                        <div class="module-status">✓ 8/8 PASS</div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-name">gpu_top.v</div>
+                        <div class="module-desc">Pipeline integration controller</div>
+                        <div class="module-status">✓ 5/5 PASS</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layer-section">
+                <div class="layer-title">LAYER 2 — NEURAL NET COMPUTE</div>
+                <div class="modules-grid">
+                    <div class="module-card">
+                        <div class="module-name">mac_unit.v</div>
+                        <div class="module-desc">Multiply-accumulate with zero-skip</div>
+                        <div class="module-status">✓ 8/8 PASS</div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-name">systolic_array.v</div>
+                        <div class="module-desc">NxN matrix-vector multiplier</div>
+                        <div class="module-status">✓ 3/3 PASS</div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-name">gelu_activation.v</div>
+                        <div class="module-desc">Piecewise-linear GELU approx</div>
+                        <div class="module-status">✓ 9/9 PASS</div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-name">softmax_unit.v</div>
+                        <div class="module-desc">LUT-based exp + normalize</div>
+                        <div class="module-status">✓ 5/5 PASS</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layer-section">
+                <div class="layer-title">LAYER 3 — TRANSFORMER BLOCKS</div>
+                <div class="modules-grid">
+                    <div class="module-card">
+                        <div class="module-name">layer_norm.v</div>
+                        <div class="module-desc">Mean/variance normalization + γ/β</div>
+                        <div class="module-status">✓ 3/3 PASS</div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-name">linear_layer.v</div>
+                        <div class="module-desc">y = Wx + b with weight loading</div>
+                        <div class="module-status">✓ 2/2 PASS</div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-name">attention_unit.v</div>
+                        <div class="module-desc">Multi-head self-attention</div>
+                        <div class="module-status">✓ 1/1 PASS</div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-name">ffn_block.v</div>
+                        <div class="module-desc">Linear→GELU→Linear pipeline</div>
+                        <div class="module-status">✓ 1/1 PASS</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layer-section">
+                <div class="layer-title">LAYER 4 — GPT-2 INFERENCE ENGINE</div>
+                <div class="modules-grid">
+                    <div class="module-card">
+                        <div class="module-name">embedding_lookup.v</div>
+                        <div class="module-desc">Token + position embedding tables</div>
+                        <div class="module-status">✓ 2/2 PASS</div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-name">transformer_block.v</div>
+                        <div class="module-desc">Full decoder block with residuals</div>
+                        <div class="module-status">✓ INTEGRATED</div>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-name">gpt2_engine.v</div>
+                        <div class="module-desc">Complete inference pipeline</div>
+                        <div class="module-status">✓ 1/1 PASS — 130 cycles</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div>BitbyBit GPU — Designed from scratch in Verilog</div>
+            <div class="tech">Icarus Verilog • GTKWave • Q8.8 Fixed-Point • Zero-Skip Optimization • CSR Sparse Storage</div>
+        </div>
+    </div>
+
+    <script>
+        // Add hover tooltip behavior
+        document.querySelectorAll('.block').forEach(block => {
+            block.addEventListener('mouseenter', function() {
+                this.style.zIndex = '20';
+            });
+            block.addEventListener('mouseleave', function() {
+                this.style.zIndex = '';
+            });
+        });
+    </script>
+</body>
+</html>
