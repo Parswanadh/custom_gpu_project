@@ -1,6 +1,6 @@
 # BitbyBit — Website Reference Document
 
-> This document contains every fact, number, input, output, and result from the BitbyBit LLM Accelerator project. Use this as the single source of truth when building the website. **No code is included — only descriptions, data, and results.**
+> This document contains verified facts, numbers, and results from the BitbyBit LLM Accelerator project. Numbers marked **(projected)** have not been verified on real hardware. Everything else comes directly from simulation outputs or source code.
 
 ---
 
@@ -8,29 +8,13 @@
 
 - **Project Name:** BitbyBit
 - **Tagline:** A custom GPU accelerator for on-device LLM inference, built from scratch in Verilog
-- **What It Is:** An open-source, hardware-level GPU designed specifically for running large language models (like GPT-2) efficiently on edge devices
+- **What It Is:** A hardware-level GPU designed specifically for running large language models (like GPT-2) on edge devices
 - **What Makes It Different:** Built from the gate level up — not using NVIDIA CUDA or any existing GPU framework. Every component hand-designed in Verilog RTL
-- **Target Application:** On-device AI inference — running language models on FPGAs or custom chips without needing a $10,000 NVIDIA GPU
 - **Hardware Description Language:** Verilog (IEEE 1364-2005)
-- **Simulation Tool:** Icarus Verilog v12.0 (open source)
-- **Total RTL Files:** 28 Verilog modules
+- **Simulation Tool:** Icarus Verilog (open source)
+- **Total RTL Files:** 28 Verilog modules (verified by file count)
 - **Total Testbenches:** 6 verified test suites
-- **All Tests:** PASSING ✅
-
----
-
-## The Problem We Solve
-
-Running AI language models today requires expensive, power-hungry hardware:
-
-| Hardware | Cost | Power Draw | Use Case |
-|----------|:----:|:----------:|----------|
-| NVIDIA A100 | ~$10,000 | 400W | Data center inference |
-| NVIDIA RTX 4090 | ~$1,600 | 450W | Desktop inference |
-| Apple M2 Neural Engine | Part of $999+ laptop | ~15W | On-device, closed ecosystem |
-| **BitbyBit (FPGA target)** | **~$50** | **~2W** | **Open-source edge inference** |
-
-BitbyBit targets the gap: affordable, low-power, open-source LLM inference hardware that anyone can deploy on a $50 FPGA board.
+- **All Tests:** PASSING ✅ (verified via simulation output)
 
 ---
 
@@ -47,10 +31,10 @@ The system has 5 major components:
 3. **Accelerated Transformer Block** — The core computation unit. Pre-LayerNorm architecture with:
    - Layer Normalization (×2)
    - KV-Cached Multi-Token Attention
-   - Feed-Forward Network powered by the GPU Core pipeline
+   - Feed-Forward Network powered by a GPU Core pipeline instance (4 lanes)
    - Residual connections
 
-4. **GPU Multi-Core Pipeline** — The compute engine. Configurable number of cores, each with configurable number of parallel lanes. Exploits zero-value sparsity to skip unnecessary multiplications.
+4. **GPU Multi-Core Pipeline** — The compute engine. Configurable number of cores and parallel lanes. Exploits zero-value sparsity to skip unnecessary multiplications. Tested standalone at 4 cores × 32 lanes = 128-wide.
 
 5. **GPT-2 Engine** — Top-level orchestrator. Feeds tokens through embedding → N transformer layers → final normalization → argmax → predicted next token.
 
@@ -79,46 +63,47 @@ Token ID (integer)
 
 **What it does:** Processes multiply-accumulate operations through a 5-stage pipeline with configurable parallelism.
 
-**5 Pipeline Stages:**
+**5 Pipeline Stages** (verified from `gpu_core.v` source):
 
 | Stage | Name | What Happens |
 |:-----:|------|-------------|
 | 1 | FETCH | Read N weights from on-chip memory simultaneously |
-| 2 | DEQUANT | Convert compact INT4 weights to full INT8 precision (N in parallel) |
-| 3 | ZERO_CHECK | Detect zero-valued weights or activations (N NOR gates in parallel) |
+| 2 | DEQUANT | Scale weights using configurable scale/offset (N in parallel) |
+| 3 | ZERO_CHECK | Detect zero-valued weights or activations (N checks in parallel) |
 | 4 | ALU | Multiply weight × activation — or skip entirely if zero was detected |
 | 5 | WRITEBACK | Sum all N lane products and add to running accumulator |
 
-**Configurable Parameters:**
-- LANES: 4, 8, 16, 32, 64, or 128 parallel compute lanes per core
-- Number of cores: 1, 2, 4, 8 (independently configurable)
-- Default configuration: 4 cores × 32 lanes = 128 parallel operations per cycle
+**Configurable Parameters** (from `gpu_core.v` source):
+- LANES parameter: accepts any value (tested with 4 and 32)
+- MEM_DEPTH: weight memory depth per core (default 256)
+- Pipeline latency: 5 clock cycles to fill, then 1 set of results per cycle
 
-**Pipeline Latency:** 5 clock cycles to fill, then 1 result per cycle thereafter
+**Current usage:**
+- **Standalone benchmark:** Tested at 4 cores × 32 lanes = 128-wide ✅
+- **Inside transformer:** Uses 1 core × 4 lanes (matches EMBED_DIM=4 of test config)
 
 ---
 
 ### 2. Zero-Skip Optimization
 
-**What it does:** Detects when a weight or activation is zero and skips the multiplication entirely, saving power and compute.
+**What it does:** Detects when a weight or activation is zero and skips the multiplication entirely.
 
 **Why zeros are common in neural networks:**
-- ReLU activation function outputs zero for all negative inputs (typically 40-70% of values)
+- ReLU activation function outputs zero for all negative inputs
 - Small weights round to zero after quantization
-- Attention masks contain zeros for future positions
 
-**How it works in hardware:** An 8-input NOR gate checks all 8 bits of a weight simultaneously. This is a single gate that evaluates in approximately 0.2 nanoseconds — all bits checked at once, not one at a time. At 100 MHz (10ns clock period), this completes 50× faster than the clock ticks.
+**How it works in hardware:** Checks if all 8 bits of a value are zero. In hardware this is a single combinational gate (NOR or equivalent) — all bits are checked simultaneously in the same clock cycle, not one at a time. The gate evaluates within a fraction of the clock period.
 
-**Measured results:**
+**Measured zero-skip counts** (directly from simulation output):
 
-| Configuration | Total Operations | Zero-Skipped | Skip Rate |
-|--------------|:----------------:|:------------:|:---------:|
-| 1-layer, synthetic weights | ~64 | 42 | 65% |
-| 2-layer, synthetic weights | ~128 | 132 | ~100%* |
-| 1-layer, real GPT-2 weights | ~64 | 32 | 50% |
-| Multi-core benchmark (128-wide) | 256 | 96 | 37.5% |
+| Configuration | Zero-Skips Reported | Source |
+|--------------|:-------------------:|--------|
+| 1-layer, synthetic weights | 42 | `accelerated_gpt2_engine_tb` output |
+| 2-layer, synthetic weights | 132 | `multi_layer_test` output |
+| 1-layer, real GPT-2 weights | 32 | `real_weight_test` output |
+| Multi-core benchmark (128-wide) | 96 out of 256 products | `gpu_multicore_tb` output |
 
-*High rate due to cascading ReLU zeros through layers
+> **Note:** The "total operations" denominator is hard to determine exactly because zero-skips are counted from both the gpu_core's lane-level detection AND the ReLU activation function. The numbers above are the raw counter values from the simulation.
 
 ---
 
@@ -126,23 +111,22 @@ Token ID (integer)
 
 **What it does:** Implements the attention mechanism from the Transformer architecture with a persistent key-value cache for autoregressive generation.
 
-**How attention works (simplified):**
-- Each token produces a Query ("what am I looking for?"), Key ("what do I contain?"), and Value ("what information do I have?")
+**How attention works:**
+- Each token produces a Query, Key, and Value via matrix multiplication
 - The Query is compared against all past Keys to compute relevance scores
 - Scores are converted to probabilities via softmax
 - The output is a weighted sum of all past Values, weighted by those probabilities
+- Keys and Values are stored in a cache so they don't need recomputation
 
-**KV Cache benefit:** When generating token by token, the cache stores Keys and Values from all past tokens. Each new token computes only its own Q, K, V and looks up the cache — avoiding recomputation of all past tokens.
-
-**Implementation details:**
-- Maximum sequence length: 32 tokens (configurable)
+**Implementation details** (from `accelerated_attention.v` source):
+- Maximum sequence length parameter: configurable (default 32)
 - Cache stores K and V vectors per position
 - Softmax uses a 256-entry lookup table for the exponential function
-- Supports autoregressive generation (each token sees all previous ones)
+- Supports autoregressive generation (each new token sees all previous ones)
 
-**Verified output:**
-- Token 0 (first, self-attend only): Input [256,256,256,256] → Output [255,255,255,255]
-- Token 1 (attends to token 0 and 1): Input [512,128,384,64] → Output [413,174,333,134]
+**Verified output** (from `accelerated_attention_tb` with corrected LUT):
+- Token 0 (first, self-attend only): Output values shown as "x" in display (unsigned interpretation of Q8.8)
+- Token 1 (attends to tokens 0 and 1): Input [512,128,384,64] → Output [495,135,375,75], zero-skips=2
 
 ---
 
@@ -150,19 +134,23 @@ Token ID (integer)
 
 **What it does:** Provides a hardware-efficient approximation of the exp() function needed for softmax normalization.
 
-**The challenge:** exp() is an irrational function — impossible to compute exactly with basic arithmetic. In software, you'd use a math library. In hardware, we need a different approach.
+**The challenge:** exp() is a transcendental function — it cannot be computed with basic add/multiply arithmetic. In hardware, we precompute values into a lookup table.
 
-**Our solution:** A 256-entry precomputed lookup table storing values of `round(255 × exp(-k/64))` for k = 0 to 255.
+**Our solution:** 256 entries, each computed by: `LUT[k] = round(255 × exp(-k/64))`
 
-| LUT Input | Mathematical Value | LUT Output | Accuracy |
-|:---------:|:-----------------:|:----------:|:--------:|
-| 0 | exp(0) = 1.000 | 255 | Exact |
-| 64 | exp(-1.0) = 0.368 | 89 | 99.7% |
-| 128 | exp(-2.0) = 0.135 | 31 | 98.9% |
-| 192 | exp(-3.0) = 0.050 | 10 | 98.4% |
-| 255 | exp(-3.98) = 0.019 | 1 | 97.2% |
+All values generated by Python `math.exp()` — the LUT is a mathematical constant, identical for every model and every hardware deployment (exp() is a universal function).
 
-**Previous approach (replaced):** Linear approximation `exp(x) ≈ 255 + x×89/256` — crude, up to 40% error at the tails.
+| LUT Index (k) | Real Value: exp(-k/64) | LUT Output: round(255 × exp(-k/64)) |
+|:-:|:-:|:-:|
+| 0 | exp(0) = 1.000 | 255 |
+| 64 | exp(-1.0) = 0.3679 | 94 |
+| 128 | exp(-2.0) = 0.1353 | 35 |
+| 192 | exp(-3.0) = 0.0498 | 13 |
+| 255 | exp(-3.98) = 0.0187 | 5 |
+
+The only source of error is integer rounding — at most ±1 out of 255 (±0.4%).
+
+**Previous approach (replaced):** Linear approximation `exp(x) ≈ 255 + x×89/256` — much less accurate, especially at the tails of the distribution.
 
 ---
 
@@ -170,14 +158,12 @@ Token ID (integer)
 
 **What it does:** Represents decimal numbers using 16-bit integers with 8 bits for the integer part and 8 bits for the fractional part.
 
-**Why not floating point?** A hardware floating-point multiplier requires approximately 500 logic gates and 3-4 clock cycles. A fixed-point multiplier requires approximately 150 gates and 1 clock cycle. For inference (not training), the reduced precision is acceptable.
+**Why not floating point?** Fixed-point multipliers are simpler in hardware — fewer gates, lower latency, less power. For inference (not training), the reduced precision is acceptable. Research papers have shown that even 4-bit quantization maintains reasonable accuracy for LLM inference.
 
 | Property | Float32 (IEEE 754) | Q8.8 (Our Format) |
 |----------|:------------------:|:-----------------:|
 | Total bits | 32 | 16 |
 | Memory per weight | 4 bytes | 2 bytes |
-| Multiplier gates | ~500 | ~150 |
-| Multiply latency | 3-4 cycles | 1 cycle |
 | Value range | ±3.4 × 10³⁸ | ±127.996 |
 | Precision | ~7 decimal digits | ~2.4 decimal digits |
 
@@ -192,15 +178,13 @@ Token ID (integer)
 
 **What it does:** Provides a standard bus interface so a CPU or DMA controller can load model weights into the GPU's on-chip memory.
 
-**Why it matters:** This makes the GPU a real SoC peripheral — it can plug into any ARM-based system (Xilinx Zynq, Raspberry Pi SoC, custom RISC-V chips) via the industry-standard AXI bus.
-
-**Specifications:**
+**Specifications** (from `axi_weight_memory.v` source):
 - Protocol: AXI4-Lite (simplified AXI — no burst transfers)
 - Address width: 16 bits
 - Data width: 32 bits
 - Weight memory: 4,096 bytes (4KB) of on-chip SRAM
 
-**Register Map:**
+**Register Map** (from source code comments, lines 11-16):
 
 | Address | Type | Name | Description |
 |---------|:----:|------|-------------|
@@ -210,7 +194,7 @@ Token ID (integer)
 | 0x1008 | Read | Weight Count | Number of weights loaded |
 | 0x100C | Read | Zero-Skip Count | Total zero-skip count during inference |
 
-**Verified operations:**
+**Verified operations** (from `axi_weight_memory_tb` output):
 - Write 0xDEADBEEF → Read back 0xDEADBEEF ✅
 - Write 0x12345678 → Read back 0x12345678 ✅
 - Weight count register accurate ✅
@@ -221,25 +205,17 @@ Token ID (integer)
 
 ### 7. Multi-Core Architecture
 
-**What it does:** Scales compute throughput by running multiple GPU cores in parallel, each processing different weights but the same activation.
+**What it does:** Scales compute throughput by running multiple GPU cores in parallel, each processing different weights but the same activation (broadcast topology).
 
-**Architecture:** Broadcast topology — one activation value is sent to all cores simultaneously. Each core multiplies it against its own set of weights. Results are aggregated (summed) at the output.
-
-**Scaling results:**
-
-| Configuration | Products/Cycle | Speedup vs Sequential |
-|--------------|:--------------:|:---------------------:|
-| 1 core × 4 lanes | 4 | 28× |
-| 1 core × 32 lanes | 32 | 224× |
-| 4 cores × 32 lanes | 128 | 896× |
-| 8 cores × 32 lanes | 256 | 1,792× |
-
-**Verified benchmark (4 × 32 = 128-wide):**
+**Verified benchmark** (from `gpu_multicore_tb` output, 4 cores × 32 lanes):
+- Configuration: 4 cores × 32 lanes = 128 parallel operations per cycle
 - Total products computed: 256
-- Zero-skipped: 96
+- Zero-skipped: 96 (37.5%)
 - Feed cycles: 2
 - Output cycles: 2
 - Test result: PASSED ✅
+
+> **Important context:** The multi-core system is tested standalone. The current transformer integration uses a single `gpu_core` instance with 4 lanes (matching the test EMBED_DIM=4). To use the full 128-wide configuration in the transformer, the design would need to be scaled to larger embedding dimensions and connected to the multi-core wrapper.
 
 ---
 
@@ -253,7 +229,6 @@ Token ID (integer)
 | Total parallel operations | 128 per cycle |
 | Total products | 256 |
 | Zero-skipped | 96 (37.5%) |
-| Speedup vs FSM | 896× |
 | Result | **PASSED** ✅ |
 
 ### Test 2: Accelerated Attention (KV Cache)
@@ -261,10 +236,11 @@ Token ID (integer)
 | Metric | Value |
 |--------|:-----:|
 | Token 0 input | [256, 256, 256, 256] |
-| Token 0 output | [255, 255, 255, 255] |
+| Token 0 cycles | 12 |
 | Token 1 input | [512, 128, 384, 64] |
-| Token 1 output | [413, 174, 333, 134] |
-| Softmax | 256-entry exp LUT |
+| Token 1 output | [495, 135, 375, 75] |
+| Token 1 cycles | 14 |
+| Token 1 zero-skips | 2 |
 | Result | **PASSED** ✅ |
 
 ### Test 3: Full GPT-2 Pipeline (1 Layer, Synthetic Weights)
@@ -274,11 +250,11 @@ Token ID (integer)
 | Layers | 1 |
 | Tokens generated | 3 (autoregressive) |
 | Token 0 | in=1 → out=0 (328 cycles) |
-| Token 1 | in=0 → out=3 (326 cycles) |
-| Token 2 | in=3 → out=3 (328 cycles) |
+| Token 1 | in=0 → out=3 (326 cycles, logits=[-257,-105,86,278]) |
+| Token 2 | in=3 → out=3 (328 cycles, logits=[-249,-127,84,295]) |
 | Total cycles | 1,070 |
 | Total zero-skips | 42 |
-| FFN engine | gpu_core (pipelined) |
+| FFN engine | gpu_core with 4 lanes |
 | Result | **PASSED** ✅ |
 
 ### Test 4: Multi-Layer Transformer (2 Layers)
@@ -293,7 +269,6 @@ Token ID (integer)
 | Token 3 | in=0 → out=0 (636 cycles) |
 | Total cycles | 2,614 |
 | Total zero-skips | 132 |
-| Cycles per layer per token | ~326 |
 | Result | **PASSED** ✅ |
 
 ### Test 5: Real GPT-2 Weights (117M Model)
@@ -317,8 +292,8 @@ Token ID (integer)
 | Write/Readback test | 0xDEADBEEF → 0xDEADBEEF ✅ |
 | Write/Readback test | 0x12345678 → 0x12345678 ✅ |
 | Weight count register | Accurate ✅ |
-| Zero-skip count register | Accurate (42) ✅ |
-| GPU-side read | Correct (0xEF) ✅ |
+| Zero-skip count register | Accurate ✅ |
+| GPU-side read | Correct ✅ |
 | Start inference signal | Functional ✅ |
 | Result | **ALL PASSED** ✅ |
 
@@ -326,33 +301,26 @@ Token ID (integer)
 
 ## Performance Numbers
 
-### Throughput
+### Verified (from simulation)
 
-| Metric | Value |
-|--------|:-----:|
-| Peak parallel operations | 128 per cycle |
-| At 100 MHz clock | 12,800 MOPS |
-| At 200 MHz clock | 25,600 MOPS |
-| Speedup vs sequential FSM | 896× |
+| Metric | Value | Source |
+|--------|:-----:|--------|
+| Multi-core benchmark throughput | 128 products/cycle | `gpu_multicore_tb` |
+| Transformer token latency (1 layer) | 328 cycles | `accelerated_gpt2_engine_tb` |
+| Transformer token latency (2 layers) | 628 cycles | `multi_layer_test` |
+| Zero-skips per token (1 layer, synthetic) | 42 | `accelerated_gpt2_engine_tb` |
+| Zero-skips per token (1 layer, real weights) | 32 | `real_weight_test` |
 
-### Latency (Per Token)
+### Projected (NOT verified on real hardware)
 
-| Configuration | Cycles | At 100 MHz |
-|--------------|:------:|:----------:|
-| 1-layer transformer | 328 | 3.28 μs |
-| 2-layer transformer | 628 | 6.28 μs |
-| 12-layer (projected) | ~3,900 | ~39 μs |
+> **Warning:** The following numbers have NOT been measured on actual hardware. They are theoretical projections based on assumptions about clock speed and FPGA power. Treat them as rough estimates only.
 
-### Power Efficiency (Projected for FPGA)
-
-| Platform | Throughput | Power | Efficiency |
-|----------|:---------:|:-----:|:----------:|
-| NVIDIA A100 | 312 TOPS | 400W | 780 GOPS/W |
-| NVIDIA RTX 4090 | 83 TOPS | 450W | 184 GOPS/W |
-| Our GPU (Artix-7 FPGA) | 12.8 GOPS | ~2W | **6,400 MOPS/W** |
-| Intel i7 (AVX-512) | ~10 GOPS | 65W | 154 MOPS/W |
-
-*While absolute throughput is lower, per-watt efficiency is competitive for edge deployment.*
+| Metric | Projected Value | Assumption |
+|--------|:-:|------------|
+| Clock frequency | 100 MHz | Typical for mid-range FPGA, but NOT verified via timing analysis |
+| Tokens/second (1 layer) | ~305,000 | Assumes 100 MHz clock |
+| Tokens/second (2 layers) | ~159,000 | Assumes 100 MHz clock |
+| Multi-core benchmark throughput | 12,800 MOPS | Assumes 100 MHz and uses standalone benchmark, not transformer |
 
 ---
 
@@ -365,19 +333,19 @@ Token ID (integer)
 | GPU Core | 5-stage pipelined compute engine with N parallel lanes |
 | GPU Multi-Core | Wrapper that connects N cores with broadcast activation |
 | Zero-Detect Multiplier | Checks for zero before multiplying |
-| Fused Dequantizer | Converts INT4 weights to INT8 on-the-fly |
-| Variable Precision ALU | Supports INT4, INT8, and INT16 operations |
+| Fused Dequantizer | Scales weight values using configurable scale/offset |
+| Variable Precision ALU | Supports different precision operations |
 
 ### Transformer (7 modules)
 
 | Module | Purpose |
 |--------|---------|
-| Accelerated Attention | Real Q·K^T attention with KV cache and softmax LUT |
-| Accelerated Transformer Block | Full pre-LN block using gpu_core for FFN |
+| Accelerated Attention | Q·K^T attention with KV cache and softmax LUT |
+| Accelerated Transformer Block | Pre-LN block using gpu_core for FFN |
 | Accelerated Linear Layer | Bridges gpu_core to transformer interface |
 | Layer Normalization | Mean/variance normalization in Q8.8 |
-| Original Attention | Simpler attention (no KV cache) |
-| Original FFN Block | Inline matmul FFN |
+| Original Attention | Earlier version (no KV cache, output=V) |
+| Original FFN Block | Inline matmul FFN (no pipeline usage) |
 | Original Linear Layer | Simple matrix multiply |
 
 ### Math/Compute Units (6 modules)
@@ -413,14 +381,15 @@ Token ID (integer)
 
 ## Bugs Found and Fixed
 
-| Bug | Where | What Went Wrong | Impact Before Fix | Fix Applied |
-|-----|-------|----------------|-------------------|------------|
-| Accumulator race condition | gpu_multicore.v | Non-blocking assignment in loop meant only the last core's value was kept | Reported 64 products instead of 256 | Changed to blocking assignment with sequential accumulation |
-| Dequantizer truncation | gpu_core.v, gpu_top_integrated.v, gpu_top_pipelined.v | Used only lower 4 bits of 8-bit weight, discarding upper 4 bits | Half the weight data silently lost → wrong results | Changed to use full 8-bit weight value |
-| Fake attention | Original attention_unit.v | Output was simply set to V, no actual Q·K^T computation | Attention did nothing — every token produced the same output regardless of context | Replaced with accelerated_attention.v with real scoring |
-| Softmax overflow | accelerated_attention.v | Normalization computed (255 × 256) / 255 = 256, which overflowed 8-bit register to 0 | First token's attention output was always zero | Changed scaling factor and added clamp |
-| Disconnected pipeline | transformer_block.v | The gpu_core pipeline existed but was never used during actual inference | The "896× speedup" only applied to benchmarks, not real inference | Rewrote FFN to instantiate and use gpu_core |
-| No pipeline drain | accelerated_transformer_block.v | FFN read accumulator immediately after feeding, but pipeline needs 5 cycles to flush | Tokens timed out (never produced output) | Added DRAIN states with 6-cycle wait |
+| Bug | Where | What Went Wrong | Fix Applied |
+|-----|-------|----------------|------------|
+| Accumulator race condition | gpu_multicore.v | Non-blocking assignment in loop meant only the last core's value was kept | Changed to blocking assignment with sequential accumulation |
+| Dequantizer truncation | gpu_core.v, gpu_top_integrated.v, gpu_top_pipelined.v | Used only lower 4 bits of 8-bit weight, discarding upper 4 bits | Changed to use full 8-bit weight value |
+| Fake attention | Original attention_unit.v | Output was simply set to V, no actual Q·K^T computation | Replaced with accelerated_attention.v with real scoring |
+| Softmax overflow | accelerated_attention.v | Normalization overflowed 8-bit register to 0 | Changed scaling factor and added clamp |
+| Disconnected pipeline | transformer_block.v | gpu_core pipeline existed but was never used during actual inference | Rewrote FFN to instantiate and use gpu_core |
+| No pipeline drain | accelerated_transformer_block.v | FFN read accumulator immediately after feeding, but pipeline needs 5 cycles to flush | Added DRAIN states with 6-cycle wait |
+| Wrong LUT values | exp_lut_256.v | LUT entries were manually typed and had 5-80% errors | Regenerated all 256 values from Python `math.exp()` |
 
 ---
 
@@ -429,32 +398,28 @@ Token ID (integer)
 | Category | Technology | Purpose |
 |----------|-----------|---------|
 | Language | Verilog (IEEE 1364-2005) | Hardware description |
-| Simulator | Icarus Verilog v12.0 | Compile and simulate designs |
-| Waveform | VCD format / GTKWave | Timing analysis |
+| Simulator | Icarus Verilog | Compile and simulate designs |
 | AI Model | GPT-2 Small (117M params) | Source of real model weights |
-| Quantization | Q8.8 fixed-point (16-bit) | Efficient number representation |
-| Bus Protocol | AXI4-Lite | Industry-standard SoC interconnect |
+| Quantization | Q8.8 fixed-point (16-bit) | Number representation |
+| Bus Protocol | AXI4-Lite | Standard SoC interconnect |
 | Weight Extraction | Python + HuggingFace Transformers | Convert model weights to hex |
 | Version Control | Git | Source code management |
-| Target Platform | Xilinx Artix-7 FPGA (projected) | Hardware deployment target |
 
 ---
 
-## Key Innovations & Design Decisions
-
-### What We Chose and Why
+## Key Design Decisions
 
 | Decision | What We Did | Why |
 |----------|-------------|-----|
-| Fixed-point over floating-point | Q8.8 (16-bit) instead of IEEE 754 float32 | 3× fewer gates per multiplier, 2× less memory, 1-cycle multiply vs 3-4 |
-| Hardware zero-skip | NOR-gate detection at pipeline stage 3 | Saves 37-65% of multiply operations and associated power |
-| KV Cache in hardware | Dedicated SRAM banks for Key/Value storage | Avoids recomputing K, V for all past tokens — O(n) vs O(n²) |
-| LUT-based softmax | 256-entry precomputed exp() table | Avoids expensive exponential arithmetic — single table lookup |
-| Pre-LayerNorm architecture | Normalize before attention/FFN, not after | More stable training and inference (standard in modern transformers) |
-| Residual connections | Add original input back after each sub-layer | Prevents information loss through deep networks |
-| Broadcast multi-core | Same activation to all cores, different weights | Simple topology, linear scaling, no inter-core communication needed |
-| AXI4-Lite (not full AXI) | Simplified bus without bursts | Sufficient for weight loading, much simpler to implement correctly |
-| ReLU over GELU | ReLU activation in FFN | Creates more zeros (better for zero-skip), simpler in hardware |
+| Fixed-point over floating-point | Q8.8 (16-bit) instead of float32 | Simpler hardware, less memory, sufficient for inference |
+| Hardware zero-skip | Combinational zero detection at pipeline stage 3 | Skips unnecessary multiplications, saves power |
+| KV Cache in hardware | Dedicated storage for Key/Value vectors | Avoids recomputing K, V for past tokens each step |
+| LUT-based softmax | 256-entry precomputed exp() table | Avoids transcendental function computation |
+| Pre-LayerNorm | Normalize before attention/FFN, not after | Standard in modern transformers, more stable |
+| Residual connections | Add original input back after each sub-layer | Prevents information loss through layers |
+| Broadcast multi-core | Same activation to all cores, different weights | Simple topology, linear scaling |
+| AXI4-Lite interface | Standard bus, no bursts | Makes GPU a real SoC peripheral |
+| ReLU over GELU in FFN | ReLU activation in feed-forward network | Simpler in hardware, creates sparsity for zero-skip |
 
 ---
 
@@ -462,52 +427,56 @@ Token ID (integer)
 
 ### Before
 
-- Attention was fake (output = input value, no real computation)
-- Pipeline existed but was never used during inference
+- Attention was fake (output = input value, no real Q·K^T computation)
+- Pipeline existed but was never used during inference (FFN used inline loops)
 - Dequantizer threw away half the weight data
 - Multi-core accumulator reported wrong numbers
 - Only tested with 1 layer and hand-crafted identity weights
 - Softmax used a crude linear approximation
+- LUT values were manually typed with 5-80% errors
 - No external memory interface
 
 ### After
 
-- Real Q·K^T attention with KV cache storing all past context
-- GPU core pipeline now drives every FFN multiply-accumulate
+- Real Q·K^T attention with KV cache and verified softmax
+- GPU core pipeline drives every FFN multiply-accumulate
 - Full 8-bit weight precision preserved
 - Correct multi-core aggregation verified
-- Tested with 1, 2 layers AND real GPT-2 model weights
-- 256-entry exponential lookup table for accurate softmax
+- Tested with 1 and 2 layers, plus real GPT-2 model weights
+- 256-entry LUT with Python-verified exp() values
 - AXI4-Lite slave interface for SoC integration
 
 ---
 
 ## Numbers for the Website
 
-### Hero Stats
+### Verified Stats (safe to use)
 
-- **896×** faster than sequential processing
-- **128** parallel operations per clock cycle
-- **28** custom Verilog modules
-- **6** verified test suites, all passing
-- **42–132** zero-skip optimizations per inference
-- **Real GPT-2** weights loaded and running
-- **4KB** on-chip weight memory with AXI bus
-- **~2W** projected power consumption on FPGA
+- **28** custom Verilog modules — hand-designed, not generated
+- **6** test suites, all passing
+- **5-stage** pipelined compute engine
+- **128-wide** parallel processing (tested in standalone benchmark)
+- **4-lane** pipeline used in transformer inference
+- **328 cycles** per token (1-layer transformer)
+- **42** zero-skip optimizations per token (1 layer, synthetic weights)
+- **32** zero-skip optimizations per token (1 layer, real GPT-2 weights)
+- **Real GPT-2** (117M param) weights loaded and producing outputs
+- **4KB** on-chip weight memory with AXI4-Lite bus interface
+- **7** critical bugs found and fixed during development
 
 ### For a "How It Works" Section
 
 1. A token enters the system as a simple number (e.g., "5")
-2. The embedding table converts it to a 4-dimensional vector
+2. The embedding table converts it to a vector of numbers
 3. Layer normalization scales the values to a stable range
 4. The attention mechanism scores every past token and produces a weighted context
 5. The KV cache stores this token's Key and Value for future tokens to reference
-6. The feed-forward network, powered by 128 parallel compute lanes, transforms the representation
-7. Zero-skip detection avoids multiplying by zero — saving 37-65% of operations
+6. The feed-forward network, powered by the pipelined GPU core, transforms the representation
+7. Zero-skip detection avoids multiplying by zero — saving power on every skipped operation
 8. Residual connections preserve the original signal through each layer
 9. After all layers, the final normalization and argmax produce the predicted next token
 10. The process repeats for the next token, with the KV cache growing each time
 
 ### For a "Competition Pitch" Section
 
-> "We designed and built an open-source LLM inference accelerator from scratch in Verilog — from individual logic gates to a working GPT-2 engine. The architecture features a pipelined multi-core compute engine with hardware-level ReLU sparsity exploitation, a KV-cached attention mechanism with LUT-based softmax, and an AXI4-Lite bus interface for SoC integration. Every component is verified through simulation with both synthetic and real GPT-2 model weights. The result is a 128-wide parallel processor that achieves 896× speedup over sequential processing while detecting and skipping 37-65% of zero-valued operations."
+> "We designed and built an LLM inference accelerator from scratch in Verilog — 28 modules covering everything from pipelined compute cores to KV-cached attention to an AXI bus interface. The architecture features a 5-stage pipelined compute engine with hardware-level zero-skip detection, a 256-entry exponential LUT for softmax, and support for real GPT-2 model weights loaded via $readmemh. All 6 test suites pass, including autoregressive token generation with both synthetic and real model weights across 1 and 2 transformer layers."

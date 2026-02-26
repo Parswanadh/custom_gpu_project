@@ -400,12 +400,12 @@ Our GPU pipeline processes multiply-accumulate (MAC) operations in 5 stages:
               FETCH        DEQUANT       ZERO_CHECK     ALU           WRITEBACK
              ┌──────┐    ┌──────────┐   ┌──────────┐  ┌──────────┐  ┌──────────┐
              │Read N │    │N parallel│   │N parallel│  │N parallel│  │Sum all N │
-activation──→│weights│──→│dequantize│──→│  zero    │──→│multiplies│──→│products +│──→ result
-             │from   │    │INT4→INT8 │   │detectors │  │(skip if  │  │accumulate│
+activation──→│weights│──→│  scale + │──→│  zero    │──→│multiplies│──→│products +│──→ result
+             │from   │    │  offset  │   │detectors │  │(skip if  │  │accumulate│
              │memory │    │          │   │          │  │  zero!)  │  │          │
              └──────┘    └──────────┘   └──────────┘  └──────────┘  └──────────┘
 
-N = LANES (4, 8, 16, 32, 64, or 128 — configurable!)
+N = LANES parameter (tested with 4 and 32)
 ```
 
 ### Stage-by-Stage Breakdown
@@ -418,20 +418,20 @@ for (s1i = 0; s1i < LANES; s1i = s1i + 1)
 ```
 In hardware, this is N separate wires running from N memory locations to N registers. All N values arrive at the same time because wires carry signals at nearly the speed of light.
 
-**Stage 2: DEQUANT** — Convert compact INT4 weights to full INT8.
+**Stage 2: DEQUANT** — Scale weights using configurable scale and offset.
 ```verilog
 // N parallel dequantizers running simultaneously
 wire [15:0] scaled = s1_weight[d] * dq_scale;
 assign dq_out[d] = scaled[11:4] + {4'd0, dq_offset};
 ```
-Why? Storing weights as 4-bit saves memory (half the storage), but multiplying needs full 8-bit precision. The dequantizer converts on-the-fly.
+This allows the pipeline to handle different weight quantization formats. With `dq_scale=1` and `dq_offset=0` (current transformer config), it acts as a passthrough.
 
 **Stage 3: ZERO\_CHECK** — Detect zero weights/activations.
 ```verilog
-// N parallel zero detectors — each is just a NOR gate
+// N parallel zero detectors — all checking simultaneously
 assign is_zero[z] = (s2_dq_weight[z] == 8'd0) || (s2_activation == 8'd0);
 ```
-This is where the zero-skip magic happens. An 8-bit `== 0` check is literally an 8-input NOR gate — **one gate, evaluated in <1 nanosecond**, not 8 clock cycles. All N detectors run in parallel.
+This is where the zero-skip magic happens. An 8-bit `== 0` check is a combinational gate — all 8 bits are checked **simultaneously in the same clock cycle**, not one at a time. The gate evaluates well within a single clock period. All N detectors run in parallel.
 
 **Stage 4: ALU** — Multiply (or skip if zero).
 ```verilog
@@ -455,11 +455,12 @@ All N products are summed into the running total. This is the dot product accumu
 
 After the initial 5-cycle fill delay:
 ```
-LANES = 4:    4 products per cycle   → 400 MOPS at 100MHz
-LANES = 32:  32 products per cycle   → 3,200 MOPS at 100MHz
-LANES = 128: 128 products per cycle  → 12,800 MOPS at 100MHz
+LANES = 4:    4 products per cycle  (used in current transformer config)
+LANES = 32:  32 products per cycle  (tested in standalone benchmark)
+LANES = 128: 128 products per cycle (4 cores × 32 lanes, tested standalone)
 ```
-MOPS = Millions of Operations Per Second
+
+> **Important:** The standalone benchmark verifies 128 products/cycle. The current transformer integration uses NUM_LANES=4 (matching the test EMBED_DIM=4). Scaling to larger models would use more lanes.
 
 ---
 
@@ -496,7 +497,7 @@ Zero-skip:
 assign is_zero[z] = (s2_dq_weight[z] == 8'd0) || (s2_activation == 8'd0);
 ```
 
-**Important concept:** `weight == 8'd0` in hardware is a single NOR gate:
+**Important concept:** `weight == 8'd0` in hardware is a combinational gate:
 ```
 bit0 ──┐
 bit1 ──┤
@@ -508,15 +509,17 @@ bit6 ──┤
 bit7 ──┘
 
 All 8 bits checked SIMULTANEOUSLY.
-Time: ~0.2 nanoseconds (one gate delay).
+Completes within a fraction of one clock cycle.
 NOT 8 clock cycles!
 ```
 
-### Our Results
+### Our Results (from simulation output)
 
 ```
-1-layer transformer:  42 zero-skips out of ~64 operations   (65% skip rate)
-2-layer transformer: 132 zero-skips out of ~128 operations  (similar rate)
+1-layer transformer (synthetic weights):  42 zero-skips
+2-layer transformer (synthetic weights): 132 zero-skips
+1-layer transformer (real GPT-2 weights): 32 zero-skips
+Multi-core benchmark (128-wide):          96 zero-skips out of 256 products
 ```
 
 Every skip saves power and reduces heat. On battery-powered devices, this matters enormously.
@@ -555,15 +558,17 @@ Each core processes **different weights** but the **same activation** (broadcast
 
 ## Scaling Numbers
 
-| Cores | Lanes/Core | Total Parallel | Speedup vs FSM |
+Speedup is calculated vs a sequential FSM that takes ~7 cycles per multiply-accumulate:
+
+| Cores | Lanes/Core | Products/Cycle | Speedup vs FSM |
 |:-----:|:----------:|:--------------:|:--------------:|
 | 1     | 4          | 4              | 28×            |
 | 1     | 32         | 32             | 224×           |
-| 4     | 32         | 128            | **896×**       |
-| 8     | 32         | 256            | 1792×          |
-| 4     | 128        | 512            | 3584×          |
+| 4     | 32         | 128            | 896×           |
 
-Our default configuration: **4 cores × 32 lanes = 128 parallel operations per cycle**.
+**Tested configuration:** 4 cores × 32 lanes = 128 products/cycle (verified in `gpu_multicore_tb`).
+
+> **Note:** These speedup numbers apply to the standalone multi-core benchmark. The current transformer integration uses 1 core × 4 lanes (matching the test embedding dimension of 4). Scaling to production models with larger embeddings would use more of the available parallelism.
 
 ---
 
@@ -747,20 +752,20 @@ Softmax converts raw scores into probabilities:
 softmax(x_i) = exp(x_i) / Σ exp(x_j)
 ```
 
-**Problem:** `exp()` is hard to compute in hardware — it's an irrational function.
+**Problem:** `exp()` is a transcendental function — cannot be computed with basic add/multiply.
 
 **Old approach:** Linear approximation `exp(x) ≈ 255 + x×89/256` — very inaccurate.
 
-**New approach:** 256-entry lookup table (`exp_lut_256.v`):
+**New approach:** 256-entry lookup table (`exp_lut_256.v`), each value = `round(255 × exp(-k/64))`:
 ```
-Index 0   → 255 (exp(0)    = 1.000)
-Index 64  →  89 (exp(-1.0) = 0.368)
-Index 128 →  31 (exp(-2.0) = 0.135)
-Index 192 →  10 (exp(-3.0) = 0.050)
-Index 255 →   1 (exp(-4.0) = 0.019)
+Index 0   → 255 (exp(0)     = 1.000)     All values generated by
+Index 64  →  94 (exp(-1.0)  = 0.3679)    Python math.exp() — not
+Index 128 →  35 (exp(-2.0)  = 0.1353)    manually typed. The LUT is
+Index 192 →  13 (exp(-3.0)  = 0.0498)    a mathematical constant,
+Index 255 →   5 (exp(-3.98) = 0.0187)    same for every model.
 ```
 
-This gives a proper exponential curve with just a table lookup — no arithmetic needed for the exp function itself.
+This gives a proper exponential curve with just a table lookup — no arithmetic needed for the exp function itself. Maximum error is ±1 due to integer rounding (±0.4%).
 
 ---
 
@@ -880,8 +885,8 @@ Transfer:           ↑ HERE    ↑ HERE
 ## The Problem with Floating Point
 
 Floating point numbers (like `3.14159`) are expensive in hardware:
-- IEEE 754 float32: needs a barrel shifter, exponent logic, rounding unit
-- Takes ~500 gates and 3-4 clock cycles per multiply
+- IEEE 754 float32: needs a barrel shifter, exponent logic, rounding unit, mantissa multiplier
+- Significantly more complex than fixed-point (more gates, more area, more power)
 - Overkill for inference (training needs it, inference often doesn't)
 
 ## Fixed Point — Simple and Fast
@@ -932,9 +937,8 @@ Examples:
 | Property | Float32 | Q8.8 |
 |----------|:-------:|:----:|
 | Bits | 32 | 16 |
-| Multiplier gates | ~500 | ~150 |
+| Complexity | Much higher (barrel shifter, exponent, rounding) | Simple integer multiply + shift |
 | Memory per weight | 4 bytes | 2 bytes |
-| Multiply latency | 3-4 cycles | 1 cycle |
 | Range | ±3.4×10³⁸ | ±127.996 |
 | Precision | ~7 decimal digits | ~2.4 decimal digits |
 
@@ -978,7 +982,7 @@ endmodule
 | Testbench | What It Tests | Result |
 |-----------|--------------|:------:|
 | `gpu_multicore_tb.v` | 4-core pipeline, 128-wide parallel | ✅ 256 products, 96 zero-skips |
-| `accelerated_attention_tb.v` | KV cache, multi-token attention | ✅ Token 0: [255,255,255,255], Token 1: [413,174,333,134] |
+| `accelerated_attention_tb.v` | KV cache, multi-token attention | ✅ Token 1: [495,135,375,75], 2 zero-skips |
 | `accelerated_gpt2_engine_tb.v` | Full pipeline, 3-token generation | ✅ 0→3→3, 328 cyc/tok, 42 zero-skips |
 | `multi_layer_test.v` | 2-layer transformer, 4 tokens | ✅ 628 cyc/tok, 132 zero-skips |
 | `real_weight_test.v` | Real GPT-2 weights via $readmemh | ✅ 0→1→1→1, real logits |
@@ -999,60 +1003,37 @@ vvp sim/test.vvp
 
 # 16. Performance Analysis
 
-## Pipeline Performance
-
-### Throughput Comparison
-
-```
-Method              Products/Cycle    Speedup
-──────────────────  ──────────────    ───────
-FSM (1 at a time)   0.14/cycle*       1×
-Single core, 4 lane 4/cycle           28×
-Single core, 32L    32/cycle          224×
-4 cores × 32L       128/cycle         896×
-
-* FSM takes ~7 cycles per product (fetch, decode, compute, store)
-```
+## Verified Numbers (from simulation)
 
 ### Per-Token Latency
 
 ```
-Configuration          Cycles/Token    At 100MHz
-─────────────────────  ────────────    ─────────
-1 layer, inline FFN    79 cycles       0.79 μs
-1 layer, gpu_core FFN  328 cycles      3.28 μs ← realistic hardware
-2 layers, gpu_core FFN 628 cycles      6.28 μs
+Configuration          Cycles/Token    Source
+─────────────────────  ────────────    ──────────────────────────
+1 layer, gpu_core FFN  328 cycles      accelerated_gpt2_engine_tb
+2 layers, gpu_core FFN 628 cycles      multi_layer_test
 ```
 
-### Zero-Skip Effectiveness
+### Zero-Skip Counts (from simulation counters)
 
 ```
-Configuration      Total Ops    Zero-Skipped    Skip Rate
-───────────────    ─────────    ────────────    ─────────
-1 layer            ~64          42              65%
-2 layers           ~128         132             ~100%*
-Real GPT-2 weights ~64          32              50%
-
-* High skip rate in 2-layer test due to cascading ReLU zeros
+Configuration          Zero-Skips    Source
+─────────────────────  ──────────    ─────────────────────
+1 layer, synthetic     42            accelerated_gpt2_engine_tb
+2 layers, synthetic    132           multi_layer_test
+1 layer, real GPT-2    32            real_weight_test
+128-wide benchmark     96 / 256 prd  gpu_multicore_tb
 ```
 
-### What These Numbers Mean for Real Hardware
+### Multi-Core Benchmark (standalone)
 
-If synthesized on a Xilinx Artix-7 FPGA at 100 MHz:
 ```
-128 products × 100 MHz = 12,800 MOPS (million ops/sec)
-Token generation: ~3.28 μs per token (1-layer)
-                  ~305,000 tokens/sec
-
-For comparison:
-  CPU (Intel i7): ~10,000 MOPS with AVX-512
-  NVIDIA A100:    ~312,000,000 MOPS (312 TOPS)
-  Our GPU:        ~12,800 MOPS (0.04% of A100)
-
-BUT: A100 costs $10,000 and draws 400W
-     Our FPGA would cost ~$50 and draw ~2W
-     Per-watt efficiency is competitive for edge inference!
+Configuration         Products/Cycle    Source
+────────────────────  ──────────────    ──────────────
+4 cores × 32 lanes    128/cycle         gpu_multicore_tb
 ```
+
+> **Important context:** The 128 products/cycle is from the standalone multi-core benchmark. The current transformer integration uses 1 gpu_core with 4 lanes. To use the full 128-wide configuration, the model dimensions would need to be scaled up.
 
 ---
 
