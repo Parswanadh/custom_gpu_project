@@ -1,16 +1,17 @@
 // ============================================================================
 // Module: accelerated_transformer_block
-// Description: Complete transformer block using accelerated components.
-//   Replaces the original transformer_block with one that uses:
-//     - accelerated_attention (real KV cache + scoring)
-//     - layer_norm (pre-norm architecture, same as original)
-//     - accelerated FFN with residual connections
-//
+// Description: Complete transformer block using GPU CORE pipeline.
 //   Architecture: Pre-LayerNorm Transformer
-//     x → LN1 → Attention(+KV cache) → + residual → LN2 → FFN → + residual → out
+//     x → LN1 → Attention(+KV cache) → + residual → LN2 → FFN(gpu_core) → + residual → out
 //
-// This block actually uses the optimized pipeline indirectly through
-// accelerated_attention and can be wired to use accelerated_linear_layer.
+//   KEY IMPROVEMENT: The FFN now uses gpu_core instances for matrix multiply,
+//   meaning the pipelined N-lane hardware is ACTUALLY USED during inference.
+//   This was previously an inline for-loop (fake pipeline usage).
+//
+//   FFN uses two pipeline stages:
+//     Layer 1: hidden[j] = ReLU( sum_i(LN2_out[i] * W1[i][j]) + b1[j] )
+//     Layer 2: out[j]    = sum_i(hidden[i] * W2[i][j]) + b2[j]
+//   Both layers exploit zero-skipping via gpu_core's sparsity detection.
 // ============================================================================
 module accelerated_transformer_block #(
     parameter EMBED_DIM   = 8,
@@ -18,7 +19,8 @@ module accelerated_transformer_block #(
     parameter HEAD_DIM    = 4,
     parameter FFN_DIM     = 16,
     parameter MAX_SEQ_LEN = 32,
-    parameter DATA_WIDTH  = 16
+    parameter DATA_WIDTH  = 16,
+    parameter NUM_LANES   = 4     // gpu_core lane count
 )(
     input  wire                                clk,
     input  wire                                rst,
@@ -55,19 +57,60 @@ module accelerated_transformer_block #(
     reg  [EMBED_DIM*DATA_WIDTH-1:0] residual1;
     reg  [EMBED_DIM*DATA_WIDTH-1:0] after_attn;
 
+    // GPU core for FFN — instantiated for pipelined MAC
+    reg         core_rst_r, core_we, core_feed_valid;
+    reg  [7:0]  core_w_addr;
+    reg  [7:0]  core_w_data;
+    reg  [7:0]  core_activation;
+    wire        core_valid_out;
+    wire [31:0] core_accumulator;
+    wire [NUM_LANES-1:0] core_zero_mask;
+    wire [4:0]  core_pipe_active;
+    wire [31:0] core_products_per_cycle;
+    wire [16*NUM_LANES-1:0] core_lane_results;
+
+    gpu_core #(.LANES(NUM_LANES), .MEM_DEPTH(256)) u_gpu_core (
+        .clk(clk), .rst(core_rst_r),
+        .dq_scale(4'd1), .dq_offset(4'd0),
+        .core_id(4'd0),
+        .mem_write_en(core_we), .mem_write_val(core_w_data), .mem_write_idx(core_w_addr),
+        .valid_in(core_feed_valid), .weight_base_addr(8'd0), .activation_in(core_activation),
+        .valid_out(core_valid_out), .zero_skip_mask(core_zero_mask),
+        .accumulator(core_accumulator), .lane_results(core_lane_results),
+        .pipe_active(core_pipe_active), .products_per_cycle(core_products_per_cycle)
+    );
+
     // State machine
-    reg [3:0] state;
-    localparam IDLE     = 4'd0;
-    localparam LN1      = 4'd1;
-    localparam ATTN     = 4'd2;
-    localparam RESID1   = 4'd3;
-    localparam LN2      = 4'd4;
-    localparam FFN      = 4'd5;
-    localparam RESID2   = 4'd6;
-    localparam DONE     = 4'd7;
+    reg [4:0] state;
+    localparam IDLE         = 5'd0;
+    localparam LN1          = 5'd1;
+    localparam ATTN         = 5'd2;
+    localparam RESID1       = 5'd3;
+    localparam LN2          = 5'd4;
+    localparam FFN1_LOAD    = 5'd5;
+    localparam FFN1_COMPUTE = 5'd6;
+    localparam FFN1_DRAIN   = 5'd7;
+    localparam FFN1_ACCUM   = 5'd8;
+    localparam FFN2_LOAD    = 5'd9;
+    localparam FFN2_COMPUTE = 5'd10;
+    localparam FFN2_DRAIN   = 5'd11;
+    localparam FFN2_ACCUM   = 5'd12;
+    localparam RESID2       = 5'd13;
+    localparam DONE         = 5'd14;
 
     reg ln1_en, ln2_en, attn_en;
     integer i;
+
+    // FFN working storage
+    reg signed [DATA_WIDTH-1:0] ln2_buf [0:EMBED_DIM-1];
+    reg signed [DATA_WIDTH-1:0] ffn_hidden [0:FFN_DIM-1];
+    reg signed [DATA_WIDTH-1:0] ffn_out_buf [0:EMBED_DIM-1];
+
+    reg [$clog2(FFN_DIM):0] ffn_col;
+    reg [7:0] ffn_row;
+    reg [31:0] ffn_accum;
+    reg [3:0]  drain_cnt;
+    integer fi;
 
     // Sub-module: Layer Norm 1
     layer_norm #(.DIM(EMBED_DIM), .DATA_WIDTH(DATA_WIDTH)) u_ln1 (
@@ -99,34 +142,31 @@ module accelerated_transformer_block #(
         .y_out(ln2_out), .valid_out(ln2_valid)
     );
 
-    // FFN computation (inline for now — could use accelerated_linear_layer)
-    reg signed [DATA_WIDTH-1:0] ffn_hidden [0:FFN_DIM-1];
-    reg signed [DATA_WIDTH-1:0] ffn_out_buf [0:EMBED_DIM-1];
-    reg signed [2*DATA_WIDTH-1:0] ffn_accum;
-    reg signed [2*DATA_WIDTH-1:0] ffn_product;
-    reg ffn_done;
-    integer fi, fj;
-
     always @(posedge clk) begin
         if (rst) begin
-            state          <= IDLE;
-            valid_out      <= 1'b0;
-            y_out          <= 0;
+            state            <= IDLE;
+            valid_out        <= 1'b0;
+            y_out            <= 0;
+            ln1_en           <= 0;
+            ln2_en           <= 0;
+            attn_en          <= 0;
+            block_zero_skips <= 0;
+            core_rst_r         <= 1;
+            core_we          <= 0;
+            core_feed_valid  <= 0;
+            ffn_col          <= 0;
+            ffn_row          <= 0;
+        end else begin
             ln1_en         <= 0;
             ln2_en         <= 0;
             attn_en        <= 0;
-            block_zero_skips <= 0;
-            ffn_done       <= 0;
-        end else begin
-            ln1_en  <= 0;
-            ln2_en  <= 0;
-            attn_en <= 0;
+            core_we        <= 0;
+            core_feed_valid <= 0;
 
             case (state)
                 IDLE: begin
                     valid_out <= 1'b0;
                     if (valid_in) begin
-                        // Save input as residual
                         residual1 <= x_in;
                         ln1_en    <= 1'b1;
                         state     <= LN1;
@@ -142,7 +182,6 @@ module accelerated_transformer_block #(
 
                 ATTN: begin
                     if (attn_valid) begin
-                        // Residual connection: x + attention(LN(x))
                         for (i = 0; i < EMBED_DIM; i = i + 1)
                             after_attn[i*DATA_WIDTH +: DATA_WIDTH] <=
                                 $signed(residual1[i*DATA_WIDTH +: DATA_WIDTH]) +
@@ -159,56 +198,141 @@ module accelerated_transformer_block #(
 
                 LN2: begin
                     if (ln2_valid) begin
-                        state    <= FFN;
-                        ffn_done <= 0;
+                        // Buffer LN2 output for FFN
+                        for (i = 0; i < EMBED_DIM; i = i + 1)
+                            ln2_buf[i] <= $signed(ln2_out[i*DATA_WIDTH +: DATA_WIDTH]);
+                        ffn_col  <= 0;
+                        core_rst_r <= 1;  // Reset gpu_core for FFN use
+                        state    <= FFN1_LOAD;
                     end
                 end
 
-                FFN: begin
-                    if (!ffn_done) begin
-                        // FFN layer 1: hidden = ReLU(x * W1 + b1)
-                        for (fj = 0; fj < FFN_DIM; fj = fj + 1) begin
-                            ffn_accum = 0;
-                            for (fi = 0; fi < EMBED_DIM; fi = fi + 1) begin
-                                ffn_product = $signed(ln2_out[fi*DATA_WIDTH +: DATA_WIDTH]) *
-                                    $signed(ffn_w1_flat[(fi*FFN_DIM+fj)*DATA_WIDTH +: DATA_WIDTH]);
-                                if (ln2_out[fi*DATA_WIDTH +: DATA_WIDTH] != 0)
-                                    ffn_accum = ffn_accum + ffn_product;
-                                else
-                                    block_zero_skips <= block_zero_skips + 1;
-                            end
-                            // Add bias + ReLU
-                            ffn_accum = ffn_accum[DATA_WIDTH+7:8] +
-                                $signed(ffn_b1_flat[fj*DATA_WIDTH +: DATA_WIDTH]);
-                            // ReLU
-                            if (ffn_accum < 0)
-                                ffn_hidden[fj] = 0;  // ReLU zero — creates sparsity!
-                            else
-                                ffn_hidden[fj] = ffn_accum[DATA_WIDTH-1:0];
-                        end
+                // ============================================================
+                // FFN Layer 1: hidden[j] = ReLU(sum_i(x[i] * W1[i][j]) + b1[j])
+                // Uses gpu_core pipeline for the matrix multiply!
+                // ============================================================
+                FFN1_LOAD: begin
+                    core_rst_r <= 0;
+                    // Load weights for current column into gpu_core's weight memory
+                    if (ffn_row < EMBED_DIM) begin
+                        core_we     <= 1;
+                        core_w_addr <= ffn_row[7:0];
+                        // Extract weight W1[ffn_row][ffn_col] — truncate to 8-bit for gpu_core
+                        core_w_data <= ffn_w1_flat[(ffn_row*FFN_DIM+ffn_col)*DATA_WIDTH +: 8];
+                        ffn_row     <= ffn_row + 1;
+                    end else begin
+                        ffn_row <= 0;
+                        state   <= FFN1_COMPUTE;
+                    end
+                end
 
-                        // FFN layer 2: out = hidden * W2 + b2
-                        for (fj = 0; fj < EMBED_DIM; fj = fj + 1) begin
-                            ffn_accum = 0;
-                            for (fi = 0; fi < FFN_DIM; fi = fi + 1) begin
-                                ffn_product = ffn_hidden[fi] *
-                                    $signed(ffn_w2_flat[(fi*EMBED_DIM+fj)*DATA_WIDTH +: DATA_WIDTH]);
-                                if (ffn_hidden[fi] != 0)
-                                    ffn_accum = ffn_accum + ffn_product;
-                                else
-                                    block_zero_skips <= block_zero_skips + 1;
-                            end
-                            ffn_out_buf[fj] = ffn_accum[DATA_WIDTH+7:8] +
-                                $signed(ffn_b2_flat[fj*DATA_WIDTH +: DATA_WIDTH]);
-                        end
-                        ffn_done <= 1;
+                FFN1_COMPUTE: begin
+                    if (ffn_row < EMBED_DIM) begin
+                        core_feed_valid <= 1;
+                        core_activation <= ln2_buf[ffn_row][7:0];
+                        ffn_row         <= ffn_row + 1;
+                    end else begin
+                        drain_cnt <= 0;
+                        state <= FFN1_DRAIN;
+                    end
+                end
+
+                FFN1_DRAIN: begin
+                    drain_cnt <= drain_cnt + 1;
+                    if (drain_cnt >= 4'd6)
+                        state <= FFN1_ACCUM;
+                end
+
+                FFN1_ACCUM: begin
+                    // Read gpu_core accumulator — this is the dot product result
+                    // Add bias and apply ReLU
+                    begin : ffn1_bias_relu
+                        reg signed [31:0] val;
+                        val = $signed(core_accumulator) +
+                              $signed(ffn_b1_flat[ffn_col*DATA_WIDTH +: DATA_WIDTH]);
+                        if (val < 0) begin
+                            ffn_hidden[ffn_col] = 0;  // ReLU — creates sparsity!
+                            block_zero_skips <= block_zero_skips + 1;
+                        end else
+                            ffn_hidden[ffn_col] = val[DATA_WIDTH-1:0];
+                    end
+
+                    // Count zero-skips from gpu_core
+                    for (fi = 0; fi < NUM_LANES; fi = fi + 1)
+                        if (core_zero_mask[fi])
+                            block_zero_skips <= block_zero_skips + 1;
+
+                    // Move to next output column or to FFN Layer 2
+                    if (ffn_col + 1 < FFN_DIM) begin
+                        ffn_col  <= ffn_col + 1;
+                        ffn_row  <= 0;
+                        core_rst_r <= 1;
+                        state    <= FFN1_LOAD;
+                    end else begin
+                        ffn_col  <= 0;
+                        ffn_row  <= 0;
+                        core_rst_r <= 1;
+                        state    <= FFN2_LOAD;
+                    end
+                end
+
+                // ============================================================
+                // FFN Layer 2: out[j] = sum_i(hidden[i] * W2[i][j]) + b2[j]
+                // Also uses gpu_core pipeline!
+                // ============================================================
+                FFN2_LOAD: begin
+                    core_rst_r <= 0;
+                    if (ffn_row < FFN_DIM) begin
+                        core_we     <= 1;
+                        core_w_addr <= ffn_row[7:0];
+                        core_w_data <= ffn_w2_flat[(ffn_row*EMBED_DIM+ffn_col)*DATA_WIDTH +: 8];
+                        ffn_row     <= ffn_row + 1;
+                    end else begin
+                        ffn_row <= 0;
+                        state   <= FFN2_COMPUTE;
+                    end
+                end
+
+                FFN2_COMPUTE: begin
+                    if (ffn_row < FFN_DIM) begin
+                        core_feed_valid <= 1;
+                        core_activation <= ffn_hidden[ffn_row][7:0];
+                        ffn_row         <= ffn_row + 1;
+                    end else begin
+                        drain_cnt <= 0;
+                        state <= FFN2_DRAIN;
+                    end
+                end
+
+                FFN2_DRAIN: begin
+                    drain_cnt <= drain_cnt + 1;
+                    if (drain_cnt >= 6)
+                        state <= FFN2_ACCUM;
+                end
+
+                FFN2_ACCUM: begin
+                    begin : ffn2_bias
+                        reg signed [31:0] val;
+                        val = $signed(core_accumulator) +
+                              $signed(ffn_b2_flat[ffn_col*DATA_WIDTH +: DATA_WIDTH]);
+                        ffn_out_buf[ffn_col] = val[DATA_WIDTH-1:0];
+                    end
+
+                    for (fi = 0; fi < NUM_LANES; fi = fi + 1)
+                        if (core_zero_mask[fi])
+                            block_zero_skips <= block_zero_skips + 1;
+
+                    if (ffn_col + 1 < EMBED_DIM) begin
+                        ffn_col  <= ffn_col + 1;
+                        ffn_row  <= 0;
+                        core_rst_r <= 1;
+                        state    <= FFN2_LOAD;
                     end else begin
                         state <= RESID2;
                     end
                 end
 
                 RESID2: begin
-                    // Residual connection: after_attn + FFN(LN2(after_attn))
                     for (i = 0; i < EMBED_DIM; i = i + 1)
                         y_out[i*DATA_WIDTH +: DATA_WIDTH] <=
                             $signed(after_attn[i*DATA_WIDTH +: DATA_WIDTH]) +

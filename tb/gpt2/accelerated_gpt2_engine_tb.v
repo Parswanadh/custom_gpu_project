@@ -168,7 +168,7 @@ module accelerated_gpt2_engine_tb;
 
             // Wait for output
             cycle = 0;
-            while (!valid_out && cycle < 500) begin
+            while (!valid_out && cycle < 2000) begin
                 @(posedge clk);
                 cycle = cycle + 1;
             end
@@ -183,7 +183,7 @@ module accelerated_gpt2_engine_tb;
                     $signed(logits_out[2*DATA_WIDTH +: DATA_WIDTH]),
                     $signed(logits_out[3*DATA_WIDTH +: DATA_WIDTH]));
             end else begin
-                $display("    Token %0d: TIMEOUT after 500 cycles!", tok);
+                $display("    Token %0d: TIMEOUT after 2000 cycles!", tok);
             end
 
             #20;
@@ -209,7 +209,7 @@ module accelerated_gpt2_engine_tb;
 
     // Timeout safety
     initial begin
-        #100000;
+        #500000;
         $display("  [TIMEOUT] Simulation exceeded 100us");
         $finish;
     end

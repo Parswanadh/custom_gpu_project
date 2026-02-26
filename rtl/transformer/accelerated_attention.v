@@ -71,23 +71,14 @@ module accelerated_attention #(
 
     reg [$clog2(MAX_SEQ_LEN)-1:0] cur_pos;
 
-    // Exp approximation
-    function [7:0] exp_lut;
-        input signed [DATA_WIDTH-1:0] val;
-        reg signed [31:0] tmp;
-        begin
-            if (val >= 0)
-                exp_lut = 8'd255;
-            else if (val < -16'sd2048)
-                exp_lut = 8'd1;
-            else begin
-                tmp = 255 + (val * 89) / 256;
-                if (tmp < 1) exp_lut = 8'd1;
-                else if (tmp > 255) exp_lut = 8'd255;
-                else exp_lut = tmp[7:0];
-            end
-        end
-    endfunction
+    // Proper 256-entry exp LUT (replaces crude linear function)
+    reg signed [15:0] lut_input;
+    wire [7:0] lut_output;
+    exp_lut_256 u_exp_lut (.x_in(lut_input), .exp_out(lut_output));
+
+    // Softmax iteration state
+    reg [$clog2(MAX_SEQ_LEN):0] sm_idx;  // Softmax index
+    reg sm_phase;  // 0 = compute exp, 1 = normalize
 
     always @(posedge clk) begin
         if (rst) begin
@@ -174,27 +165,42 @@ module accelerated_attention #(
                     if ((acc >>> 9) > max_score)
                         max_score <= acc >>> 9;
                 end
+                sm_idx    <= 0;
+                sm_phase  <= 0;
+                exp_sum   = 16'd0;
                 state <= S_SOFTMAX;
             end
 
-            // --- SOFTMAX: exp + normalize ---
+            // --- SOFTMAX: exp via LUT + normalize ---
+            // Phase 0: iterate tokens, look up exp(score - max) via LUT, accumulate sum
+            // Phase 1: iterate tokens, normalize probs = exp[t] * 255 / sum
             S_SOFTMAX: begin
-                exp_sum = 16'd0;
-                for (t = 0; t <= cur_pos; t = t + 1) begin
-                    probs[t] = exp_lut(scores[t] - max_score);
-                    exp_sum = exp_sum + {8'd0, probs[t]};
-                end
-                // Normalize: prob[t] = exp[t] * 255 / sum (stays in [0,255])
-                if (exp_sum > 0) begin
-                    for (t = 0; t <= cur_pos; t = t + 1) begin
+                if (!sm_phase) begin
+                    // Phase 0: compute exp values
+                    if (sm_idx <= cur_pos) begin
+                        lut_input <= scores[sm_idx] - max_score;
+                        // LUT output available combinationally
+                        probs[sm_idx] <= lut_output;
+                        exp_sum = exp_sum + {8'd0, lut_output};
+                        sm_idx <= sm_idx + 1;
+                    end else begin
+                        // Done with exp, start normalize
+                        sm_phase <= 1;
+                        sm_idx   <= 0;
+                    end
+                end else begin
+                    // Phase 1: normalize
+                    if (sm_idx <= cur_pos) begin
                         begin : norm_block
                             reg [15:0] norm_val;
-                            norm_val = ({8'd0, probs[t]} * 16'd255) / exp_sum;
-                            probs[t] = (norm_val > 255) ? 8'd255 : norm_val[7:0];
+                            norm_val = ({8'd0, probs[sm_idx]} * 16'd255) / exp_sum;
+                            probs[sm_idx] <= (norm_val > 255) ? 8'd255 : norm_val[7:0];
                         end
+                        sm_idx <= sm_idx + 1;
+                    end else begin
+                        state <= S_WGTV;
                     end
                 end
-                state <= S_WGTV;
             end
 
             // --- WEIGHTED V: attn = sum(prob[t] * V[t]) ---
