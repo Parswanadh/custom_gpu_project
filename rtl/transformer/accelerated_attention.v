@@ -1,23 +1,18 @@
 // ============================================================================
 // Module: accelerated_attention
 // Description: Multi-head self-attention with KV cache.
-//   Unlike the original attention_unit which trivially sets output = V,
-//   this module implements REAL attention:
+//   Implements REAL attention (not trivial output=V):
 //     1. Project: Q = x*Wq, K = x*Wk, V = x*Wv
-//     2. Score:   scores = Q * K_cache^T / sqrt(d_k)
-//     3. Softmax: probs = softmax(scores)
-//     4. Output:  attn = probs * V_cache
-//     5. Project: y = attn * Wo
-//
-//   KV Cache: stores K and V from all previous tokens so the model
-//   can attend to the full sequence history.
-//
-// Parameters: EMBED_DIM, NUM_HEADS, HEAD_DIM, MAX_SEQ_LEN, DATA_WIDTH
+//     2. KV Cache: store K, V at current position
+//     3. Score:   scores = Q * K_cache^T / sqrt(d_k)
+//     4. Softmax: probs = softmax(scores)
+//     5. Output:  attn = probs * V_cache
+//     6. Project: y = attn * Wo
 // ============================================================================
 module accelerated_attention #(
     parameter EMBED_DIM   = 8,
     parameter NUM_HEADS   = 2,
-    parameter HEAD_DIM    = 4,       // EMBED_DIM / NUM_HEADS
+    parameter HEAD_DIM    = 4,
     parameter MAX_SEQ_LEN = 32,
     parameter DATA_WIDTH  = 16
 )(
@@ -25,219 +20,212 @@ module accelerated_attention #(
     input  wire                                rst,
     input  wire                                valid_in,
     input  wire [EMBED_DIM*DATA_WIDTH-1:0]     x_in,
-
-    // Current sequence position (for KV cache indexing)
     input  wire [$clog2(MAX_SEQ_LEN)-1:0]      seq_pos,
-
-    // Weight matrices (flattened)
     input  wire [EMBED_DIM*EMBED_DIM*DATA_WIDTH-1:0] wq_flat,
     input  wire [EMBED_DIM*EMBED_DIM*DATA_WIDTH-1:0] wk_flat,
     input  wire [EMBED_DIM*EMBED_DIM*DATA_WIDTH-1:0] wv_flat,
     input  wire [EMBED_DIM*EMBED_DIM*DATA_WIDTH-1:0] wo_flat,
-
-    // Output
     output reg  [EMBED_DIM*DATA_WIDTH-1:0]     y_out,
     output reg                                 valid_out,
     output reg  [31:0]                         zero_skip_count
 );
 
-    // KV Cache: stores K and V for all past positions
+    // KV Cache
     reg signed [DATA_WIDTH-1:0] k_cache [0:MAX_SEQ_LEN-1][0:EMBED_DIM-1];
     reg signed [DATA_WIDTH-1:0] v_cache [0:MAX_SEQ_LEN-1][0:EMBED_DIM-1];
 
-    // Internal storage
-    reg signed [DATA_WIDTH-1:0] x [0:EMBED_DIM-1];
-    reg signed [DATA_WIDTH-1:0] q [0:EMBED_DIM-1];
-    reg signed [DATA_WIDTH-1:0] k_new [0:EMBED_DIM-1];
-    reg signed [DATA_WIDTH-1:0] v_new [0:EMBED_DIM-1];
+    // Working storage
+    reg signed [DATA_WIDTH-1:0] x_reg [0:EMBED_DIM-1];
+    reg signed [DATA_WIDTH-1:0] q_reg [0:EMBED_DIM-1];
+    reg signed [DATA_WIDTH-1:0] k_reg [0:EMBED_DIM-1];
+    reg signed [DATA_WIDTH-1:0] v_reg [0:EMBED_DIM-1];
     reg signed [DATA_WIDTH-1:0] attn_out [0:EMBED_DIM-1];
 
-    // Attention scores and probabilities
-    reg signed [2*DATA_WIDTH-1:0] scores [0:MAX_SEQ_LEN-1];
-    reg [7:0]                     probs  [0:MAX_SEQ_LEN-1];   // Q0.8 format
-
-    // Weight matrices (unpacked)
+    // Weight storage (registered)
     reg signed [DATA_WIDTH-1:0] wq [0:EMBED_DIM-1][0:EMBED_DIM-1];
     reg signed [DATA_WIDTH-1:0] wk [0:EMBED_DIM-1][0:EMBED_DIM-1];
     reg signed [DATA_WIDTH-1:0] wv [0:EMBED_DIM-1][0:EMBED_DIM-1];
     reg signed [DATA_WIDTH-1:0] wo [0:EMBED_DIM-1][0:EMBED_DIM-1];
 
-    // Working registers
-    reg signed [2*DATA_WIDTH-1:0] accum;
-    reg signed [2*DATA_WIDTH-1:0] product;
-    reg signed [DATA_WIDTH-1:0]   max_score;
+    // Attention scores
+    reg signed [DATA_WIDTH-1:0] scores [0:MAX_SEQ_LEN-1];
+    reg [7:0]                   probs  [0:MAX_SEQ_LEN-1];
+    reg signed [DATA_WIDTH-1:0] max_score;
+
+    // Accumulators
+    reg signed [2*DATA_WIDTH-1:0] acc;
     reg [15:0] exp_sum;
-    reg [7:0]  exp_val;
     integer i, j, t;
 
-    // State machine
+    // FSM
     reg [3:0] state;
-    localparam IDLE       = 4'd0;
-    localparam PROJ_QKV   = 4'd1;
-    localparam STORE_KV   = 4'd2;
-    localparam SCORE      = 4'd3;
-    localparam SOFTMAX    = 4'd4;
-    localparam WEIGHTED_V = 4'd5;
-    localparam OUT_PROJ   = 4'd6;
-    localparam DONE       = 4'd7;
+    localparam S_IDLE     = 0;
+    localparam S_LOAD     = 1;
+    localparam S_PROJ     = 2;
+    localparam S_CACHE    = 3;
+    localparam S_SCORE    = 4;
+    localparam S_SOFTMAX  = 5;
+    localparam S_WGTV     = 6;
+    localparam S_OUTPROJ  = 7;
+    localparam S_DONE     = 8;
 
-    reg [$clog2(MAX_SEQ_LEN)-1:0] current_pos;
+    reg [$clog2(MAX_SEQ_LEN)-1:0] cur_pos;
 
-    // Exp approximation function for softmax
-    function [7:0] exp_approx;
+    // Exp approximation
+    function [7:0] exp_lut;
         input signed [DATA_WIDTH-1:0] val;
-        reg signed [DATA_WIDTH+3:0] tmp;
+        reg signed [31:0] tmp;
         begin
             if (val >= 0)
-                exp_approx = 8'd255;
+                exp_lut = 8'd255;
             else if (val < -16'sd2048)
-                exp_approx = 8'd1;
+                exp_lut = 8'd1;
             else begin
                 tmp = 255 + (val * 89) / 256;
-                if (tmp < 1) exp_approx = 8'd1;
-                else if (tmp > 255) exp_approx = 8'd255;
-                else exp_approx = tmp[7:0];
+                if (tmp < 1) exp_lut = 8'd1;
+                else if (tmp > 255) exp_lut = 8'd255;
+                else exp_lut = tmp[7:0];
             end
         end
     endfunction
 
     always @(posedge clk) begin
         if (rst) begin
-            state           <= IDLE;
-            valid_out       <= 1'b0;
-            y_out           <= 0;
+            state          <= S_IDLE;
+            valid_out      <= 1'b0;
+            y_out          <= 0;
             zero_skip_count <= 0;
-            current_pos     <= 0;
+            cur_pos        <= 0;
         end else begin
             case (state)
-                IDLE: begin
-                    valid_out <= 1'b0;
-                    if (valid_in) begin
-                        // Unpack input and weights
-                        for (i = 0; i < EMBED_DIM; i = i + 1)
-                            x[i] <= x_in[i*DATA_WIDTH +: DATA_WIDTH];
-                        for (i = 0; i < EMBED_DIM; i = i + 1)
-                            for (j = 0; j < EMBED_DIM; j = j + 1) begin
-                                wq[i][j] <= wq_flat[(i*EMBED_DIM+j)*DATA_WIDTH +: DATA_WIDTH];
-                                wk[i][j] <= wk_flat[(i*EMBED_DIM+j)*DATA_WIDTH +: DATA_WIDTH];
-                                wv[i][j] <= wv_flat[(i*EMBED_DIM+j)*DATA_WIDTH +: DATA_WIDTH];
-                                wo[i][j] <= wo_flat[(i*EMBED_DIM+j)*DATA_WIDTH +: DATA_WIDTH];
-                            end
-                        current_pos <= seq_pos;
-                        state <= PROJ_QKV;
-                    end
-                end
 
-                PROJ_QKV: begin
-                    // Compute Q, K, V projections: mat-vec multiply
-                    for (j = 0; j < EMBED_DIM; j = j + 1) begin
-                        // Q[j]
-                        accum = 0;
-                        for (i = 0; i < EMBED_DIM; i = i + 1) begin
-                            product = x[i] * wq[i][j];
-                            if (x[i] != 0 && wq[i][j] != 0)
-                                accum = accum + product;
-                            else
-                                zero_skip_count <= zero_skip_count + 1;
-                        end
-                        q[j] = accum[DATA_WIDTH+7:8];
-
-                        // K[j]
-                        accum = 0;
-                        for (i = 0; i < EMBED_DIM; i = i + 1) begin
-                            product = x[i] * wk[i][j];
-                            accum = accum + product;
-                        end
-                        k_new[j] = accum[DATA_WIDTH+7:8];
-
-                        // V[j]
-                        accum = 0;
-                        for (i = 0; i < EMBED_DIM; i = i + 1) begin
-                            product = x[i] * wv[i][j];
-                            accum = accum + product;
-                        end
-                        v_new[j] = accum[DATA_WIDTH+7:8];
-                    end
-                    state <= STORE_KV;
-                end
-
-                STORE_KV: begin
-                    // Store new K, V into cache at current position
-                    for (j = 0; j < EMBED_DIM; j = j + 1) begin
-                        k_cache[current_pos][j] <= k_new[j];
-                        v_cache[current_pos][j] <= v_new[j];
-                    end
-                    state <= SCORE;
-                end
-
-                SCORE: begin
-                    // Compute attention scores: score[t] = Q · K_cache[t] / sqrt(d_k)
-                    // For all positions 0..current_pos
-                    max_score = -16'sd32768;
-                    for (t = 0; t <= current_pos; t = t + 1) begin
-                        accum = 0;
+            // --- IDLE: wait for valid input ---
+            S_IDLE: begin
+                valid_out <= 1'b0;
+                if (valid_in) begin
+                    cur_pos <= seq_pos;
+                    // Register all inputs
+                    for (i = 0; i < EMBED_DIM; i = i + 1)
+                        x_reg[i] <= $signed(x_in[i*DATA_WIDTH +: DATA_WIDTH]);
+                    for (i = 0; i < EMBED_DIM; i = i + 1)
                         for (j = 0; j < EMBED_DIM; j = j + 1) begin
-                            product = q[j] * k_cache[t][j];
-                            accum = accum + product;
+                            wq[i][j] <= $signed(wq_flat[(i*EMBED_DIM+j)*DATA_WIDTH +: DATA_WIDTH]);
+                            wk[i][j] <= $signed(wk_flat[(i*EMBED_DIM+j)*DATA_WIDTH +: DATA_WIDTH]);
+                            wv[i][j] <= $signed(wv_flat[(i*EMBED_DIM+j)*DATA_WIDTH +: DATA_WIDTH]);
+                            wo[i][j] <= $signed(wo_flat[(i*EMBED_DIM+j)*DATA_WIDTH +: DATA_WIDTH]);
                         end
-                        // Divide by sqrt(HEAD_DIM) ≈ shift right
-                        scores[t] = accum[DATA_WIDTH+7:8] >>> 1;  // Approximate /sqrt(4)=/2
-                        if (scores[t][DATA_WIDTH-1:0] > max_score)
-                            max_score = scores[t][DATA_WIDTH-1:0];
-                    end
-                    // Zero out future positions
-                    for (t = current_pos + 1; t < MAX_SEQ_LEN; t = t + 1)
-                        scores[t] = 0;
-                    state <= SOFTMAX;
+                    state <= S_LOAD;
                 end
+            end
 
-                SOFTMAX: begin
-                    // Softmax: exp(score - max) / sum(exp(score - max))
-                    exp_sum = 0;
-                    for (t = 0; t <= current_pos; t = t + 1) begin
-                        exp_val = exp_approx(scores[t][DATA_WIDTH-1:0] - max_score);
-                        probs[t] = exp_val;
-                        exp_sum = exp_sum + {8'd0, exp_val};
-                    end
-                    // Normalize
-                    if (exp_sum > 0) begin
-                        for (t = 0; t <= current_pos; t = t + 1) begin
-                            probs[t] = ({8'b0, probs[t]} * 16'd256) / exp_sum;
+            // --- LOAD: 1 cycle delay so registers settle ---
+            S_LOAD: begin
+                state <= S_PROJ;
+            end
+
+            // --- PROJ: Q=x*Wq, K=x*Wk, V=x*Wv ---
+            S_PROJ: begin
+                for (j = 0; j < EMBED_DIM; j = j + 1) begin
+                    // Q[j] = sum(x[i] * Wq[i][j])
+                    acc = 0;
+                    for (i = 0; i < EMBED_DIM; i = i + 1) begin
+                        if (x_reg[i] != 0 && wq[i][j] != 0) begin
+                            acc = acc + x_reg[i] * wq[i][j];
+                        end else begin
+                            zero_skip_count <= zero_skip_count + 1;
                         end
                     end
-                    state <= WEIGHTED_V;
-                end
+                    q_reg[j] <= acc >>> 8;  // Q8.8 * Q8.8 = Q16.16, shift to Q8.8
 
-                WEIGHTED_V: begin
-                    // attn_out = sum(probs[t] * V_cache[t]) for all t
+                    // K[j]
+                    acc = 0;
+                    for (i = 0; i < EMBED_DIM; i = i + 1)
+                        acc = acc + x_reg[i] * wk[i][j];
+                    k_reg[j] <= acc >>> 8;
+
+                    // V[j]
+                    acc = 0;
+                    for (i = 0; i < EMBED_DIM; i = i + 1)
+                        acc = acc + x_reg[i] * wv[i][j];
+                    v_reg[j] <= acc >>> 8;
+                end
+                state <= S_CACHE;
+            end
+
+            // --- CACHE: store K,V into cache ---
+            S_CACHE: begin
+                for (j = 0; j < EMBED_DIM; j = j + 1) begin
+                    k_cache[cur_pos][j] <= k_reg[j];
+                    v_cache[cur_pos][j] <= v_reg[j];
+                end
+                state <= S_SCORE;
+            end
+
+            // --- SCORE: score[t] = Q dot K_cache[t] / sqrt(d) ---
+            S_SCORE: begin
+                max_score <= -16'sd32767;
+                for (t = 0; t <= cur_pos; t = t + 1) begin
+                    acc = 0;
                     for (j = 0; j < EMBED_DIM; j = j + 1) begin
-                        accum = 0;
-                        for (t = 0; t <= current_pos; t = t + 1) begin
-                            product = probs[t] * v_cache[t][j];
-                            accum = accum + product;
-                        end
-                        attn_out[j] = accum[15:8];  // Scale back from Q0.8 * Q8.8
+                        acc = acc + q_reg[j] * k_cache[t][j];
                     end
-                    state <= OUT_PROJ;
+                    // Divide by sqrt(HEAD_DIM), approx >> 1
+                    scores[t] <= (acc >>> 8) >>> 1;
+                    if ((acc >>> 9) > max_score)
+                        max_score <= acc >>> 9;
                 end
+                state <= S_SOFTMAX;
+            end
 
-                OUT_PROJ: begin
-                    // Output projection: y = attn_out * Wo
-                    for (j = 0; j < EMBED_DIM; j = j + 1) begin
-                        accum = 0;
-                        for (i = 0; i < EMBED_DIM; i = i + 1) begin
-                            product = attn_out[i] * wo[i][j];
-                            accum = accum + product;
+            // --- SOFTMAX: exp + normalize ---
+            S_SOFTMAX: begin
+                exp_sum = 16'd0;
+                for (t = 0; t <= cur_pos; t = t + 1) begin
+                    probs[t] = exp_lut(scores[t] - max_score);
+                    exp_sum = exp_sum + {8'd0, probs[t]};
+                end
+                // Normalize: prob[t] = exp[t] * 255 / sum (stays in [0,255])
+                if (exp_sum > 0) begin
+                    for (t = 0; t <= cur_pos; t = t + 1) begin
+                        begin : norm_block
+                            reg [15:0] norm_val;
+                            norm_val = ({8'd0, probs[t]} * 16'd255) / exp_sum;
+                            probs[t] = (norm_val > 255) ? 8'd255 : norm_val[7:0];
                         end
-                        y_out[j*DATA_WIDTH +: DATA_WIDTH] <= accum[DATA_WIDTH+7:8];
                     end
-                    state <= DONE;
                 end
+                state <= S_WGTV;
+            end
 
-                DONE: begin
-                    valid_out <= 1'b1;
-                    state     <= IDLE;
+            // --- WEIGHTED V: attn = sum(prob[t] * V[t]) ---
+            S_WGTV: begin
+                for (j = 0; j < EMBED_DIM; j = j + 1) begin
+                    acc = 0;
+                    for (t = 0; t <= cur_pos; t = t + 1) begin
+                        acc = acc + $signed({1'b0, probs[t]}) * v_cache[t][j];
+                    end
+                    attn_out[j] <= acc >>> 8;  // Q0.8 * Q8.8 >> 8 = Q8.8
                 end
+                state <= S_OUTPROJ;
+            end
+
+            // --- OUTPUT PROJECTION: y = attn * Wo ---
+            S_OUTPROJ: begin
+                for (j = 0; j < EMBED_DIM; j = j + 1) begin
+                    acc = 0;
+                    for (i = 0; i < EMBED_DIM; i = i + 1)
+                        acc = acc + attn_out[i] * wo[i][j];
+                    y_out[j*DATA_WIDTH +: DATA_WIDTH] <= acc >>> 8;
+                end
+                state <= S_DONE;
+            end
+
+            // --- DONE ---
+            S_DONE: begin
+                valid_out <= 1'b1;
+                state     <= S_IDLE;
+            end
+
             endcase
         end
     end
