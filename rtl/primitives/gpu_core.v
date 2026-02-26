@@ -111,12 +111,13 @@ module gpu_core #(
     reg [7:0]  s2_dq_weight [0:LANES-1];
 
     // N parallel dequantizers (combinational)
+    // Uses full 8-bit weight value: out = weight * scale + offset
     wire [7:0] dq_out [0:LANES-1];
     genvar d;
     generate
         for (d = 0; d < LANES; d = d + 1) begin : dequant_gen
-            wire [3:0] int4_val = s1_weight[d][3:0];
-            assign dq_out[d] = (int4_val * dq_scale) + {4'd0, dq_offset};
+            wire [15:0] scaled = s1_weight[d] * dq_scale;
+            assign dq_out[d] = scaled[11:4] + {4'd0, dq_offset};  // Q8.8 >> 4
         end
     endgenerate
 

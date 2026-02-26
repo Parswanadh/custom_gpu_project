@@ -101,16 +101,16 @@ module gpu_top_integrated #(
     reg [7:0]  s2_activation;
     reg [7:0]  s2_dq_weight [0:3];
 
-    // 4 parallel inline dequantizers
-    wire [3:0] int4_val_0 = s1_weight[0][3:0];
-    wire [3:0] int4_val_1 = s1_weight[1][3:0];
-    wire [3:0] int4_val_2 = s1_weight[2][3:0];
-    wire [3:0] int4_val_3 = s1_weight[3][3:0];
+    // 4 parallel inline dequantizers (full 8-bit weights)
+    wire [15:0] scaled_0 = s1_weight[0] * dq_scale;
+    wire [15:0] scaled_1 = s1_weight[1] * dq_scale;
+    wire [15:0] scaled_2 = s1_weight[2] * dq_scale;
+    wire [15:0] scaled_3 = s1_weight[3] * dq_scale;
 
-    wire [7:0] dq_out_0 = (int4_val_0 * dq_scale) + {4'd0, dq_offset};
-    wire [7:0] dq_out_1 = (int4_val_1 * dq_scale) + {4'd0, dq_offset};
-    wire [7:0] dq_out_2 = (int4_val_2 * dq_scale) + {4'd0, dq_offset};
-    wire [7:0] dq_out_3 = (int4_val_3 * dq_scale) + {4'd0, dq_offset};
+    wire [7:0] dq_out_0 = scaled_0[11:4] + {4'd0, dq_offset};
+    wire [7:0] dq_out_1 = scaled_1[11:4] + {4'd0, dq_offset};
+    wire [7:0] dq_out_2 = scaled_2[11:4] + {4'd0, dq_offset};
+    wire [7:0] dq_out_3 = scaled_3[11:4] + {4'd0, dq_offset};
 
     always @(posedge clk) begin
         if (rst) begin

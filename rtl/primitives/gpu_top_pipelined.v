@@ -98,9 +98,9 @@ module gpu_top_pipelined (
     // ========================================================================
     wire [7:0] fetched_weight = weight_mem[s1_weight_addr];
 
-    // Inline dequantizer: INT4 → INT8
-    wire [3:0] int4_val = fetched_weight[3:0];
-    wire [7:0] dequant_result = (int4_val * dq_scale) + {4'd0, dq_offset};
+    // Inline dequantizer: full 8-bit weight scaling
+    wire [15:0] scaled_weight = fetched_weight * dq_scale;
+    wire [7:0] dequant_result = scaled_weight[11:4] + {4'd0, dq_offset};
 
     always @(posedge clk) begin
         if (rst) begin

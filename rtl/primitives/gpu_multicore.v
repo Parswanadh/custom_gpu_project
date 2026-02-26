@@ -116,30 +116,43 @@ module gpu_multicore #(
     end
     assign any_valid_out = any_valid_reg;
 
-    // Sum accumulators from all cores
+    // Combinational: sum all core accumulators (no race condition)
+    reg [31:0] accum_sum;
     integer si;
+    always @(*) begin
+        accum_sum = 32'd0;
+        for (si = 0; si < NUM_CORES; si = si + 1)
+            accum_sum = accum_sum + core_accumulator[si];  // blocking = correct!
+    end
+
+    // Combinational: count products and zero-skips this cycle
+    reg [31:0] cycle_products;
+    reg [31:0] cycle_zero_skips;
+    integer ci, zi;
+    always @(*) begin
+        cycle_products = 32'd0;
+        cycle_zero_skips = 32'd0;
+        for (ci = 0; ci < NUM_CORES; ci = ci + 1) begin
+            if (core_valid_out[ci]) begin
+                cycle_products = cycle_products + LANES_PER_CORE;
+                for (zi = 0; zi < LANES_PER_CORE; zi = zi + 1)
+                    if (core_zero_mask[ci][zi])
+                        cycle_zero_skips = cycle_zero_skips + 1;
+            end
+        end
+    end
+
+    // Sequential: register the aggregated values
     always @(posedge clk) begin
         if (rst) begin
             total_accumulator  <= 32'd0;
             total_products_out <= 32'd0;
             total_zero_skips   <= 32'd0;
         end else begin
-            // Sum all core accumulators
-            total_accumulator <= 32'd0;
-            for (si = 0; si < NUM_CORES; si = si + 1)
-                total_accumulator <= total_accumulator + core_accumulator[si];
-
-            // Count products and zero-skips across all cores
+            total_accumulator  <= accum_sum;
             if (any_valid_reg) begin
-                for (si = 0; si < NUM_CORES; si = si + 1) begin
-                    if (core_valid_out[si]) begin
-                        total_products_out <= total_products_out + LANES_PER_CORE;
-                        // Count set bits in zero_skip_mask
-                        for (ai = 0; ai < LANES_PER_CORE; ai = ai + 1)
-                            if (core_zero_mask[si][ai])
-                                total_zero_skips <= total_zero_skips + 1;
-                    end
-                end
+                total_products_out <= total_products_out + cycle_products;
+                total_zero_skips   <= total_zero_skips + cycle_zero_skips;
             end
         end
     end
