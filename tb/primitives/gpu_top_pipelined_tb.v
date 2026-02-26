@@ -41,6 +41,7 @@ module gpu_top_pipelined_tb;
     integer cycles_to_first_result;
     integer total_cycles;
     integer zero_skip_count;
+    integer op;
 
     initial begin
         $display("=== GPU Top Pipelined Testbench ===");
@@ -89,7 +90,6 @@ module gpu_top_pipelined_tb;
         fork
             // Producer: feed inputs every cycle
             begin
-                integer op;
                 for (op = 0; op < 16; op = op + 1) begin
                     @(posedge clk);
                     valid_in <= 1'b1;
