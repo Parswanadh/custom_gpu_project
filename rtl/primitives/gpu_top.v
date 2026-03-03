@@ -129,7 +129,7 @@ module gpu_top (
     assign zero_skipped = zero_skip_reg;
 
     // ---- Pipeline State Machine ----
-    always @(posedge clk or posedge rst) begin
+    always @(posedge clk) begin  // Synchronous reset (Issue #6)
         if (rst) begin
             state          <= IDLE;
             mem_read_en    <= 1'b0;

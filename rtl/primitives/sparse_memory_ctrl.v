@@ -1,13 +1,14 @@
 // ============================================================================
 // Module: sparse_memory_ctrl
-// Description: Compressed Sparse Row (CSR) format memory controller.
-//   Stores only non-zero values and their indices. On read, searches for
-//   the requested index; returns the value if found, or 0 if not found.
+// Description: Direct-mapped sparse memory controller with CSR-like interface.
+//   FIXES: Synchronous reset (#6), direct-mapped storage instead of linear
+//   search (#4 - sparse_memory_ctrl O(n) issue). Now uses direct-mapped
+//   array for O(1) read access. Still tracks num_stored for compatibility.
 // ============================================================================
 module sparse_memory_ctrl #(
-    parameter MAX_VALUES  = 16,   // Maximum non-zero values stored
-    parameter DATA_WIDTH  = 8,    // Bits per value
-    parameter INDEX_WIDTH = 4     // Bits per index (supports 2^4 = 16 positions)
+    parameter MAX_VALUES  = 16,
+    parameter DATA_WIDTH  = 8,
+    parameter INDEX_WIDTH = 4
 )(
     input  wire                    clk,
     input  wire                    rst,
@@ -21,52 +22,42 @@ module sparse_memory_ctrl #(
     output reg  [DATA_WIDTH-1:0]   read_data,
     output reg                     valid_out,
     // Status
-    output reg  [$clog2(MAX_VALUES):0] num_stored  // Number of entries stored
+    output reg  [$clog2(MAX_VALUES):0] num_stored
 );
 
-    // Storage arrays
-    reg [DATA_WIDTH-1:0]   values  [0:MAX_VALUES-1];
-    reg [INDEX_WIDTH-1:0]  indices [0:MAX_VALUES-1];
+    // Direct-mapped storage (O(1) read instead of O(n) search)
+    reg [DATA_WIDTH-1:0] values [0:MAX_VALUES-1];
+    reg                  occupied [0:MAX_VALUES-1];
 
-    // Write pointer
-    reg [$clog2(MAX_VALUES):0] write_ptr;
-
-    // Search variables
     integer i;
-    reg found;
 
-    always @(posedge clk or posedge rst) begin
+    always @(posedge clk) begin  // Synchronous reset
         if (rst) begin
-            write_ptr  <= 0;
             num_stored <= 0;
             read_data  <= {DATA_WIDTH{1'b0}};
             valid_out  <= 1'b0;
-            // Clear storage
             for (i = 0; i < MAX_VALUES; i = i + 1) begin
-                values[i]  <= {DATA_WIDTH{1'b0}};
-                indices[i] <= {INDEX_WIDTH{1'b0}};
+                values[i]   <= {DATA_WIDTH{1'b0}};
+                occupied[i] <= 1'b0;
             end
         end else begin
-            valid_out <= 1'b0;  // Default
+            valid_out <= 1'b0;
 
-            // Write operation: store value + index pair
-            if (write_en && write_ptr < MAX_VALUES) begin
-                values[write_ptr]  <= write_val;
-                indices[write_ptr] <= write_idx;
-                write_ptr  <= write_ptr + 1;
-                num_stored <= write_ptr + 1;
+            // Write: direct-mapped by index
+            if (write_en) begin
+                values[write_idx] <= write_val;
+                if (!occupied[write_idx]) begin
+                    occupied[write_idx] <= 1'b1;
+                    num_stored <= num_stored + 1;
+                end
             end
 
-            // Read operation: linear search through stored indices
+            // Read: O(1) direct access
             if (read_en) begin
-                found = 1'b0;
-                read_data <= {DATA_WIDTH{1'b0}};  // Default: zero
-                for (i = 0; i < MAX_VALUES; i = i + 1) begin
-                    if (i < write_ptr && indices[i] == read_idx && !found) begin
-                        read_data <= values[i];
-                        found = 1'b1;
-                    end
-                end
+                if (occupied[read_idx])
+                    read_data <= values[read_idx];
+                else
+                    read_data <= {DATA_WIDTH{1'b0}};
                 valid_out <= 1'b1;
             end
         end

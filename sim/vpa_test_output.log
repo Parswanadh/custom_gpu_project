@@ -1,0 +1,17 @@
+VCD info: dumpfile sim/waveforms/variable_precision_alu.vcd opened for output.
+============================================
+  Variable Precision ALU Testbench
+============================================
+[PASS] 4-bit: 0x3251 * 0x4162
+[PASS] 4-bit: all 1s * all 2s
+[PASS] 8-bit: {10,5} * {3,4}
+[PASS] 16-bit: 100 * 200 = 20000
+[PASS] 16-bit: -1 * -1 = 1 (signed)
+[PASS] 4-bit: all zeros
+[PASS] Q4: w=[1,2,3,4] act=[10,20]
+[PASS] Q4: w=[-1,-2,3,4] act=[10,-5]
+[PASS] Q4: w=[0,7,-8,0] act=[1,1]
+============================================
+  Results: 9 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/primitives/variable_precision_alu_tb.v:125: $finish called at 320000 (1ps)

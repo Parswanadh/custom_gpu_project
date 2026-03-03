@@ -23,6 +23,9 @@ module gpu_top_pipelined_tb;
     wire        zero_skipped;
     wire [4:0]  pipe_active;
 
+    reg         downstream_ready;
+    wire        ready;
+
     gpu_top_pipelined uut (
         .clk(clk), .rst(rst),
         .mode(mode), .dq_scale(dq_scale), .dq_offset(dq_offset),
@@ -30,6 +33,8 @@ module gpu_top_pipelined_tb;
         .mem_write_idx(mem_write_idx),
         .valid_in(valid_in), .weight_addr(weight_addr),
         .activation_in(activation_in),
+        .downstream_ready(downstream_ready),
+        .ready(ready),
         .result_out(result_out), .valid_out(valid_out),
         .zero_skipped(zero_skipped), .pipe_active(pipe_active)
     );
@@ -52,6 +57,7 @@ module gpu_top_pipelined_tb;
         dq_scale = 4'd2; dq_offset = 4'd0;
         mem_write_en = 0; valid_in = 0;
         weight_addr = 0; activation_in = 0;
+        downstream_ready = 1;
         results_count = 0;
         cycles_to_first_result = 0;
         zero_skip_count = 0;

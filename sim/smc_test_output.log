@@ -1,0 +1,15 @@
+VCD info: dumpfile sim/waveforms/sparse_memory_ctrl.vcd opened for output.
+============================================
+  Sparse Memory Controller Testbench
+============================================
+Stored 3 entries
+[PASS] Read stored pos 0 | idx=0 => data=50
+[PASS] Read stored pos 3 | idx=3 => data=30
+[PASS] Read stored pos 7 | idx=7 => data=70
+[PASS] Read missing pos 1 => 0 | idx=1 => data=0
+[PASS] Read missing pos 5 => 0 | idx=5 => data=0
+[PASS] Read missing pos 15 => 0 | idx=15 => data=0
+============================================
+  Results: 6 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/primitives/sparse_memory_ctrl_tb.v:116: $finish called at 286000 (1ps)

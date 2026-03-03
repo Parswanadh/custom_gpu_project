@@ -1,0 +1,34 @@
+============================================
+  Performance Counters Testbench
+============================================
+[PASS] Reset cycle count: counter[0] = 0
+[PASS] Reset zero-skip: counter[4] = 0
+
+[2] Running counters for 10 cycles...
+[PASS] Cycle count after 10: counter[0] = 10
+
+[3] Testing active cycle counter...
+[PASS] Active cycles: counter[1] = 5
+
+[4] Testing stall cycle counter...
+[PASS] Stall cycles: counter[2] = 7
+
+[5] Testing MAC counter...
+[PASS] Total MACs (100*3): counter[3] = 300
+
+[6] Testing zero-skip counter...
+[PASS] Zero-skips (42+8): counter[4] = 50
+
+[7] Testing memory counters...
+[PASS] Memory reads: counter[5] = 4
+[PASS] Memory writes: counter[6] = 2
+
+[8] Testing parity error counter...
+[PASS] Parity errors: counter[7] = 1
+
+[9] Testing direct output wires...
+[PASS] Direct outputs: cycle_count=3, zero_skip_total=0, mac_total=0
+============================================
+  Results: 11 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/top/perf_counters_tb.v:191: $finish called at 587000 (1ps)

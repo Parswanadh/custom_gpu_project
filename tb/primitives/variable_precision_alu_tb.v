@@ -81,13 +81,42 @@ module variable_precision_alu_tb;
             {32'd0, 32'd20000},
             "16-bit: 100 * 200 = 20000");
 
+        // Signed 16-bit: 0xFFFF = -1, so -1 * -1 = 1
         apply_and_check(16'hFFFF, 16'hFFFF, 2'b10,
-            {32'd0, 32'hFFFE0001},
-            "16-bit: max values");
+            {32'd0, 32'd1},
+            "16-bit: -1 * -1 = 1 (signed)");
 
         apply_and_check(16'h0000, 16'h0000, 2'b00,
             64'd0,
             "4-bit: all zeros");
+
+        // Mode 11: Q4 inference — INT4 weights × INT8 activations
+        // Test 1: w=[1,2,3,4] act=[10,20]
+        //   a = {4'd4, 4'd3, 4'd2, 4'd1} = 16'h4321
+        //   b = {8'd20, 8'd10}            = 16'h140A
+        //   prod0=1*10=10, prod1=2*10=20, prod2=3*20=60, prod3=4*20=80
+        apply_and_check(16'h4321, 16'h140A, 2'b11,
+            {16'd80, 16'd60, 16'd20, 16'd10},
+            "Q4: w=[1,2,3,4] act=[10,20]");
+
+        // Test 2: w=[-1,-2,3,4] act=[10,-5]
+        //   -1 = 4'hF, -2 = 4'hE, 3 = 4'h3, 4 = 4'h4
+        //   a = {4'h4, 4'h3, 4'hE, 4'hF} = 16'h43EF
+        //   -5 = 8'hFB, 10 = 8'h0A
+        //   b = {8'hFB, 8'h0A}            = 16'hFB0A
+        //   prod0=-1*10=-10, prod1=-2*10=-20, prod2=3*(-5)=-15, prod3=4*(-5)=-20
+        apply_and_check(16'h43EF, 16'hFB0A, 2'b11,
+            {-16'sd20, -16'sd15, -16'sd20, -16'sd10},
+            "Q4: w=[-1,-2,3,4] act=[10,-5]");
+
+        // Test 3: w=[0,7,-8,0] act=[1,1]
+        //   0=4'h0, 7=4'h7, -8=4'h8, 0=4'h0
+        //   a = {4'h0, 4'h8, 4'h7, 4'h0} = 16'h0870
+        //   b = {8'h01, 8'h01}            = 16'h0101
+        //   prod0=0*1=0, prod1=7*1=7, prod2=-8*1=-8, prod3=0*1=0
+        apply_and_check(16'h0870, 16'h0101, 2'b11,
+            {16'd0, -16'sd8, 16'd7, 16'd0},
+            "Q4: w=[0,7,-8,0] act=[1,1]");
 
         #20;
         $display("============================================");

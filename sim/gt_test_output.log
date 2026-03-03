@@ -1,0 +1,18 @@
+VCD info: dumpfile sim/waveforms/gpu_top.vcd opened for output.
+============================================
+  GPU Top-Level Pipeline Testbench
+============================================
+[INFO] Weight=6 dq=12, act=5 | addr=0 act=5 => result=60 skipped=0 (cycles=7)
+[PASS] Weight=6 dq=12, act=5
+[INFO] Weight=10 dq=20, act=3 | addr=3 act=3 => result=60 skipped=0 (cycles=7)
+[PASS] Weight=10 dq=20, act=3
+[INFO] Weight=0 dq=0 SKIP | addr=7 act=9 => result=0 skipped=1 (cycles=7)
+[PASS] Weight=0 dq=0 SKIP
+[INFO] Missing weight SKIP | addr=5 act=4 => result=0 skipped=1 (cycles=7)
+[PASS] Missing weight SKIP
+[INFO] Zero activation SKIP | addr=0 act=0 => result=0 skipped=1 (cycles=7)
+[PASS] Zero activation SKIP
+============================================
+  Results: 5 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/primitives/gpu_top_tb.v:133: $finish called at 740000 (1ps)

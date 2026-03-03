@@ -40,8 +40,10 @@ module gelu_activation_tb;
             $display("[INFO] %0s | x=%.3f (0x%04h) => y=%.3f (0x%04h) valid=%b",
                      test_name, x_real, x_val[15:0], y_real, y_out[15:0], valid_out);
             if (valid_out) begin
+                $display("[PASS] %0s | x=%.3f => y=%.3f", test_name, x_real, y_real);
                 pass_count = pass_count + 1;
             end else begin
+                $display("[FAIL] %0s | x=%.3f => y=%.3f (valid_out=0)", test_name, x_real, y_real);
                 fail_count = fail_count + 1;
             end
         end

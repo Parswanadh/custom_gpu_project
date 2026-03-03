@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BitbyBit — Custom GPU Accelerator for LLM Inference</title>
+    <meta name="description"
+        content="A custom GPU accelerator for on-device LLM inference, built from scratch in Verilog. 28 hand-designed RTL modules, 5-stage pipelined compute, KV-cached attention.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+
+    <!-- ========== NAVIGATION ========== -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="#" class="nav-logo gradient-text">BitbyBit</a>
+            <ul class="nav-links">
+                <li><a href="#architecture">Architecture</a></li>
+                <li><a href="#how-it-works">How It Works</a></li>
+                <li><a href="#tech">Technologies</a></li>
+                <li><a href="#results">Results</a></li>
+                <li><a href="#modules">Modules</a></li>
+            </ul>
+            <button class="nav-toggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ========== HERO ========== -->
+    <section class="hero" id="hero">
+        <div class="hero-bg"></div>
+        <canvas id="particle-canvas"></canvas>
+        <div class="hero-orb hero-orb-1"></div>
+        <div class="hero-orb hero-orb-2"></div>
+        <div class="hero-orb hero-orb-3"></div>
+        <div class="hero-content">
+            <div class="hero-badge"><span class="pulse"></span> All 6 Test Suites Passing</div>
+            <h1 class="gradient-text">BitbyBit</h1>
+            <p class="hero-tagline">A custom GPU accelerator for on-device LLM inference, built from scratch in Verilog
+            </p>
+            <p
+                style="color:var(--text-muted);font-size:0.95rem;margin-bottom:2rem;animation:fadeInUp 0.8s ease-out 0.25s both;">
+                Built from the gate level up — not using NVIDIA CUDA or any existing GPU framework.<br>Every component
+                hand-designed in Verilog RTL.</p>
+            <div class="hero-cta">
+                <a href="#architecture" class="btn btn-primary">Explore Architecture</a>
+                <a href="#results" class="btn btn-secondary">View Results</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== STATS BAR ========== -->
+    <section class="stats-bar">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-item reveal">
+                    <div class="stat-number blue" data-count="28">0</div>
+                    <div class="stat-label">Verilog Modules</div>
+                    <div class="stat-source">Hand-designed RTL</div>
+                </div>
+                <div class="stat-item reveal reveal-delay-1">
+                    <div class="stat-number green" data-count="6">0</div>
+                    <div class="stat-label">Test Suites Passing</div>
+                    <div class="stat-source">Verified via simulation</div>
+                </div>
+                <div class="stat-item reveal reveal-delay-2">
+                    <div class="stat-number cyan" data-count="5">0</div>
+                    <div class="stat-label">Pipeline Stages</div>
+                    <div class="stat-source">gpu_core.v source</div>
+                </div>
+                <div class="stat-item reveal reveal-delay-3">
+                    <div class="stat-number amber" data-count="128">0</div>
+                    <div class="stat-label">Wide Parallel Ops</div>
+                    <div class="stat-source">Standalone benchmark</div>
+                </div>
+                <div class="stat-item reveal reveal-delay-4">
+                    <div class="stat-number green" data-count="7">0</div>
+                    <div class="stat-label">Bugs Found &amp; Fixed</div>
+                    <div class="stat-source">Development audit</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== ARCHITECTURE ========== -->
+    <section class="architecture" id="architecture">
+        <div class="container">
+            <h2 class="section-title reveal"><span class="gradient-text">System Architecture</span></h2>
+            <p class="section-subtitle reveal">5 major components working together — from token input to predicted
+                output. Every module hand-designed in Verilog IEEE 1364-2005.</p>
+            <div class="arch-diagram-container reveal">
+                <div class="arch-diagram" id="arch-svg-container"></div>
+            </div>
+            <div class="arch-components">
+                <div class="arch-card reveal">
+                    <div class="arch-card-number">1</div>
+                    <h3>AXI Weight Memory</h3>
+                    <p>External interface for loading model weights via standard AXI4-Lite bus protocol. 4KB SRAM with
+                        control/status registers. Verified write 0xDEADBEEF → read 0xDEADBEEF.</p>
+                </div>
+                <div class="arch-card reveal reveal-delay-1">
+                    <div class="arch-card-number">2</div>
+                    <h3>Embedding Lookup</h3>
+                    <p>Converts token IDs into embedding vectors. Stores both token embeddings (vocabulary) and position
+                        embeddings (sequence position).</p>
+                </div>
+                <div class="arch-card reveal reveal-delay-2">
+                    <div class="arch-card-number">3</div>
+                    <h3>Accelerated Transformer Block</h3>
+                    <p>The core computation unit. Pre-LayerNorm architecture with Layer Normalization (×2), KV-Cached
+                        Multi-Token Attention, Feed-Forward Network powered by GPU Core pipeline (4 lanes), and residual
+                        connections.</p>
+                </div>
+                <div class="arch-card reveal reveal-delay-3">
+                    <div class="arch-card-number">4</div>
+                    <h3>GPU Multi-Core Pipeline</h3>
+                    <p>Configurable compute engine. Exploits zero-value sparsity to skip unnecessary multiplications.
+                        Tested standalone at 4 cores × 32 lanes = 128-wide parallel processing.</p>
+                </div>
+                <div class="arch-card reveal reveal-delay-4">
+                    <div class="arch-card-number">5</div>
+                    <h3>GPT-2 Engine</h3>
+                    <p>Top-level orchestrator. Feeds tokens through embedding → N transformer layers → final
+                        normalization → argmax → predicted next token.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== HOW IT WORKS ========== -->
+    <section class="how-it-works" id="how-it-works">
+        <div class="container">
+            <h2 class="section-title reveal"><span class="gradient-text">How It Works</span></h2>
+            <p class="section-subtitle reveal">From a simple token ID to a predicted next token — 10 stages of
+                hardware-accelerated inference.</p>
+            <div class="flow-pipeline">
+                <div class="flow-step reveal">
+                    <div class="flow-step-number">1</div>
+                    <div class="flow-step-content">
+                        <h4>Token Input</h4>
+                        <p>A token enters the system as a simple integer (e.g., "5")</p>
+                    </div>
+                </div>
+                <div class="flow-step reveal reveal-delay-1">
+                    <div class="flow-step-number">2</div>
+                    <div class="flow-step-content">
+                        <h4>Embedding Lookup</h4>
+                        <p>The embedding table converts it to a vector of numbers</p>
+                    </div>
+                </div>
+                <div class="flow-step reveal reveal-delay-1">
+                    <div class="flow-step-number">3</div>
+                    <div class="flow-step-content">
+                        <h4>Layer Normalization</h4>
+                        <p>Scales the values to a stable range (mean=0, std=1)</p>
+                    </div>
+                </div>
+                <div class="flow-step reveal reveal-delay-2">
+                    <div class="flow-step-number">4</div>
+                    <div class="flow-step-content">
+                        <h4>Attention Scoring</h4>
+                        <p>The attention mechanism scores every past token and produces a weighted context</p>
+                    </div>
+                </div>
+                <div class="flow-step reveal reveal-delay-2">
+                    <div class="flow-step-number">5</div>
+                    <div class="flow-step-content">
+                        <h4>KV Cache Store</h4>
+                        <p>This token's Key and Value are stored for future tokens to reference</p>
+                    </div>
+                </div>
+                <div class="flow-step reveal reveal-delay-3">
+                    <div class="flow-step-number">6</div>
+                    <div class="flow-step-content">
+                        <h4>GPU Core FFN</h4>
+                        <p>The feed-forward network, powered by the pipelined GPU core, transforms the representation
+                        </p>
+                    </div>
+                </div>
+                <div class="flow-step reveal reveal-delay-3">
+                    <div class="flow-step-number">7</div>
+                    <div class="flow-step-content">
+                        <h4>Zero-Skip Detection</h4>
+                        <p>Avoids multiplying by zero — saving power on every skipped operation</p>
+                    </div>
+                </div>
+                <div class="flow-step reveal reveal-delay-4">
+                    <div class="flow-step-number">8</div>
+                    <div class="flow-step-content">
+                        <h4>Residual Connections</h4>
+                        <p>Preserve the original signal through each layer</p>
+                    </div>
+                </div>
+                <div class="flow-step reveal reveal-delay-4">
+                    <div class="flow-step-number">9</div>
+                    <div class="flow-step-content">
+                        <h4>Final Normalization &amp; Argmax</h4>
+                        <p>After all layers, produces the predicted next token</p>
+                    </div>
+                </div>
+                <div class="flow-step reveal reveal-delay-5">
+                    <div class="flow-step-number">10</div>
+                    <div class="flow-step-content">
+                        <h4>Autoregressive Repeat</h4>
+                        <p>The process repeats for the next token, with the KV cache growing each time</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== CORE TECHNOLOGIES ========== -->
+    <section class="core-tech" id="tech">
+        <div class="container">
+            <h2 class="section-title reveal"><span class="gradient-text">Core Technologies</span></h2>
+            <p class="section-subtitle reveal">Click any card to explore the verified technical details and simulation
+                data.</p>
+            <div class="tech-grid">
+
+                <!-- 1. Pipelined GPU Core -->
+                <div class="tech-card reveal">
+                    <div class="tech-card-header">
+                        <div class="tech-icon pipeline">⚡</div>
+                        <h3>Pipelined GPU Core</h3>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="tech-card-body">
+                        <div class="tech-card-body-inner">
+                            <p>5-stage multiply-accumulate pipeline with configurable parallelism. Verified from
+                                <code>gpu_core.v</code> source.
+                            </p>
+                            <div class="pipeline-visual">
+                                <div class="pipeline-stage">
+                                    <div class="pipeline-stage-num">1</div>
+                                    <div class="pipeline-stage-name">Fetch</div>
+                                    <div class="pipeline-stage-desc">Read N weights simultaneously</div>
+                                </div>
+                                <div class="pipeline-stage">
+                                    <div class="pipeline-stage-num">2</div>
+                                    <div class="pipeline-stage-name">Dequant</div>
+                                    <div class="pipeline-stage-desc">Scale via config offset</div>
+                                </div>
+                                <div class="pipeline-stage">
+                                    <div class="pipeline-stage-num">3</div>
+                                    <div class="pipeline-stage-name">Zero Check</div>
+                                    <div class="pipeline-stage-desc">Detect zero values</div>
+                                </div>
+                                <div class="pipeline-stage">
+                                    <div class="pipeline-stage-num">4</div>
+                                    <div class="pipeline-stage-name">ALU</div>
+                                    <div class="pipeline-stage-desc">Multiply or skip if zero</div>
+                                </div>
+                                <div class="pipeline-stage">
+                                    <div class="pipeline-stage-num">5</div>
+                                    <div class="pipeline-stage-name">Writeback</div>
+                                    <div class="pipeline-stage-desc">Sum &amp; accumulate</div>
+                                </div>
+                            </div>
+                            <p>LANES parameter tested with 4 and 32. Pipeline latency: 5 clock cycles to fill, then 1
+                                set of results per cycle. Inside transformer: 1 core × 4 lanes. Standalone benchmark: 4
+                                cores × 32 lanes = 128-wide.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Zero-Skip -->
+                <div class="tech-card reveal reveal-delay-1">
+                    <div class="tech-card-header">
+                        <div class="tech-icon zeroskip">🎯</div>
+                        <h3>Zero-Skip Optimization</h3>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="tech-card-body">
+                        <div class="tech-card-body-inner">
+                            <p>Detects when a weight or activation is zero and skips the multiplication entirely. ReLU
+                                outputs zero for all negative inputs; small weights round to zero after quantization.
+                            </p>
+                            <p>Hardware implementation: single combinational NOR gate checks all 8 bits simultaneously
+                                within a fraction of the clock period.</p>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Configuration</th>
+                                        <th>Zero-Skips</th>
+                                        <th>Source</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>1-layer, synthetic weights</td>
+                                        <td class="mono">42</td>
+                                        <td>accelerated_gpt2_engine_tb</td>
+                                    </tr>
+                                    <tr>
+                                        <td>2-layer, synthetic weights</td>
+                                        <td class="mono">132</td>
+                                        <td>multi_layer_test</td>
+                                    </tr>
+                                    <tr>
+                                        <td>1-layer, real GPT-2 weights</td>
+                                        <td class="mono">32</td>
+                                        <td>real_weight_test</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Multi-core (128-wide)</td>
+                                        <td class="mono">96 / 256</td>
+                                        <td>gpu_multicore_tb</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. KV-Cached Attention -->
+                <div class="tech-card reveal reveal-delay-2">
+                    <div class="tech-card-header">
+                        <div class="tech-icon attention">🧠</div>
+                        <h3>KV-Cached Attention</h3>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="tech-card-body">
+                        <div class="tech-card-body-inner">
+                            <p>Implements the Transformer attention mechanism with persistent key-value cache for
+                                autoregressive generation. From <code>accelerated_attention.v</code>.</p>
+                            <p>Each token produces Q, K, V via matrix multiplication. Query scores against all past
+                                Keys, softmax converts to probabilities, output is weighted sum of past Values. K and V
+                                cached to avoid recomputation.</p>
+                            <p><strong>Max sequence length:</strong> configurable (default 32).
+                                <strong>Softmax:</strong> 256-entry exp() LUT.
+                            </p>
+                            <p><strong>Verified output:</strong> Token 1 input [512,128,384,64] → Output
+                                [495,135,375,75], zero-skips=2. Source: <code>accelerated_attention_tb</code>.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Softmax LUT -->
+                <div class="tech-card reveal reveal-delay-3">
+                    <div class="tech-card-header">
+                        <div class="tech-icon softmax">📊</div>
+                        <h3>Softmax Exponential LUT</h3>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="tech-card-body">
+                        <div class="tech-card-body-inner">
+                            <p>256 entries: <code>LUT[k] = round(255 × exp(-k/64))</code>. All values generated by
+                                Python <code>math.exp()</code> — identical for every hardware deployment.</p>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>LUT Index (k)</th>
+                                        <th>Real Value</th>
+                                        <th>LUT Output</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="mono">0</td>
+                                        <td>exp(0) = 1.000</td>
+                                        <td class="mono">255</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="mono">64</td>
+                                        <td>exp(-1.0) = 0.3679</td>
+                                        <td class="mono">94</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="mono">128</td>
+                                        <td>exp(-2.0) = 0.1353</td>
+                                        <td class="mono">35</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="mono">192</td>
+                                        <td>exp(-3.0) = 0.0498</td>
+                                        <td class="mono">13</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="mono">255</td>
+                                        <td>exp(-3.98) = 0.0187</td>
+                                        <td class="mono">5</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p>Max rounding error: ±1 out of 255 (±0.4%). Replaced earlier linear approximation which
+                                was much less accurate.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. Q8.8 Fixed-Point -->
+                <div class="tech-card reveal reveal-delay-4">
+                    <div class="tech-card-header">
+                        <div class="tech-icon fixedpt">🔢</div>
+                        <h3>Q8.8 Fixed-Point Arithmetic</h3>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="tech-card-body">
+                        <div class="tech-card-body-inner">
+                            <p>16-bit integers: 8 bits integer, 8 bits fractional. Simpler hardware than float32 — fewer
+                                gates, lower latency, less power.</p>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Property</th>
+                                        <th>Float32</th>
+                                        <th>Q8.8 (Ours)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Total bits</td>
+                                        <td class="mono">32</td>
+                                        <td class="mono">16</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Memory per weight</td>
+                                        <td class="mono">4 bytes</td>
+                                        <td class="mono">2 bytes</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Value range</td>
+                                        <td class="mono">±3.4 × 10³⁸</td>
+                                        <td class="mono">±127.996</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Precision</td>
+                                        <td class="mono">~7 digits</td>
+                                        <td class="mono">~2.4 digits</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p>Store: multiply by 256, keep as int. Add: just add (scale cancels). Multiply: multiply
+                                ints, shift right 8.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. AXI4-Lite -->
+                <div class="tech-card reveal reveal-delay-5">
+                    <div class="tech-card-header">
+                        <div class="tech-icon axi">🔌</div>
+                        <h3>AXI4-Lite Memory Interface</h3>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="tech-card-body">
+                        <div class="tech-card-body-inner">
+                            <p>Standard bus interface for CPU/DMA to load model weights into GPU on-chip memory. From
+                                <code>axi_weight_memory.v</code>.
+                            </p>
+                            <p><strong>Protocol:</strong> AXI4-Lite. <strong>Address width:</strong> 16 bits.
+                                <strong>Data width:</strong> 32 bits. <strong>Weight memory:</strong> 4,096 bytes (4KB)
+                                on-chip SRAM.
+                            </p>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Address</th>
+                                        <th>Type</th>
+                                        <th>Name</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="mono">0x0000–0x0FFF</td>
+                                        <td>R/W</td>
+                                        <td>Weight Memory</td>
+                                        <td>4KB of 8-bit weights</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="mono">0x1000</td>
+                                        <td>Write</td>
+                                        <td>Control</td>
+                                        <td>Bit 0: Start inference</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="mono">0x1004</td>
+                                        <td>Read</td>
+                                        <td>Status</td>
+                                        <td>Bit 0: Busy, Bit 1: Done</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="mono">0x1008</td>
+                                        <td>Read</td>
+                                        <td>Weight Count</td>
+                                        <td>Number loaded</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="mono">0x100C</td>
+                                        <td>Read</td>
+                                        <td>Zero-Skip Count</td>
+                                        <td>Total during inference</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. Multi-Core -->
+                <div class="tech-card reveal">
+                    <div class="tech-card-header">
+                        <div class="tech-icon multicore">🚀</div>
+                        <h3>Multi-Core Architecture</h3>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="tech-card-body">
+                        <div class="tech-card-body-inner">
+                            <p>Scales compute by running multiple GPU cores in parallel — same activation broadcast to
+                                all cores, different weights (broadcast topology).</p>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Metric</th>
+                                        <th>Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Configuration</td>
+                                        <td class="mono">4 cores × 32 lanes</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Parallel ops/cycle</td>
+                                        <td class="mono">128</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Total products</td>
+                                        <td class="mono">256</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Zero-skipped</td>
+                                        <td class="mono">96 (37.5%)</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Result</td>
+                                        <td><span style="color:var(--accent-green);font-weight:700;">PASSED ✅</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p><em>Tested standalone. Transformer currently uses single gpu_core with 4 lanes matching
+                                    test EMBED_DIM=4.</em></p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== SIMULATION RESULTS ========== -->
+    <section class="sim-results" id="results">
+        <div class="container">
+            <h2 class="section-title reveal"><span class="gradient-text">Simulation Results</span></h2>
+            <p class="section-subtitle reveal">All 6 test suites verified via Icarus Verilog simulation. Every number
+                below comes directly from simulation output.</p>
+            <div class="results-grid">
+
+                <div class="result-card reveal">
+                    <div class="result-card-header">
+                        <h3>Test 1: Multi-Core Pipeline</h3><span class="badge-passed">✅ PASSED</span>
+                    </div>
+                    <div class="result-metrics">
+                        <div class="result-metric"><span class="result-metric-label">Configuration</span><span
+                                class="result-metric-value">4 cores × 32 lanes</span></div>
+                        <div class="result-metric"><span class="result-metric-label">Parallel ops/cycle</span><span
+                                class="result-metric-value">128</span></div>
+                        <div class="result-metric"><span class="result-metric-label">Total products</span><span
+                                class="result-metric-value">256</span></div>
+                        <div class="result-metric"><span class="result-metric-label">Zero-skipped</span><span
+                                class="result-metric-value">96 (37.5%)</span></div>
+                    </div>
+                </div>
+
+                <div class="result-card reveal reveal-delay-1">
+                    <div class="result-card-header">
+                        <h3>Test 2: Accelerated Attention</h3><span class="badge-passed">✅ PASSED</span>
+                    </div>
+                    <div class="result-metrics">
+                        <div class="result-metric"><span class="result-metric-label">Token 0 cycles</span><span
+                                class="result-metric-value">12</span></div>
+                        <div class="result-metric"><span class="result-metric-label">Token 1 input</span><span
+                                class="result-metric-value">[512,128,384,64]</span></div>
+                        <div class="result-metric"><span class="result-metric-label">Token 1 output</span><span
+                                class="result-metric-value">[495,135,375,75]</span></div>
+                        <div class="result-metric"><span class="result-metric-label">Token 1 zero-skips</span><span
+                                class="result-metric-value">2</span></div>
+                    </div>
+                </div>
+
+                <div class="result-card reveal reveal-delay-2">
+                    <div class="result-card-header">
+                        <h3>Test 3: Full GPT-2 (1 Layer)</h3><span class="badge-passed">✅ PASSED</span>
+                    </div>
+                    <div class="result-metrics">
+                        <div class="result-metric"><span class="result-metric-label">Tokens generated</span><span
+                                class="result-metric-value">3 (autoregressive)</span></div>
+                        <div class="result-metric"><span class="result-metric-label">Total cycles</span><span
+                                class="result-metric-value">1,070</span></div>
+                        <div class="result-metric"><span class="result-metric-label">Total zero-skips</span><span
+                                class="result-metric-value">42</span></div>
+                        <div class="result-metric"><span class="result-metric-label">FFN engine</span><span
+                                class="result-metric-value">gpu_core, 4 lanes</span></div>
+                    </div>
+                </div>
+
+                <div class="result-card reveal reveal-delay-3">
+                    <div class="result-card-header">
+                        <h3>Test 4: Multi-Layer (2 Layers)</h3><span class="badge-passed">✅ PASSED</span>
+                    </div>
+                    <div class="result-metrics">
+                        <div class="result-metric"><span class="result-metric-label">Tokens generated</span><span
+                                class="result-metric-value">4 (autoregressive)</span></div>
+                        <div class="result-metric"><span class="result-metric-label">Total cycles</span><span
+                                class="result-metric-value">2,614</span></div>
+                        <div class="result-metric"><span class="result-metric-label">Total zero-skips</span><span
+                                class="result-metric-value">132</span></div>
+                    </div>
+                </div>
+
+                <div class="result-card reveal reveal-delay-4">
+                    <div class="result-card-header">
+                        <h3>Test 5: Real GPT-2 Weights</h3><span class="badge-passed">✅ PASSED</span>
+                    </div>
+                    <div class="result-metrics">
+                        <div class="result-metric"><span class="result-metric-label">Weight source</span><span
+                                class="result-metric-value">GPT-2 117M params</span></div>
+                        <div class="result-metric"><span class="result-metric-label">Quantization</span><span
+                                class="result-metric-value">Q8.8 fixed-point</span></div>
+                        <div class="result-metric"><span class="result-metric-label">Total zero-skips</span><span
+                                class="result-metric-value">32</span></div>
+                    </div>
+                </div>
+
+                <div class="result-card reveal reveal-delay-5">
+                    <div class="result-card-header">
+                        <h3>Test 6: AXI4-Lite Interface</h3><span class="badge-passed">✅ ALL PASSED</span>
+                    </div>
+                    <div class="result-metrics">
+                        <div class="result-metric"><span class="result-metric-label">Write/Read 0xDEADBEEF</span><span
+                                class="result-metric-value">✅</span></div>
+                        <div class="result-metric"><span class="result-metric-label">Write/Read 0x12345678</span><span
+                                class="result-metric-value">✅</span></div>
+                        <div class="result-metric"><span class="result-metric-label">Weight count register</span><span
+                                class="result-metric-value">Accurate ✅</span></div>
+                        <div class="result-metric"><span class="result-metric-label">Start inference signal</span><span
+                                class="result-metric-value">Functional ✅</span></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== PERFORMANCE ========== -->
+    <section class="performance" id="performance">
+        <div class="container">
+            <h2 class="section-title reveal"><span class="gradient-text">Performance Numbers</span></h2>
+            <p class="section-subtitle reveal">Verified measurements from simulation alongside theoretical projections.
+                We clearly mark what is and isn't measured.</p>
+            <div class="perf-split">
+                <div class="perf-section verified reveal">
+                    <div class="perf-section-header">
+                        <h3>Verified</h3><span class="badge-verified">From Simulation</span>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Value</th>
+                                <th>Source</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Multi-core throughput</td>
+                                <td class="mono">128 products/cycle</td>
+                                <td>gpu_multicore_tb</td>
+                            </tr>
+                            <tr>
+                                <td>Token latency (1 layer)</td>
+                                <td class="mono">328 cycles</td>
+                                <td>accelerated_gpt2_engine_tb</td>
+                            </tr>
+                            <tr>
+                                <td>Token latency (2 layers)</td>
+                                <td class="mono">628 cycles</td>
+                                <td>multi_layer_test</td>
+                            </tr>
+                            <tr>
+                                <td>Zero-skips/token (synthetic)</td>
+                                <td class="mono">42</td>
+                                <td>accelerated_gpt2_engine_tb</td>
+                            </tr>
+                            <tr>
+                                <td>Zero-skips/token (real wts)</td>
+                                <td class="mono">32</td>
+                                <td>real_weight_test</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="perf-section projected reveal reveal-delay-2">
+                    <div class="perf-section-header">
+                        <h3>Projected</h3><span class="badge-projected">Not Verified</span>
+                    </div>
+                    <div class="perf-warning">⚠️ The following numbers have NOT been measured on actual hardware. They
+                        are theoretical projections. Treat as rough estimates only.</div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Projected</th>
+                                <th>Assumption</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Clock frequency</td>
+                                <td class="mono">100 MHz</td>
+                                <td>Typical mid-range FPGA</td>
+                            </tr>
+                            <tr>
+                                <td>Tokens/sec (1 layer)</td>
+                                <td class="mono">~305,000</td>
+                                <td>Assumes 100 MHz</td>
+                            </tr>
+                            <tr>
+                                <td>Tokens/sec (2 layers)</td>
+                                <td class="mono">~159,000</td>
+                                <td>Assumes 100 MHz</td>
+                            </tr>
+                            <tr>
+                                <td>Benchmark throughput</td>
+                                <td class="mono">12,800 MOPS</td>
+                                <td>100 MHz, standalone</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== BEFORE VS AFTER ========== -->
+    <section class="before-after" id="evolution">
+        <div class="container">
+            <h2 class="section-title reveal"><span class="gradient-text">Before vs After</span></h2>
+            <p class="section-subtitle reveal">Every issue found and fixed during development — transforming the
+                architecture from broken to verified.</p>
+            <div class="comparison-container">
+                <div class="comparison-col before reveal">
+                    <h3>❌ Before</h3>
+                    <div class="comparison-item"><span class="comparison-icon">✗</span>Attention was fake (output =
+                        input, no real Q·K^T)</div>
+                    <div class="comparison-item"><span class="comparison-icon">✗</span>Pipeline existed but was never
+                        used during inference</div>
+                    <div class="comparison-item"><span class="comparison-icon">✗</span>Dequantizer threw away half the
+                        weight data</div>
+                    <div class="comparison-item"><span class="comparison-icon">✗</span>Multi-core accumulator reported
+                        wrong numbers</div>
+                    <div class="comparison-item"><span class="comparison-icon">✗</span>Only tested with 1 layer and
+                        identity weights</div>
+                    <div class="comparison-item"><span class="comparison-icon">✗</span>Softmax used crude linear
+                        approximation</div>
+                    <div class="comparison-item"><span class="comparison-icon">✗</span>LUT values manually typed with
+                        5-80% errors</div>
+                    <div class="comparison-item"><span class="comparison-icon">✗</span>No external memory interface
+                    </div>
+                </div>
+                <div class="comparison-col after reveal reveal-delay-2">
+                    <h3>✅ After</h3>
+                    <div class="comparison-item"><span class="comparison-icon">✓</span>Real Q·K^T attention with KV
+                        cache and verified softmax</div>
+                    <div class="comparison-item"><span class="comparison-icon">✓</span>GPU core pipeline drives every
+                        FFN multiply-accumulate</div>
+                    <div class="comparison-item"><span class="comparison-icon">✓</span>Full 8-bit weight precision
+                        preserved</div>
+                    <div class="comparison-item"><span class="comparison-icon">✓</span>Correct multi-core aggregation
+                        verified</div>
+                    <div class="comparison-item"><span class="comparison-icon">✓</span>Tested with 1 &amp; 2 layers,
+                        plus real GPT-2 weights</div>
+                    <div class="comparison-item"><span class="comparison-icon">✓</span>256-entry LUT with
+                        Python-verified exp() values</div>
+                    <div class="comparison-item"><span class="comparison-icon">✓</span>AXI4-Lite slave interface for SoC
+                        integration</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== MODULE EXPLORER ========== -->
+    <section class="modules" id="modules">
+        <div class="container">
+            <h2 class="section-title reveal"><span class="gradient-text">Module Explorer</span></h2>
+            <p class="section-subtitle reveal">28 hand-designed RTL modules across 6 categories. Not generated — every
+                module written and debugged by hand.</p>
+            <div class="module-tabs reveal">
+                <button class="module-tab active" data-tab="mod-compute">Compute Core <span
+                        class="count">5</span></button>
+                <button class="module-tab" data-tab="mod-transformer">Transformer <span class="count">7</span></button>
+                <button class="module-tab" data-tab="mod-math">Math/Compute <span class="count">6</span></button>
+                <button class="module-tab" data-tab="mod-gpt2">GPT-2 Engine <span class="count">4</span></button>
+                <button class="module-tab" data-tab="mod-memory">Memory <span class="count">2</span></button>
+            </div>
+            <div class="module-table-container reveal">
+                <div class="module-panel active" id="mod-compute">
+                    <table class="module-table">
+                        <thead>
+                            <tr>
+                                <th>Module</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>GPU Core</td>
+                                <td>5-stage pipelined compute engine with N parallel lanes</td>
+                            </tr>
+                            <tr>
+                                <td>GPU Multi-Core</td>
+                                <td>Wrapper connecting N cores with broadcast activation</td>
+                            </tr>
+                            <tr>
+                                <td>Zero-Detect Multiplier</td>
+                                <td>Checks for zero before multiplying</td>
+                            </tr>
+                            <tr>
+                                <td>Fused Dequantizer</td>
+                                <td>Scales weight values using configurable scale/offset</td>
+                            </tr>
+                            <tr>
+                                <td>Variable Precision ALU</td>
+                                <td>Supports different precision operations</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="module-panel" id="mod-transformer">
+                    <table class="module-table">
+                        <thead>
+                            <tr>
+                                <th>Module</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Accelerated Attention</td>
+                                <td>Q·K^T attention with KV cache and softmax LUT</td>
+                            </tr>
+                            <tr>
+                                <td>Accelerated Transformer Block</td>
+                                <td>Pre-LN block using gpu_core for FFN</td>
+                            </tr>
+                            <tr>
+                                <td>Accelerated Linear Layer</td>
+                                <td>Bridges gpu_core to transformer interface</td>
+                            </tr>
+                            <tr>
+                                <td>Layer Normalization</td>
+                                <td>Mean/variance normalization in Q8.8</td>
+                            </tr>
+                            <tr>
+                                <td>Original Attention</td>
+                                <td>Earlier version (no KV cache)</td>
+                            </tr>
+                            <tr>
+                                <td>Original FFN Block</td>
+                                <td>Inline matmul FFN (no pipeline)</td>
+                            </tr>
+                            <tr>
+                                <td>Original Linear Layer</td>
+                                <td>Simple matrix multiply</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="module-panel" id="mod-math">
+                    <table class="module-table">
+                        <thead>
+                            <tr>
+                                <th>Module</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Exp LUT 256</td>
+                                <td>256-entry exponential lookup table for softmax</td>
+                            </tr>
+                            <tr>
+                                <td>MAC Unit</td>
+                                <td>Multiply-accumulate unit</td>
+                            </tr>
+                            <tr>
+                                <td>GELU Activation</td>
+                                <td>Gaussian Error Linear Unit function</td>
+                            </tr>
+                            <tr>
+                                <td>Softmax Unit</td>
+                                <td>Softmax probability computation</td>
+                            </tr>
+                            <tr>
+                                <td>INT4 Pack Unit</td>
+                                <td>Packs two 4-bit values into one byte</td>
+                            </tr>
+                            <tr>
+                                <td>Systolic Array</td>
+                                <td>Matrix multiply array (alternative architecture)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="module-panel" id="mod-gpt2">
+                    <table class="module-table">
+                        <thead>
+                            <tr>
+                                <th>Module</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Accelerated GPT-2 Engine</td>
+                                <td>Full pipeline: embedding → N×transformer → LN → argmax</td>
+                            </tr>
+                            <tr>
+                                <td>Embedding Lookup</td>
+                                <td>Token ID → embedding vector with position encoding</td>
+                            </tr>
+                            <tr>
+                                <td>Original GPT-2 Engine</td>
+                                <td>Earlier version using non-accelerated components</td>
+                            </tr>
+                            <tr>
+                                <td>Original Transformer Block</td>
+                                <td>Earlier version without gpu_core integration</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="module-panel" id="mod-memory">
+                    <table class="module-table">
+                        <thead>
+                            <tr>
+                                <th>Module</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>AXI Weight Memory</td>
+                                <td>AXI4-Lite slave interface with 4KB weight SRAM</td>
+                            </tr>
+                            <tr>
+                                <td>Sparse Memory Controller</td>
+                                <td>Skips zero-valued entries during memory access</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== FOOTER ========== -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-pitch reveal">
+                <blockquote>We designed and built an LLM inference accelerator from scratch in Verilog — 28 modules
+                    covering everything from pipelined compute cores to KV-cached attention to an AXI bus interface. The
+                    architecture features a 5-stage pipelined compute engine with hardware-level zero-skip detection, a
+                    256-entry exponential LUT for softmax, and support for real GPT-2 model weights loaded via
+                    $readmemh. All 6 test suites pass, including autoregressive token generation with both synthetic and
+                    real model weights across 1 and 2 transformer layers.</blockquote>
+            </div>
+            <div class="footer-tools reveal">
+                <span class="tool-chip">Verilog (IEEE 1364-2005)</span>
+                <span class="tool-chip">Icarus Verilog</span>
+                <span class="tool-chip">GPT-2 Small (117M)</span>
+                <span class="tool-chip">Q8.8 Fixed-Point</span>
+                <span class="tool-chip">AXI4-Lite</span>
+                <span class="tool-chip">Python + HuggingFace</span>
+                <span class="tool-chip">Git</span>
+            </div>
+            <div class="footer-bottom">
+                <p>BitbyBit — Custom GPU Accelerator for On-Device LLM Inference</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <!-- Inline: Architecture SVG Diagram -->
+    <script>
+        document.getElementById('arch-svg-container').innerHTML = `
+<svg viewBox="0 0 1000 400" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;background:#0d1230;border-radius:16px;">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#22c55e"/></linearGradient>
+    <linearGradient id="g3" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#ef4444"/></linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <!-- Connection arrows -->
+  <line x1="170" y1="200" x2="240" y2="200" stroke="#3b82f6" stroke-width="2" stroke-dasharray="6,4" opacity="0.5"/>
+  <line x1="390" y1="200" x2="440" y2="200" stroke="#06b6d4" stroke-width="2" stroke-dasharray="6,4" opacity="0.5"/>
+  <line x1="610" y1="200" x2="660" y2="200" stroke="#22c55e" stroke-width="2" stroke-dasharray="6,4" opacity="0.5"/>
+  <line x1="830" y1="200" x2="870" y2="200" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6,4" opacity="0.5"/>
+  <line x1="610" y1="280" x2="610" y2="320" stroke="#a855f7" stroke-width="2" stroke-dasharray="6,4" opacity="0.5"/>
+  <!-- AXI Weight Memory -->
+  <rect x="30" y="140" width="140" height="120" rx="12" fill="none" stroke="url(#g1)" stroke-width="1.5" opacity="0.8"/>
+  <rect x="30" y="140" width="140" height="120" rx="12" fill="#3b82f6" opacity="0.06"/>
+  <text x="100" y="175" text-anchor="middle" fill="#3b82f6" font-size="11" font-weight="700" font-family="Inter,sans-serif">AXI Weight</text>
+  <text x="100" y="195" text-anchor="middle" fill="#3b82f6" font-size="11" font-weight="700" font-family="Inter,sans-serif">Memory</text>
+  <text x="100" y="225" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Inter,sans-serif">4KB SRAM</text>
+  <text x="100" y="245" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Inter,sans-serif">AXI4-Lite Bus</text>
+  <!-- Embedding -->
+  <rect x="240" y="140" width="150" height="120" rx="12" fill="none" stroke="url(#g2)" stroke-width="1.5" opacity="0.8"/>
+  <rect x="240" y="140" width="150" height="120" rx="12" fill="#06b6d4" opacity="0.06"/>
+  <text x="315" y="180" text-anchor="middle" fill="#06b6d4" font-size="11" font-weight="700" font-family="Inter,sans-serif">Embedding</text>
+  <text x="315" y="200" text-anchor="middle" fill="#06b6d4" font-size="11" font-weight="700" font-family="Inter,sans-serif">Lookup</text>
+  <text x="315" y="230" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Inter,sans-serif">Token + Position</text>
+  <text x="315" y="245" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Inter,sans-serif">Embeddings</text>
+  <!-- Transformer Block -->
+  <rect x="440" y="110" width="170" height="180" rx="12" fill="none" stroke="url(#g1)" stroke-width="2" opacity="0.9" filter="url(#glow)"/>
+  <rect x="440" y="110" width="170" height="180" rx="12" fill="#3b82f6" opacity="0.06"/>
+  <text x="525" y="145" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="800" font-family="Inter,sans-serif">Transformer</text>
+  <text x="525" y="165" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="800" font-family="Inter,sans-serif">Block</text>
+  <text x="525" y="195" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Inter,sans-serif">LayerNorm ×2</text>
+  <text x="525" y="212" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Inter,sans-serif">KV-Cached Attention</text>
+  <text x="525" y="229" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Inter,sans-serif">FFN via GPU Core</text>
+  <text x="525" y="246" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Inter,sans-serif">Residual Connections</text>
+  <text x="525" y="275" text-anchor="middle" fill="#f59e0b" font-size="9" font-weight="600" font-family="Inter,sans-serif">×N Layers</text>
+  <!-- GPU Multi-Core -->
+  <rect x="660" y="130" width="170" height="140" rx="12" fill="none" stroke="url(#g3)" stroke-width="1.5" opacity="0.8"/>
+  <rect x="660" y="130" width="170" height="140" rx="12" fill="#f59e0b" opacity="0.06"/>
+  <text x="745" y="168" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="700" font-family="Inter,sans-serif">GPU Multi-Core</text>
+  <text x="745" y="188" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="700" font-family="Inter,sans-serif">Pipeline</text>
+  <text x="745" y="215" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Inter,sans-serif">5-Stage Pipeline</text>
+  <text x="745" y="232" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Inter,sans-serif">Zero-Skip Detection</text>
+  <text x="745" y="249" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Inter,sans-serif">128-wide (standalone)</text>
+  <!-- Output -->
+  <rect x="875" y="160" width="100" height="80" rx="12" fill="none" stroke="#22c55e" stroke-width="1.5" opacity="0.8"/>
+  <rect x="875" y="160" width="100" height="80" rx="12" fill="#22c55e" opacity="0.06"/>
+  <text x="925" y="195" text-anchor="middle" fill="#22c55e" font-size="10" font-weight="700" font-family="Inter,sans-serif">Argmax</text>
+  <text x="925" y="215" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Inter,sans-serif">Next Token</text>
+  <!-- GPT-2 Engine label -->
+  <rect x="20" y="60" width="960" height="320" rx="16" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="8,6" opacity="0.3"/>
+  <text x="500" y="85" text-anchor="middle" fill="#64748b" font-size="11" font-weight="600" font-family="Inter,sans-serif">GPT-2 Engine — Top-Level Orchestrator</text>
+  <!-- Token input label -->
+  <text x="100" y="100" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="600" font-family="Inter,sans-serif">Token ID →</text>
+</svg>`;
+    </script>
+</body>
+
+</html>

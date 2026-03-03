@@ -12,16 +12,20 @@ module gpu_top_integrated_tb;
     reg         clk, rst;
     reg  [3:0]  dq_scale, dq_offset;
     reg         mem_write_en;
-    reg  [7:0]  mem_write_val;
+    reg signed [7:0]  mem_write_val;
     reg  [5:0]  mem_write_idx;
     reg         valid_in;
     reg  [5:0]  weight_base_addr;
-    reg  [7:0]  activation_in;
-    wire [63:0] result_out;
+    reg signed [7:0]  activation_in;
+    reg         downstream_ready;
+    reg         acc_clear;
+    wire signed [63:0] result_out;
     wire        valid_out;
     wire [3:0]  zero_skip_mask;
-    wire [31:0] accumulator;
+    wire signed [31:0] accumulator;
     wire [4:0]  pipe_active;
+    wire        ready;
+    wire        parity_error;
 
     gpu_top_integrated #(
         .MEM_DEPTH(64),
@@ -33,9 +37,13 @@ module gpu_top_integrated_tb;
         .mem_write_idx(mem_write_idx),
         .valid_in(valid_in), .weight_base_addr(weight_base_addr),
         .activation_in(activation_in),
+        .downstream_ready(downstream_ready),
+        .ready(ready),
         .result_out(result_out), .valid_out(valid_out),
         .zero_skip_mask(zero_skip_mask), .accumulator(accumulator),
-        .pipe_active(pipe_active)
+        .acc_clear(acc_clear),
+        .pipe_active(pipe_active),
+        .parity_error(parity_error)
     );
 
     // Clock: 10ns period (100 MHz)
@@ -61,6 +69,7 @@ module gpu_top_integrated_tb;
         dq_scale = 4'd2; dq_offset = 4'd0;
         mem_write_en = 0; valid_in = 0;
         weight_base_addr = 0; activation_in = 0;
+        downstream_ready = 1; acc_clear = 0;
         results_count = 0;
         total_products = 0;
         cycles_to_first_result = 0;

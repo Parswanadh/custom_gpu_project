@@ -1,0 +1,12 @@
+============================================
+  Reset Synchronizer Testbench
+============================================
+[PASS] Async assert: rst_sync=1 immediately
+[PASS] After 1 edge: rst_sync still asserted (pipeline delay)
+[PASS] After 3 edges: rst_sync de-asserted (synchronous release)
+[PASS] Re-assert: rst_sync=1 (async assertion)
+[PASS] Final release: rst_sync=0 (clean de-assert)
+============================================
+  Results: 5 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/top/reset_synchronizer_tb.v:95: $finish called at 136000 (1ps)

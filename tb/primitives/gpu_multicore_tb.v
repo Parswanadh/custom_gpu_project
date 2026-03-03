@@ -22,17 +22,21 @@ module gpu_multicore_tb;
     reg         clk, rst;
     reg  [3:0]  dq_scale, dq_offset;
     reg         mem_write_en;
-    reg  [7:0]  mem_write_val;
+    reg signed [7:0]  mem_write_val;
     reg  [ADDR_W-1:0] mem_write_idx;
     reg  [3:0]  mem_write_core;
     reg         valid_in;
     reg  [ADDR_W-1:0] weight_base_addr;
-    reg  [7:0]  activation_in;
+    reg  [8*LANES_PER_CORE-1:0] activation_in;
+    reg         acc_clear;
+    reg         downstream_ready;
     reg         schedule_mode;
     wire        any_valid_out;
-    wire [31:0] total_accumulator;
+    wire        ready;
+    wire signed [31:0] total_accumulator;
     wire [31:0] total_products_out;
     wire [31:0] total_zero_skips;
+    wire        any_parity_error;
 
     gpu_multicore #(
         .NUM_CORES(NUM_CORES),
@@ -45,11 +49,16 @@ module gpu_multicore_tb;
         .mem_write_en(mem_write_en), .mem_write_val(mem_write_val),
         .mem_write_idx(mem_write_idx), .mem_write_core(mem_write_core),
         .valid_in(valid_in), .weight_base_addr(weight_base_addr),
-        .activation_in(activation_in), .schedule_mode(schedule_mode),
+        .activation_in(activation_in),
+        .acc_clear(acc_clear),
+        .downstream_ready(downstream_ready),
+        .schedule_mode(schedule_mode),
         .any_valid_out(any_valid_out),
+        .ready(ready),
         .total_accumulator(total_accumulator),
         .total_products_out(total_products_out),
-        .total_zero_skips(total_zero_skips)
+        .total_zero_skips(total_zero_skips),
+        .any_parity_error(any_parity_error)
     );
 
     // Clock: 10ns period (100 MHz)
@@ -75,6 +84,7 @@ module gpu_multicore_tb;
         dq_scale = 4'd2; dq_offset = 4'd0;
         mem_write_en = 0; valid_in = 0;
         weight_base_addr = 0; activation_in = 0;
+        acc_clear = 0; downstream_ready = 1;
         schedule_mode = 0;  // Broadcast mode (all cores work on same data)
         mem_write_core = 0;
         total_cycles = 0;
@@ -133,7 +143,8 @@ module gpu_multicore_tb;
             @(posedge clk);
             valid_in         <= 1'b1;
             weight_base_addr <= (op * LANES_PER_CORE);
-            activation_in    <= 8'd10 + op[7:0];
+            // Broadcast activation value to all lanes
+            activation_in    <= {LANES_PER_CORE{8'd10 + op[7:0]}};
             total_cycles = total_cycles + 1;
         end
         @(posedge clk);

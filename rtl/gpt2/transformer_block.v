@@ -2,43 +2,62 @@
 // Module: transformer_block
 // Description: Full transformer decoder block:
 //   x → LayerNorm → Attention → Add(residual) → LayerNorm → FFN → Add(residual)
-//   Combines layer_norm, attention_unit, and ffn_block.
-// Parameters: EMBED_DIM, NUM_HEADS, FFN_DIM, DATA_WIDTH
+//
+//   FIXES APPLIED:
+//     - Issue #7:  Weights stored in sub-module SRAMs (load interface)
+//     - Issue #8:  Per-layer weight loading (weights loaded before compute)
+//
+// Parameters: EMBED_DIM, NUM_HEADS, FFN_DIM, DATA_WIDTH, MAX_SEQ_LEN
 // ============================================================================
 module transformer_block #(
-    parameter EMBED_DIM  = 4,
-    parameter NUM_HEADS  = 2,
-    parameter HEAD_DIM   = 2,
-    parameter FFN_DIM    = 8,
-    parameter DATA_WIDTH = 16
+    parameter EMBED_DIM   = 4,
+    parameter NUM_HEADS   = 2,
+    parameter HEAD_DIM    = 2,
+    parameter FFN_DIM     = 8,
+    parameter MAX_SEQ_LEN = 32,
+    parameter DATA_WIDTH  = 16
 )(
     input  wire                               clk,
     input  wire                               rst,
     input  wire                               valid_in,
     input  wire [EMBED_DIM*DATA_WIDTH-1:0]    x_in,
-    // LayerNorm params (2 sets: pre-attention and pre-FFN)
+    input  wire [$clog2(MAX_SEQ_LEN)-1:0]     seq_pos,
+
+    // LayerNorm params
     input  wire [EMBED_DIM*DATA_WIDTH-1:0]    ln1_gamma, ln1_beta,
     input  wire [EMBED_DIM*DATA_WIDTH-1:0]    ln2_gamma, ln2_beta,
-    // Attention weights (flattened)
-    input  wire [EMBED_DIM*EMBED_DIM*DATA_WIDTH-1:0] wq_flat, wk_flat, wv_flat, wo_flat,
-    // FFN weights (flattened)
-    input  wire [EMBED_DIM*FFN_DIM*DATA_WIDTH-1:0]   ffn_w1_flat,
-    input  wire [FFN_DIM*DATA_WIDTH-1:0]              ffn_b1_flat,
-    input  wire [FFN_DIM*EMBED_DIM*DATA_WIDTH-1:0]    ffn_w2_flat,
-    input  wire [EMBED_DIM*DATA_WIDTH-1:0]            ffn_b2_flat,
+
+    // Attention weight load interface (Issue #7/#8)
+    input  wire                               attn_weight_load_en,
+    input  wire [1:0]                         attn_weight_matrix_sel,
+    input  wire [$clog2(EMBED_DIM)-1:0]       attn_weight_row,
+    input  wire [$clog2(EMBED_DIM)-1:0]       attn_weight_col,
+    input  wire signed [DATA_WIDTH-1:0]       attn_weight_data,
+
+    // FFN weight load interface (Issue #7/#8)
+    input  wire                               ffn_weight_load_en,
+    input  wire                               ffn_weight_layer_sel,
+    input  wire                               ffn_weight_is_bias,
+    input  wire [$clog2(FFN_DIM>EMBED_DIM?FFN_DIM:EMBED_DIM)-1:0] ffn_weight_row,
+    input  wire [$clog2(FFN_DIM>EMBED_DIM?FFN_DIM:EMBED_DIM)-1:0] ffn_weight_col,
+    input  wire signed [DATA_WIDTH-1:0]       ffn_weight_data,
+
+    // Attention mask
+    input  wire                               causal_mask_en,
+
     output reg  [EMBED_DIM*DATA_WIDTH-1:0]    y_out,
-    output reg                                valid_out
+    output reg                                valid_out,
+    output reg  [31:0]                        block_zero_skips
 );
 
     // Internal wires
     reg  [EMBED_DIM*DATA_WIDTH-1:0] residual1, residual2;
     wire [EMBED_DIM*DATA_WIDTH-1:0] ln1_out, attn_out, ln2_out, ffn_out;
     wire                            ln1_valid, attn_valid, ln2_valid, ffn_valid;
+    wire [31:0]                     attn_zero_skips, ffn_zero_skips;
 
-    // Enable signals for sub-modules
     reg ln1_en, attn_en, ln2_en, ffn_en;
 
-    // State machine
     reg [3:0] state;
     localparam IDLE     = 4'd0;
     localparam LN1      = 4'd1;
@@ -58,13 +77,22 @@ module transformer_block #(
         .y_out(ln1_out), .valid_out(ln1_valid)
     );
 
-    // Attention
-    attention_unit #(.EMBED_DIM(EMBED_DIM), .NUM_HEADS(NUM_HEADS),
-                     .HEAD_DIM(HEAD_DIM), .DATA_WIDTH(DATA_WIDTH)) u_attn (
+    // Attention (Issue #7: SRAM weight interface)
+    attention_unit #(
+        .EMBED_DIM(EMBED_DIM), .NUM_HEADS(NUM_HEADS),
+        .HEAD_DIM(HEAD_DIM), .MAX_SEQ_LEN(MAX_SEQ_LEN),
+        .DATA_WIDTH(DATA_WIDTH)
+    ) u_attn (
         .clk(clk), .rst(rst), .valid_in(attn_en),
-        .x_in(ln1_out),
-        .wq_flat(wq_flat), .wk_flat(wk_flat), .wv_flat(wv_flat), .wo_flat(wo_flat),
-        .y_out(attn_out), .valid_out(attn_valid)
+        .x_in(ln1_out), .seq_pos(seq_pos),
+        .weight_load_en(attn_weight_load_en),
+        .weight_matrix_sel(attn_weight_matrix_sel),
+        .weight_row(attn_weight_row),
+        .weight_col(attn_weight_col),
+        .weight_data(attn_weight_data),
+        .causal_mask_en(causal_mask_en),
+        .y_out(attn_out), .valid_out(attn_valid),
+        .zero_skip_count(attn_zero_skips)
     );
 
     // Layer Norm 2
@@ -74,13 +102,21 @@ module transformer_block #(
         .y_out(ln2_out), .valid_out(ln2_valid)
     );
 
-    // FFN
-    ffn_block #(.EMBED_DIM(EMBED_DIM), .FFN_DIM(FFN_DIM), .DATA_WIDTH(DATA_WIDTH)) u_ffn (
+    // FFN (Issue #7: SRAM weight interface)
+    ffn_block #(
+        .EMBED_DIM(EMBED_DIM), .FFN_DIM(FFN_DIM),
+        .DATA_WIDTH(DATA_WIDTH)
+    ) u_ffn (
         .clk(clk), .rst(rst), .valid_in(ffn_en),
         .x_in(ln2_out),
-        .w1_flat(ffn_w1_flat), .b1_flat(ffn_b1_flat),
-        .w2_flat(ffn_w2_flat), .b2_flat(ffn_b2_flat),
-        .y_out(ffn_out), .valid_out(ffn_valid)
+        .weight_load_en(ffn_weight_load_en),
+        .weight_layer_sel(ffn_weight_layer_sel),
+        .weight_is_bias(ffn_weight_is_bias),
+        .weight_row(ffn_weight_row),
+        .weight_col(ffn_weight_col),
+        .weight_data(ffn_weight_data),
+        .y_out(ffn_out), .valid_out(ffn_valid),
+        .zero_skip_count(ffn_zero_skips)
     );
 
     always @(posedge clk) begin
@@ -91,8 +127,8 @@ module transformer_block #(
             residual1 <= 0;
             residual2 <= 0;
             ln1_en <= 0; attn_en <= 0; ln2_en <= 0; ffn_en <= 0;
+            block_zero_skips <= 0;
         end else begin
-            // Default: deassert all enables
             ln1_en <= 0; attn_en <= 0; ln2_en <= 0; ffn_en <= 0;
 
             case (state)
@@ -114,11 +150,11 @@ module transformer_block #(
 
                 ATTN: begin
                     if (attn_valid) begin
-                        // Residual add: residual2 = x + attention_out
                         for (i = 0; i < EMBED_DIM; i = i + 1)
                             residual2[i*DATA_WIDTH +: DATA_WIDTH] <=
                                 $signed(residual1[i*DATA_WIDTH +: DATA_WIDTH]) +
                                 $signed(attn_out[i*DATA_WIDTH +: DATA_WIDTH]);
+                        block_zero_skips <= attn_zero_skips;
                         state <= ADD1;
                     end
                 end
@@ -137,11 +173,11 @@ module transformer_block #(
 
                 FFN: begin
                     if (ffn_valid) begin
-                        // Residual add: y = residual2 + ffn_out
                         for (i = 0; i < EMBED_DIM; i = i + 1)
                             y_out[i*DATA_WIDTH +: DATA_WIDTH] <=
                                 $signed(residual2[i*DATA_WIDTH +: DATA_WIDTH]) +
                                 $signed(ffn_out[i*DATA_WIDTH +: DATA_WIDTH]);
+                        block_zero_skips <= block_zero_skips + ffn_zero_skips;
                         state <= DONE;
                     end
                 end

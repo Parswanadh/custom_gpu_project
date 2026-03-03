@@ -1,0 +1,14 @@
+============================================
+  DMA Engine Testbench
+============================================
+[PASS] DMA idle after reset
+[2] Starting read transfer: 16 bytes from 0x1000 to local 0x0000...
+    AR: addr=0x00001000, len=3
+[PASS] Read transfer complete, interrupt asserted
+[3] Testing busy signal...
+[PASS] DMA busy during transfer
+[PASS] DMA idle after transfer complete
+============================================
+  Results: 4 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/memory/dma_engine_tb.v:230: $finish called at 315000 (1ps)

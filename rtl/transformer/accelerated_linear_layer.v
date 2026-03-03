@@ -1,17 +1,8 @@
 // ============================================================================
 // Module: accelerated_linear_layer
 // Description: Linear layer (y = x * W + b) accelerated by gpu_core.
-//   Uses the parameterized N-lane pipelined core for matrix-vector multiply.
-//   This bridges the gap between the transformer engine and the optimized
-//   compute pipeline.
-//
-// How it works:
-//   1. Weights are pre-loaded into gpu_core's memory
-//   2. For each output element: feed LANES weights at a time
-//   3. gpu_core accumulates the dot product across multiple cycles
-//   4. Bias is added after accumulation
-//
-// Parameters: IN_DIM, OUT_DIM, LANES (compute parallelism)
+//   FIXES: Updated for new gpu_core interface (signed, acc_clear, per-lane act,
+//          stall, parity) — Issues #1, #2, #4, #11
 // ============================================================================
 module accelerated_linear_layer #(
     parameter IN_DIM    = 8,
@@ -24,14 +15,14 @@ module accelerated_linear_layer #(
     input  wire                              clk,
     input  wire                              rst,
     input  wire                              valid_in,
-    input  wire [IN_DIM*DATA_WIDTH-1:0]      x_in,       // Input vector (packed)
+    input  wire [IN_DIM*DATA_WIDTH-1:0]      x_in,
 
-    // Weight loading (must be done before inference)
+    // Weight loading
     input  wire                              load_weight,
     input  wire [ADDR_W-1:0]                 load_addr,
-    input  wire [7:0]                        load_data,
+    input  wire signed [7:0]                 load_data,
 
-    // Bias (packed)
+    // Bias
     input  wire [OUT_DIM*DATA_WIDTH-1:0]     bias_in,
 
     // Output
@@ -43,26 +34,29 @@ module accelerated_linear_layer #(
     // State machine
     reg [3:0] state;
     localparam IDLE      = 4'd0;
-    localparam LOAD_ACT  = 4'd1;
-    localparam COMPUTE   = 4'd2;
+    localparam COMPUTE   = 4'd1;
+    localparam DRAIN     = 4'd2;
     localparam BIAS_ADD  = 4'd3;
     localparam OUTPUT    = 4'd4;
 
     // Internal storage
     reg signed [DATA_WIDTH-1:0] x_buf [0:IN_DIM-1];
     reg signed [DATA_WIDTH-1:0] result [0:OUT_DIM-1];
-    reg [$clog2(OUT_DIM):0] out_idx;     // Current output element
-    reg [$clog2(IN_DIM):0]  in_idx;      // Current input offset within dot product
+    reg [$clog2(OUT_DIM):0] out_idx;
+    reg [$clog2(IN_DIM):0]  in_idx;
+    reg [3:0] drain_cnt;
 
-    // GPU core interface
+    // GPU core interface — updated for new interface
     reg         core_valid;
     reg [ADDR_W-1:0] core_addr;
-    reg [7:0]   core_activation;
+    reg [8*LANES-1:0] core_activation;  // Per-lane activation vector
+    reg         core_acc_clear;
     wire        core_valid_out;
-    wire [31:0] core_accumulator;
+    wire signed [31:0] core_accumulator;
     wire [LANES-1:0] core_zero_mask;
+    wire        core_ready;
+    wire        core_parity_error;
 
-    // Instantiate the pipelined GPU core
     gpu_core #(
         .LANES(LANES),
         .MEM_DEPTH(MEM_DEPTH),
@@ -70,8 +64,8 @@ module accelerated_linear_layer #(
     ) compute_core (
         .clk(clk),
         .rst(rst),
-        .dq_scale(4'd1),          // Scale = 1 (already quantized)
-        .dq_offset(4'd0),         // No offset
+        .dq_scale(4'd1),
+        .dq_offset(4'd0),
         .core_id(4'd0),
         .mem_write_en(load_weight),
         .mem_write_val(load_data),
@@ -79,76 +73,94 @@ module accelerated_linear_layer #(
         .valid_in(core_valid),
         .weight_base_addr(core_addr),
         .activation_in(core_activation),
+        .acc_clear(core_acc_clear),
+        .downstream_ready(1'b1),
+        .ready(core_ready),
         .valid_out(core_valid_out),
         .zero_skip_mask(core_zero_mask),
         .accumulator(core_accumulator),
         .lane_results(),
         .pipe_active(),
-        .products_per_cycle()
+        .products_per_cycle(),
+        .parity_error(core_parity_error)
     );
 
     integer i;
-    integer steps_per_dot;
 
     always @(posedge clk) begin
         if (rst) begin
             state      <= IDLE;
             valid_out  <= 1'b0;
             core_valid <= 1'b0;
+            core_acc_clear <= 1'b0;
             out_idx    <= 0;
             in_idx     <= 0;
+            drain_cnt  <= 0;
             y_out      <= 0;
             total_zero_skips <= 0;
+            core_activation <= 0;
         end else begin
             core_valid <= 1'b0;
+            core_acc_clear <= 1'b0;
 
             case (state)
                 IDLE: begin
                     valid_out <= 1'b0;
                     if (valid_in) begin
-                        // Unpack input vector
                         for (i = 0; i < IN_DIM; i = i + 1)
                             x_buf[i] <= x_in[i*DATA_WIDTH +: DATA_WIDTH];
                         out_idx <= 0;
                         in_idx  <= 0;
+                        core_acc_clear <= 1'b1;
                         state   <= COMPUTE;
                     end
                 end
 
                 COMPUTE: begin
-                    // Feed activation values to gpu_core, LANES at a time
-                    // Weight address = out_idx * IN_DIM + in_idx
-                    if (in_idx < IN_DIM) begin
-                        core_valid     <= 1'b1;
-                        core_addr      <= out_idx * IN_DIM + in_idx;
-                        core_activation <= x_buf[in_idx][7:0];  // Lower 8 bits
-                        in_idx         <= in_idx + LANES;
-                    end else begin
-                        // Dot product for this output element complete
-                        // Wait for pipeline to drain
-                        if (core_valid_out) begin
-                            result[out_idx] <= core_accumulator[DATA_WIDTH-1:0];
-                            out_idx <= out_idx + 1;
-                            in_idx  <= 0;
-                            if (out_idx + 1 >= OUT_DIM)
-                                state <= BIAS_ADD;
+                    if (in_idx < IN_DIM && core_ready) begin
+                        core_valid <= 1'b1;
+                        core_addr  <= out_idx * IN_DIM + in_idx;
+                        // Pack activation into per-lane vector (broadcast same value)
+                        begin : pack_act
+                            integer li;
+                            for (li = 0; li < LANES; li = li + 1)
+                                core_activation[li*8 +: 8] <= x_buf[in_idx][7:0];
                         end
+                        in_idx <= in_idx + LANES;
+                    end else if (in_idx >= IN_DIM) begin
+                        drain_cnt <= 0;
+                        state <= DRAIN;
                     end
+                end
 
-                    // Count zero skips
-                    if (core_valid_out) begin
-                        for (i = 0; i < LANES; i = i + 1)
-                            if (core_zero_mask[i])
-                                total_zero_skips <= total_zero_skips + 1;
+                DRAIN: begin
+                    drain_cnt <= drain_cnt + 1;
+                    if (drain_cnt >= 4'd6) begin
+                        result[out_idx] <= core_accumulator[DATA_WIDTH-1:0];
+                        // Count zero skips
+                        if (core_valid_out) begin
+                            begin : count_zs
+                                integer zi;
+                                for (zi = 0; zi < LANES; zi = zi + 1)
+                                    if (core_zero_mask[zi])
+                                        total_zero_skips <= total_zero_skips + 1;
+                            end
+                        end
+
+                        out_idx <= out_idx + 1;
+                        in_idx  <= 0;
+                        core_acc_clear <= 1'b1;
+                        if (out_idx + 1 >= OUT_DIM)
+                            state <= BIAS_ADD;
+                        else
+                            state <= COMPUTE;
                     end
                 end
 
                 BIAS_ADD: begin
-                    // Add bias to each output element
-                    for (i = 0; i < OUT_DIM; i = i + 1) begin
+                    for (i = 0; i < OUT_DIM; i = i + 1)
                         y_out[i*DATA_WIDTH +: DATA_WIDTH] <=
-                            result[i] + bias_in[i*DATA_WIDTH +: DATA_WIDTH];
-                    end
+                            result[i] + $signed(bias_in[i*DATA_WIDTH +: DATA_WIDTH]);
                     state <= OUTPUT;
                 end
 

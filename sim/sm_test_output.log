@@ -1,0 +1,18 @@
+VCD info: dumpfile sim/waveforms/softmax_unit.vcd opened for output.
+============================================
+  Softmax Unit Testbench (Q8.8)
+============================================
+[INFO] Uniform [1,1,1,1] | probs=[63, 63, 63, 63] sum=252
+[PASS] Uniform [1,1,1,1] | sum close to 256
+[INFO] Dominant [0,0,0,3] | probs=[11, 11, 11, 221] sum=254
+[PASS] Dominant [0,0,0,3] | sum close to 256
+[INFO] Graduated [0,1,2,3] | probs=[8, 22, 60, 164] sum=254
+[PASS] Graduated [0,1,2,3] | sum close to 256
+[INFO] All zeros [0,0,0,0] | probs=[63, 63, 63, 63] sum=252
+[PASS] All zeros [0,0,0,0] | sum close to 256
+[INFO] Mixed [-1,-2,0,1] | probs=[22, 8, 60, 164] sum=254
+[PASS] Mixed [-1,-2,0,1] | sum close to 256
+============================================
+  Results: 5 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/compute/softmax_unit_tb.v:110: $finish called at 800000 (1ps)

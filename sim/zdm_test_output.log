@@ -1,0 +1,15 @@
+VCD info: dumpfile sim/waveforms/zero_detect_mult.vcd opened for output.
+============================================
+  Zero Detect Multiplier Testbench
+============================================
+[PASS] Test 1: Normal: 5 x 3 = 15 | a=5 b=3 => result=15 skipped=0
+[PASS] Test 2: Zero A: 0 x 7 = 0 | a=0 b=7 => result=0 skipped=1
+[PASS] Test 3: Zero B: 9 x 0 = 0 | a=9 b=0 => result=0 skipped=1
+[PASS] Test 4: Both zero: 0 x 0 = 0 | a=0 b=0 => result=0 skipped=1
+[PASS] Test 5: Signed max: -1 x -1 = 1 | a=255 b=255 => result=1 skipped=0
+[PASS] Test 6: Identity: 1 x 100 = 100 | a=1 b=100 => result=100 skipped=0
+[PASS] Test 7: Typical: 12 x 10 = 120 | a=12 b=10 => result=120 skipped=0
+============================================
+  Results: 7 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/primitives/zero_detect_mult_tb.v:89: $finish called at 260000 (1ps)

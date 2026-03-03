@@ -1,18 +1,24 @@
 # ============================================================================
-# run_all_tests.ps1 — Run all Verilog testbenches for the Custom GPU
-# Usage: .\scripts\run_all_tests.ps1
+# run_all_tests.ps1 - Run all Verilog testbenches for the Custom GPU
+# Usage: powershell -ExecutionPolicy Bypass -File .\scripts\run_all_tests.ps1
 # ============================================================================
 
 $ErrorActionPreference = "Continue"
 $iverilog = "D:\Tools\iverilog\bin\iverilog.exe"
 $vvp = "D:\Tools\iverilog\bin\vvp.exe"
-$root = $PSScriptRoot | Split-Path -Parent
+$root = "D:\Projects\BitbyBit\custom_gpu_project"
+
+# Create sim output directory if missing
+$simDir = Join-Path $root "sim"
+if (-not (Test-Path $simDir)) { New-Item -ItemType Directory -Path $simDir -Force | Out-Null }
+$waveDir = Join-Path $simDir "waveforms"
+if (-not (Test-Path $waveDir)) { New-Item -ItemType Directory -Path $waveDir -Force | Out-Null }
 
 Write-Host ""
-Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║       CUSTOM GPU — FULL TEST SUITE                         ║" -ForegroundColor Cyan
-Write-Host "║       Designed for GPT-2 Inference on FPGA                 ║" -ForegroundColor Cyan
-Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "================================================================" -ForegroundColor Cyan
+Write-Host "       CUSTOM GPU - FULL TEST SUITE                             " -ForegroundColor Cyan
+Write-Host "       Designed for GPT-2 Inference on FPGA                     " -ForegroundColor Cyan
+Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host ""
 
 $totalPass = 0
@@ -30,7 +36,7 @@ function Run-Test {
     )
 
     $allFiles = ($Sources + $Testbench) | ForEach-Object { Join-Path $root $_ }
-    $outPath = Join-Path $root "sim" $OutputBin
+    $outPath = Join-Path (Join-Path $root "sim") $OutputBin
 
     Write-Host "  [$Phase] $Name ... " -NoNewline
 
@@ -49,9 +55,18 @@ function Run-Test {
     # Simulate
     $simOutput = & $vvp $outPath 2>&1 | Out-String -Width 300
 
-    # Count PASS/FAIL from output
+    # Count PASS/FAIL from output (match [PASS]/[FAIL] and also "N passed, N failed" summary)
     $passes = ([regex]::Matches($simOutput, '\[PASS\]')).Count
     $fails = ([regex]::Matches($simOutput, '\[FAIL\]')).Count
+
+    # Fallback: if no [PASS]/[FAIL] markers, try to parse "Results: N passed, N failed"
+    if ($passes -eq 0 -and $fails -eq 0) {
+        $summaryMatch = [regex]::Match($simOutput, '(\d+)\s+(?:PASSED|passed),\s+(\d+)\s+(?:FAILED|failed)')
+        if ($summaryMatch.Success) {
+            $passes = [int]$summaryMatch.Groups[1].Value
+            $fails = [int]$summaryMatch.Groups[2].Value
+        }
+    }
 
     $script:totalPass += $passes
     $script:totalFail += $fails
@@ -70,8 +85,8 @@ function Run-Test {
     }
 }
 
-# ── Phase 1: Core Compute Primitives ──
-Write-Host "─── Phase 1: Core Compute Primitives ───" -ForegroundColor Yellow
+# -- Phase 1: Core Compute Primitives --
+Write-Host "--- Phase 1: Core Compute Primitives ---" -ForegroundColor Yellow
 Run-Test "P1" "zero_detect_mult" "zdm_test" @("rtl/primitives/zero_detect_mult.v") "tb/primitives/zero_detect_mult_tb.v"
 Run-Test "P1" "variable_precision_alu" "vpa_test" @("rtl/primitives/variable_precision_alu.v") "tb/primitives/variable_precision_alu_tb.v"
 Run-Test "P1" "sparse_memory_ctrl" "smc_test" @("rtl/primitives/sparse_memory_ctrl.v") "tb/primitives/sparse_memory_ctrl_tb.v"
@@ -85,24 +100,24 @@ Run-Test "P1" "gpu_top" "gt_test" @(
 ) "tb/primitives/gpu_top_tb.v"
 Write-Host ""
 
-# ── Phase 2: Extended Compute Modules ──
-Write-Host "─── Phase 2: Extended Compute Modules ───" -ForegroundColor Yellow
+# -- Phase 2: Extended Compute Modules --
+Write-Host "--- Phase 2: Extended Compute Modules ---" -ForegroundColor Yellow
 Run-Test "P2" "mac_unit" "mac_test" @("rtl/compute/mac_unit.v") "tb/compute/mac_unit_tb.v"
 Run-Test "P2" "systolic_array" "sa_test" @("rtl/compute/systolic_array.v") "tb/compute/systolic_array_tb.v"
-Run-Test "P2" "gelu_activation" "gelu_test" @("rtl/compute/gelu_activation.v") "tb/compute/gelu_activation_tb.v"
-Run-Test "P2" "softmax_unit" "sm_test" @("rtl/compute/softmax_unit.v") "tb/compute/softmax_unit_tb.v"
+Run-Test "P2" "gelu_activation" "gelu_test" @("rtl/compute/gelu_lut_256.v", "rtl/compute/gelu_activation.v") "tb/compute/gelu_activation_tb.v"
+Run-Test "P2" "softmax_unit" "sm_test" @("rtl/compute/exp_lut_256.v", "rtl/compute/softmax_unit.v") "tb/compute/softmax_unit_tb.v"
 Write-Host ""
 
-# ── Phase 3: Transformer Building Blocks ──
-Write-Host "─── Phase 3: Transformer Building Blocks ───" -ForegroundColor Yellow
-Run-Test "P3" "layer_norm" "ln_test" @("rtl/transformer/layer_norm.v") "tb/transformer/layer_norm_tb.v"
+# -- Phase 3: Transformer Building Blocks --
+Write-Host "--- Phase 3: Transformer Building Blocks ---" -ForegroundColor Yellow
+Run-Test "P3" "layer_norm" "ln_test" @("rtl/compute/inv_sqrt_lut_256.v", "rtl/transformer/layer_norm.v") "tb/transformer/layer_norm_tb.v"
 Run-Test "P3" "linear_layer" "ll_test" @("rtl/transformer/linear_layer.v") "tb/transformer/linear_layer_tb.v"
-Run-Test "P3" "attention_unit" "au_test" @("rtl/transformer/attention_unit.v") "tb/transformer/attention_unit_tb.v"
-Run-Test "P3" "ffn_block" "ffn_test" @("rtl/transformer/ffn_block.v") "tb/transformer/ffn_block_tb.v"
+Run-Test "P3" "attention_unit" "au_test" @("rtl/compute/exp_lut_256.v", "rtl/transformer/attention_unit.v") "tb/transformer/attention_unit_tb.v"
+Run-Test "P3" "ffn_block" "ffn_test" @("rtl/compute/gelu_lut_256.v", "rtl/transformer/ffn_block.v") "tb/transformer/ffn_block_tb.v"
 Write-Host ""
 
-# ── Phase 4: GPT-2 Full Pipeline ──
-Write-Host "─── Phase 4: GPT-2 Full Pipeline ───" -ForegroundColor Yellow
+# -- Phase 4: GPT-2 Full Pipeline --
+Write-Host "--- Phase 4: GPT-2 Full Pipeline ---" -ForegroundColor Yellow
 Run-Test "P4" "embedding_lookup" "emb_test" @("rtl/gpt2/embedding_lookup.v") "tb/gpt2/embedding_lookup_tb.v"
 Run-Test "P4" "gpt2_engine_FULL" "gpt2_test" @(
     "rtl/gpt2/embedding_lookup.v",
@@ -113,25 +128,75 @@ Run-Test "P4" "gpt2_engine_FULL" "gpt2_test" @(
     "rtl/transformer/ffn_block.v",
     "rtl/transformer/linear_layer.v",
     "rtl/compute/gelu_activation.v",
-    "rtl/compute/softmax_unit.v"
+    "rtl/compute/gelu_lut_256.v",
+    "rtl/compute/softmax_unit.v",
+    "rtl/compute/exp_lut_256.v",
+    "rtl/compute/inv_sqrt_lut_256.v"
 ) "tb/gpt2/gpt2_engine_tb.v"
+Run-Test "P4" "accel_gpt2_engine" "gpt2_acc_test" @(
+    "rtl/primitives/zero_detect_mult.v",
+    "rtl/primitives/fused_dequantizer.v",
+    "rtl/primitives/gpu_core.v",
+    "rtl/compute/exp_lut_256.v",
+    "rtl/compute/inv_sqrt_lut_256.v",
+    "rtl/transformer/layer_norm.v",
+    "rtl/transformer/accelerated_attention.v",
+    "rtl/transformer/accelerated_linear_layer.v",
+    "rtl/transformer/accelerated_transformer_block.v",
+    "rtl/gpt2/embedding_lookup.v",
+    "rtl/gpt2/accelerated_gpt2_engine.v"
+) "tb/gpt2/accelerated_gpt2_engine_tb.v"
 Write-Host ""
 
-# ── Summary ──
-Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║                    TEST RESULTS SUMMARY                    ║" -ForegroundColor Cyan
-Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+# -- Phase 5: Memory Interface --
+Write-Host "--- Phase 5: Memory Interface ---" -ForegroundColor Yellow
+Run-Test "P5" "axi_weight_memory" "axi_test" @("rtl/memory/axi_weight_memory.v") "tb/memory/axi_weight_memory_tb.v"
+Run-Test "P5" "dma_engine" "dma_test" @("rtl/memory/dma_engine.v") "tb/memory/dma_engine_tb.v"
+Run-Test "P5" "scratchpad" "sp_test" @("rtl/memory/scratchpad.v") "tb/memory/scratchpad_tb.v"
 Write-Host ""
-Write-Host "  Modules tested : $totalModules" 
+
+# -- Phase 6: Top-Level Control --
+Write-Host "--- Phase 6: Top-Level Control ---" -ForegroundColor Yellow
+Run-Test "P6" "command_processor" "cmd_test" @("rtl/top/command_processor.v") "tb/top/command_processor_tb.v"
+Run-Test "P6" "perf_counters" "perf_test" @("rtl/top/perf_counters.v") "tb/top/perf_counters_tb.v"
+Run-Test "P6" "gpu_config_regs" "cfg_test" @("rtl/top/gpu_config_regs.v") "tb/top/gpu_config_regs_tb.v"
+Run-Test "P6" "reset_synchronizer" "rst_test" @("rtl/top/reset_synchronizer.v") "tb/top/reset_synchronizer_tb.v"
+Write-Host ""
+
+# -- Phase 7: System Integration --
+Write-Host "--- Phase 7: System Integration ---" -ForegroundColor Yellow
+Run-Test "P7" "gpu_system_top" "sys_test" @(
+    "rtl/top/reset_synchronizer.v",
+    "rtl/top/gpu_config_regs.v",
+    "rtl/top/command_processor.v",
+    "rtl/top/perf_counters.v",
+    "rtl/memory/scratchpad.v",
+    "rtl/memory/dma_engine.v",
+    "rtl/top/gpu_system_top.v"
+) "tb/top/gpu_system_top_tb.v"
+Write-Host ""
+
+# -- Summary --
+Write-Host "================================================================" -ForegroundColor Cyan
+Write-Host "                    TEST RESULTS SUMMARY                        " -ForegroundColor Cyan
+Write-Host "================================================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "  Modules tested : $totalModules"
 Write-Host "  Total PASS     : $totalPass" -ForegroundColor Green
-Write-Host "  Total FAIL     : $totalFail" -ForegroundColor $(if($totalFail -gt 0){"Red"}else{"Green"})
+if ($totalFail -gt 0) {
+    Write-Host "  Total FAIL     : $totalFail" -ForegroundColor Red
+} else {
+    Write-Host "  Total FAIL     : $totalFail" -ForegroundColor Green
+}
 Write-Host ""
 
 $results | Format-Table -AutoSize
 
-if ($totalFail -eq 0) {
-    Write-Host "  ✅ ALL TESTS PASSED — GPU READY FOR DEPLOYMENT" -ForegroundColor Green
+if ($totalFail -eq 0 -and $totalPass -gt 0) {
+    Write-Host "  >>> ALL TESTS PASSED - GPU READY FOR DEPLOYMENT <<<" -ForegroundColor Green
+} elseif ($totalPass -eq 0) {
+    Write-Host "  >>> NO TESTS RAN - CHECK IVERILOG INSTALLATION <<<" -ForegroundColor Red
 } else {
-    Write-Host "  ❌ SOME TESTS FAILED — REVIEW REQUIRED" -ForegroundColor Red
+    Write-Host "  >>> SOME TESTS FAILED - REVIEW REQUIRED <<<" -ForegroundColor Red
 }
 Write-Host ""

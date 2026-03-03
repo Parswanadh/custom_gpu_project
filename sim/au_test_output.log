@@ -1,0 +1,28 @@
+VCD info: dumpfile sim/waveforms/attention_unit.vcd opened for output.
+============================================
+  Attention Unit Testbench (Q8.8, SRAM)
+============================================
+[1] Loading identity weights into Wq/Wk/Wv/Wo...
+    Done loading weights.
+
+[2] Test: Single token, identity weights
+    Output received after 10 cycles
+    y[0] = 0 (0.000)
+    y[1] = 0 (0.000)
+    y[2] = 0 (0.000)
+    y[3] = 0 (0.000)
+    Zero-skips: 1
+[PASS] Single token with identity weights
+
+[3] Test: Second token (KV cache)
+    Output received after 12 cycles
+    y[0] = 381 (1.488)
+    y[1] = 508 (1.984)
+    y[2] = 635 (2.480)
+    y[3] = 762 (2.977)
+[PASS] Second token with KV cache
+
+============================================
+  Results: 2 passed, 0 failed
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/transformer/attention_unit_tb.v:165: $finish called at 1050000 (1ps)

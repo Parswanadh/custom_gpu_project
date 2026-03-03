@@ -58,26 +58,35 @@ module accelerated_transformer_block #(
     reg  [EMBED_DIM*DATA_WIDTH-1:0] after_attn;
 
     // GPU core for FFN — instantiated for pipelined MAC
+    // Updated for new gpu_core interface (Issues #1, #2, #4, #11, #16)
     reg         core_rst_r, core_we, core_feed_valid;
     reg  [7:0]  core_w_addr;
-    reg  [7:0]  core_w_data;
-    reg  [7:0]  core_activation;
+    reg signed [7:0]  core_w_data;
+    reg  [8*NUM_LANES-1:0] core_activation_vec;
+    reg         core_acc_clear;
     wire        core_valid_out;
-    wire [31:0] core_accumulator;
+    wire signed [31:0] core_accumulator;
     wire [NUM_LANES-1:0] core_zero_mask;
     wire [4:0]  core_pipe_active;
     wire [31:0] core_products_per_cycle;
     wire [16*NUM_LANES-1:0] core_lane_results;
+    wire        core_ready;
+    wire        core_parity_error;
 
     gpu_core #(.LANES(NUM_LANES), .MEM_DEPTH(256)) u_gpu_core (
         .clk(clk), .rst(core_rst_r),
         .dq_scale(4'd1), .dq_offset(4'd0),
         .core_id(4'd0),
         .mem_write_en(core_we), .mem_write_val(core_w_data), .mem_write_idx(core_w_addr),
-        .valid_in(core_feed_valid), .weight_base_addr(8'd0), .activation_in(core_activation),
+        .valid_in(core_feed_valid), .weight_base_addr(8'd0),
+        .activation_in(core_activation_vec),
+        .acc_clear(core_acc_clear),
+        .downstream_ready(1'b1),
+        .ready(core_ready),
         .valid_out(core_valid_out), .zero_skip_mask(core_zero_mask),
         .accumulator(core_accumulator), .lane_results(core_lane_results),
-        .pipe_active(core_pipe_active), .products_per_cycle(core_products_per_cycle)
+        .pipe_active(core_pipe_active), .products_per_cycle(core_products_per_cycle),
+        .parity_error(core_parity_error)
     );
 
     // State machine
@@ -154,6 +163,8 @@ module accelerated_transformer_block #(
             core_rst_r         <= 1;
             core_we          <= 0;
             core_feed_valid  <= 0;
+            core_acc_clear   <= 0;
+            core_activation_vec <= 0;
             ffn_col          <= 0;
             ffn_row          <= 0;
         end else begin
@@ -162,6 +173,7 @@ module accelerated_transformer_block #(
             attn_en        <= 0;
             core_we        <= 0;
             core_feed_valid <= 0;
+            core_acc_clear  <= 0;
 
             case (state)
                 IDLE: begin
@@ -202,7 +214,7 @@ module accelerated_transformer_block #(
                         for (i = 0; i < EMBED_DIM; i = i + 1)
                             ln2_buf[i] <= $signed(ln2_out[i*DATA_WIDTH +: DATA_WIDTH]);
                         ffn_col  <= 0;
-                        core_rst_r <= 1;  // Reset gpu_core for FFN use
+                        core_acc_clear <= 1;  // Clear accumulator for FFN use
                         state    <= FFN1_LOAD;
                     end
                 end
@@ -229,7 +241,12 @@ module accelerated_transformer_block #(
                 FFN1_COMPUTE: begin
                     if (ffn_row < EMBED_DIM) begin
                         core_feed_valid <= 1;
-                        core_activation <= ln2_buf[ffn_row][7:0];
+                        // Broadcast activation to all lanes
+                        begin : ffn1_pack
+                            integer pi;
+                            for (pi = 0; pi < NUM_LANES; pi = pi + 1)
+                                core_activation_vec[pi*8 +: 8] <= ln2_buf[ffn_row][7:0];
+                        end
                         ffn_row         <= ffn_row + 1;
                     end else begin
                         drain_cnt <= 0;
@@ -266,12 +283,12 @@ module accelerated_transformer_block #(
                     if (ffn_col + 1 < FFN_DIM) begin
                         ffn_col  <= ffn_col + 1;
                         ffn_row  <= 0;
-                        core_rst_r <= 1;
+                        core_acc_clear <= 1;
                         state    <= FFN1_LOAD;
                     end else begin
                         ffn_col  <= 0;
                         ffn_row  <= 0;
-                        core_rst_r <= 1;
+                        core_acc_clear <= 1;
                         state    <= FFN2_LOAD;
                     end
                 end
@@ -296,7 +313,11 @@ module accelerated_transformer_block #(
                 FFN2_COMPUTE: begin
                     if (ffn_row < FFN_DIM) begin
                         core_feed_valid <= 1;
-                        core_activation <= ffn_hidden[ffn_row][7:0];
+                        begin : ffn2_pack
+                            integer pi;
+                            for (pi = 0; pi < NUM_LANES; pi = pi + 1)
+                                core_activation_vec[pi*8 +: 8] <= ffn_hidden[ffn_row][7:0];
+                        end
                         ffn_row         <= ffn_row + 1;
                     end else begin
                         drain_cnt <= 0;
@@ -325,7 +346,7 @@ module accelerated_transformer_block #(
                     if (ffn_col + 1 < EMBED_DIM) begin
                         ffn_col  <= ffn_col + 1;
                         ffn_row  <= 0;
-                        core_rst_r <= 1;
+                        core_acc_clear <= 1;
                         state    <= FFN2_LOAD;
                     end else begin
                         state <= RESID2;

@@ -1,0 +1,16 @@
+VCD info: dumpfile sim/waveforms/mac_unit.vcd opened for output.
+============================================
+  MAC Unit Testbench
+============================================
+[PASS] Step 1: 3*2=6 | acc=6
+[PASS] Step 2: +4*6=30 | acc=30
+[PASS] Step 3: +5*1=35 | acc=35
+[PASS] Zero-skip: 0*7, acc stays 35 | acc=35
+[PASS] Zero-skip: 10*0, acc stays 35 | acc=35
+[PASS] Clear: acc=0 | acc=0
+[PASS] New dot 1: 10*3=30 | acc=30
+[PASS] New dot 2: +20*5=130 | acc=130
+============================================
+  Results: 8 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/compute/mac_unit_tb.v:97: $finish called at 211000 (1ps)

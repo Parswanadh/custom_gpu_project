@@ -1,15 +1,16 @@
 // ============================================================================
 // Module: gpu_multicore
 // Description: Multi-core GPU top-level with configurable core count and lanes.
-//   Instantiates NUM_CORES gpu_core instances, each with LANES_PER_CORE
-//   parallel compute lanes. A round-robin scheduler distributes work.
+//   Instantiates NUM_CORES gpu_core instances.
+//
+//   FIXES APPLIED:
+//     - Updated for new gpu_core interface (signed, acc_clear, stall, per-lane act)
+//     - Issue #2:  acc_clear propagated to all cores
+//     - Issue #4:  downstream_ready propagated to all cores
+//     - Issue #11: Per-lane activation support
+//     - Issue #16: Parity error aggregation
 //
 // Total throughput: NUM_CORES × LANES_PER_CORE products per cycle
-//
-// Example configurations:
-//   NUM_CORES=1, LANES=4:    4 products/cycle (current baseline)
-//   NUM_CORES=4, LANES=32: 128 products/cycle (32× improvement)
-//   NUM_CORES=8, LANES=128: 1024 products/cycle (256× improvement)
 // ============================================================================
 module gpu_multicore #(
     parameter NUM_CORES      = 4,
@@ -20,38 +21,42 @@ module gpu_multicore #(
     input  wire                    clk,
     input  wire                    rst,
 
-    // Configuration (shared across all cores)
+    // Configuration
     input  wire [3:0]              dq_scale,
     input  wire [3:0]              dq_offset,
 
-    // Weight loading interface
+    // Weight loading
     input  wire                    mem_write_en,
-    input  wire [7:0]              mem_write_val,
+    input  wire signed [7:0]       mem_write_val,
     input  wire [ADDR_W-1:0]       mem_write_idx,
-    input  wire [3:0]              mem_write_core,    // Target core for write
+    input  wire [3:0]              mem_write_core,
 
-    // Work dispatch — feeds all cores
+    // Work dispatch
     input  wire                    valid_in,
     input  wire [ADDR_W-1:0]       weight_base_addr,
-    input  wire [7:0]              activation_in,
+    input  wire [8*LANES_PER_CORE-1:0] activation_in,  // Per-lane activations
 
-    // Round-robin scheduling
-    input  wire                    schedule_mode,      // 0=broadcast, 1=round-robin
+    // Control
+    input  wire                    acc_clear,
+    input  wire                    downstream_ready,
+    input  wire                    schedule_mode,
 
-    // Aggregated output
+    // Output
     output wire                    any_valid_out,
-    output reg  [31:0]             total_accumulator,
+    output wire                    ready,
+    output reg  signed [31:0]      total_accumulator,
     output reg  [31:0]             total_products_out,
-    output reg  [31:0]             total_zero_skips
+    output reg  [31:0]             total_zero_skips,
+    output reg                     any_parity_error
 );
 
-    // ========================================================================
-    // Core Instance Signals
-    // ========================================================================
+    // Per-core signals
     wire                    core_valid_out  [0:NUM_CORES-1];
     wire [LANES_PER_CORE-1:0] core_zero_mask [0:NUM_CORES-1];
-    wire [31:0]             core_accumulator [0:NUM_CORES-1];
+    wire signed [31:0]      core_accumulator [0:NUM_CORES-1];
     wire [4:0]              core_pipe_active [0:NUM_CORES-1];
+    wire                    core_ready [0:NUM_CORES-1];
+    wire                    core_parity_error [0:NUM_CORES-1];
 
     // Round-robin counter
     reg [3:0] rr_counter;
@@ -62,19 +67,12 @@ module gpu_multicore #(
             rr_counter <= (rr_counter == NUM_CORES - 1) ? 4'd0 : rr_counter + 1;
     end
 
-    // ========================================================================
-    // Core Instantiation (generate NUM_CORES instances)
-    // ========================================================================
+    // Core instantiation
     genvar c;
     generate
         for (c = 0; c < NUM_CORES; c = c + 1) begin : core_gen
-
-            // Per-core valid: broadcast or round-robin
             wire core_valid = schedule_mode ?
-                (valid_in && (rr_counter == c)) :   // Round-robin
-                valid_in;                            // Broadcast
-
-            // Per-core memory write
+                (valid_in && (rr_counter == c)) : valid_in;
             wire core_mem_wr = mem_write_en && (mem_write_core == c);
 
             gpu_core #(
@@ -93,20 +91,21 @@ module gpu_multicore #(
                 .valid_in(core_valid),
                 .weight_base_addr(weight_base_addr),
                 .activation_in(activation_in),
+                .acc_clear(acc_clear),
+                .downstream_ready(downstream_ready),
+                .ready(core_ready[c]),
                 .valid_out(core_valid_out[c]),
                 .zero_skip_mask(core_zero_mask[c]),
                 .accumulator(core_accumulator[c]),
-                .lane_results(),  // Not aggregated for simplicity
+                .lane_results(),
                 .pipe_active(core_pipe_active[c]),
-                .products_per_cycle()
+                .products_per_cycle(),
+                .parity_error(core_parity_error[c])
             );
         end
     endgenerate
 
-    // ========================================================================
-    // Output Aggregation
-    // ========================================================================
-    // Any core producing output?
+    // Output aggregation
     reg any_valid_reg;
     integer ai;
     always @(*) begin
@@ -116,16 +115,26 @@ module gpu_multicore #(
     end
     assign any_valid_out = any_valid_reg;
 
-    // Combinational: sum all core accumulators (no race condition)
-    reg [31:0] accum_sum;
+    // Ready = all cores ready
+    reg all_ready_reg;
+    integer ri;
+    always @(*) begin
+        all_ready_reg = 1'b1;
+        for (ri = 0; ri < NUM_CORES; ri = ri + 1)
+            all_ready_reg = all_ready_reg & core_ready[ri];
+    end
+    assign ready = all_ready_reg;
+
+    // Accumulator sum
+    reg signed [31:0] accum_sum;
     integer si;
     always @(*) begin
-        accum_sum = 32'd0;
+        accum_sum = 32'sd0;
         for (si = 0; si < NUM_CORES; si = si + 1)
-            accum_sum = accum_sum + core_accumulator[si];  // blocking = correct!
+            accum_sum = accum_sum + core_accumulator[si];
     end
 
-    // Combinational: count products and zero-skips this cycle
+    // Products and zero-skips
     reg [31:0] cycle_products;
     reg [31:0] cycle_zero_skips;
     integer ci, zi;
@@ -142,14 +151,24 @@ module gpu_multicore #(
         end
     end
 
-    // Sequential: register the aggregated values
+    // Parity error aggregation
+    reg parity_err_any;
+    integer pe_i;
+    always @(*) begin
+        parity_err_any = 1'b0;
+        for (pe_i = 0; pe_i < NUM_CORES; pe_i = pe_i + 1)
+            parity_err_any = parity_err_any | core_parity_error[pe_i];
+    end
+
     always @(posedge clk) begin
         if (rst) begin
-            total_accumulator  <= 32'd0;
+            total_accumulator  <= 32'sd0;
             total_products_out <= 32'd0;
             total_zero_skips   <= 32'd0;
+            any_parity_error   <= 1'b0;
         end else begin
             total_accumulator  <= accum_sum;
+            any_parity_error   <= parity_err_any;
             if (any_valid_reg) begin
                 total_products_out <= total_products_out + cycle_products;
                 total_zero_skips   <= total_zero_skips + cycle_zero_skips;

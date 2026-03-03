@@ -71,14 +71,14 @@ module fused_dequantizer_tb;
         // Test 3: (0 - 0) * 10 = 0
         test_dequant(4'd0, 4'd10, 4'd0, 8'd0, "Zero input: (0-0)*10=0");
 
-        // Test 4: (15 - 0) * 15 = 225
-        test_dequant(4'd15, 4'd15, 4'd0, 8'd225, "Max no offset: (15-0)*15=225");
+        // Test 4: (15 - 0) * 15 = 225 → clamped to 127 (signed 8-bit max)
+        test_dequant(4'd15, 4'd15, 4'd0, 8'sd127, "Max clamped: (15-0)*15=225=>127");
 
         // Test 5: (5 - 5) * 10 = 0
-        test_dequant(4'd5, 4'd10, 4'd5, 8'd0, "Equal to offset: (5-5)*10=0");
+        test_dequant(4'd5, 4'd10, 4'd5, 8'sd0, "Equal to offset: (5-5)*10=0");
 
-        // Test 6: (3 - 8) * 2 = -10 → clamped to 0
-        test_dequant(4'd3, 4'd2, 4'd8, 8'd0, "Negative clamp: (3-8)*2 => 0");
+        // Test 6: (3 - 8) * 2 = -10 (signed result, not clamped to 0)
+        test_dequant(4'd3, 4'd2, 4'd8, -8'sd10, "Negative: (3-8)*2=-10");
 
         // Test 7: (1 - 0) * 1 = 1
         test_dequant(4'd1, 4'd1, 4'd0, 8'd1, "Minimum: (1-0)*1=1");

@@ -1,27 +1,45 @@
 // ============================================================================
 // Testbench: attention_unit_tb
-// Tests single-token attention with identity weight matrices
+// Tests attention with SRAM-loaded weights (updated for Issue #7 SRAM interface)
 // ============================================================================
 `timescale 1ns / 1ps
 
 module attention_unit_tb;
 
-    parameter ED = 4;  // Small EMBED_DIM for testing
-    parameter NH = 2;
-    parameter HD = 2;
-    parameter DW = 16;
+    parameter ED = 4;   // EMBED_DIM
+    parameter NH = 2;   // NUM_HEADS
+    parameter HD = 2;   // HEAD_DIM
+    parameter DW = 16;  // DATA_WIDTH
+    parameter MSL = 8;  // MAX_SEQ_LEN
 
     reg                             clk, rst, valid_in;
     reg  [ED*DW-1:0]                x_in;
-    reg  [ED*ED*DW-1:0]             wq_flat, wk_flat, wv_flat, wo_flat;
+    reg  [$clog2(MSL)-1:0]          seq_pos;
+
+    // Weight loading interface
+    reg                             weight_load_en;
+    reg  [1:0]                      weight_matrix_sel;
+    reg  [$clog2(ED)-1:0]           weight_row, weight_col;
+    reg  signed [DW-1:0]            weight_data;
+    reg                             causal_mask_en;
+
     wire [ED*DW-1:0]                y_out;
     wire                            valid_out;
+    wire [31:0]                     zero_skip_count;
 
-    attention_unit #(.EMBED_DIM(ED), .NUM_HEADS(NH), .HEAD_DIM(HD), .DATA_WIDTH(DW)) uut (
+    attention_unit #(
+        .EMBED_DIM(ED), .NUM_HEADS(NH), .HEAD_DIM(HD),
+        .MAX_SEQ_LEN(MSL), .DATA_WIDTH(DW)
+    ) uut (
         .clk(clk), .rst(rst), .valid_in(valid_in),
-        .x_in(x_in),
-        .wq_flat(wq_flat), .wk_flat(wk_flat), .wv_flat(wv_flat), .wo_flat(wo_flat),
-        .y_out(y_out), .valid_out(valid_out)
+        .x_in(x_in), .seq_pos(seq_pos),
+        .weight_load_en(weight_load_en),
+        .weight_matrix_sel(weight_matrix_sel),
+        .weight_row(weight_row), .weight_col(weight_col),
+        .weight_data(weight_data),
+        .causal_mask_en(causal_mask_en),
+        .y_out(y_out), .valid_out(valid_out),
+        .zero_skip_count(zero_skip_count)
     );
 
     initial clk = 0;
@@ -33,20 +51,25 @@ module attention_unit_tb;
     integer ii;
     real y_real;
 
-    // Build identity matrix in flattened Q8.8 format
-    // For 4x4: I[i][j] = (i==j) ? 256 : 0
-    function [ED*ED*DW-1:0] make_identity;
-        input dummy;  // Icarus Verilog requires at least one input
+    // Task: Load identity matrix into a weight matrix
+    task load_identity;
+        input [1:0] matrix_sel;
         integer r, c;
-        reg [ED*ED*DW-1:0] mat;
         begin
-            mat = 0;
-            for (r = 0; r < ED; r = r + 1)
-                for (c = 0; c < ED; c = c + 1)
-                    mat[(r*ED+c)*DW +: DW] = (r == c) ? 16'sd256 : 16'sd0;
-            make_identity = mat;
+            for (r = 0; r < ED; r = r + 1) begin
+                for (c = 0; c < ED; c = c + 1) begin
+                    @(posedge clk);
+                    weight_load_en   <= 1'b1;
+                    weight_matrix_sel <= matrix_sel;
+                    weight_row       <= r[$clog2(ED)-1:0];
+                    weight_col       <= c[$clog2(ED)-1:0];
+                    weight_data      <= (r == c) ? 16'sd256 : 16'sd0; // Q8.8 identity
+                end
+            end
+            @(posedge clk);
+            weight_load_en <= 1'b0;
         end
-    endfunction
+    endtask
 
     initial begin
         $dumpfile("sim/waveforms/attention_unit.vcd");
@@ -55,47 +78,89 @@ module attention_unit_tb;
 
     initial begin
         $display("============================================");
-        $display("  Attention Unit Testbench (Q8.8)");
+        $display("  Attention Unit Testbench (Q8.8, SRAM)");
         $display("============================================");
 
-        rst = 1; valid_in = 0; x_in = 0;
-        wq_flat = 0; wk_flat = 0; wv_flat = 0; wo_flat = 0;
+        rst = 1; valid_in = 0; x_in = 0; seq_pos = 0;
+        weight_load_en = 0; causal_mask_en = 1;
+        weight_matrix_sel = 0; weight_row = 0; weight_col = 0; weight_data = 0;
         #25; rst = 0; #15;
 
-        // Test 1: Identity weights → output ≈ input
-        // With all identity weight matrices: Q=K=V=x, attention=V, output_proj=V → y≈x
-        wq_flat = make_identity(0);
-        wk_flat = make_identity(0);
-        wv_flat = make_identity(0);
-        wo_flat = make_identity(0);
+        // Load identity weights into all 4 matrices (Wq, Wk, Wv, Wo)
+        $display("[1] Loading identity weights into Wq/Wk/Wv/Wo...");
+        load_identity(2'd0);  // Wq
+        load_identity(2'd1);  // Wk
+        load_identity(2'd2);  // Wv
+        load_identity(2'd3);  // Wo
+        $display("    Done loading weights.");
 
+        #20;
+
+        // Test 1: Single token with identity weights
+        $display("");
+        $display("[2] Test: Single token, identity weights");
         @(negedge clk);
-        x_in = {16'sd1024, 16'sd768, 16'sd512, 16'sd256}; // [1.0, 2.0, 3.0, 4.0]
+        x_in = {16'sd1024, 16'sd768, 16'sd512, 16'sd256}; // [1.0, 2.0, 3.0, 4.0] Q8.8
+        seq_pos = 0;
         valid_in = 1'b1;
         @(negedge clk);
         valid_in = 1'b0;
 
         timeout_cnt = 0;
-        while (!valid_out && timeout_cnt < 50) begin
+        while (!valid_out && timeout_cnt < 100) begin
             @(negedge clk);
             timeout_cnt = timeout_cnt + 1;
         end
 
         if (valid_out) begin
-            $display("[PASS] Identity attention outputs:");
+            $display("    Output received after %0d cycles", timeout_cnt);
             for (ii = 0; ii < ED; ii = ii + 1) begin
-                y_real = $itor($signed(y_out[ii*DW +: DW])) / 256.0;
-                $display("  y[%0d] = %.3f", ii, y_real);
+                y_real = $signed(y_out[ii*DW +: DW]) / 256.0;
+                $display("    y[%0d] = %0d (%.3f)", ii, $signed(y_out[ii*DW +: DW]), y_real);
             end
+            $display("    Zero-skips: %0d", zero_skip_count);
+            $display("[PASS] Single token with identity weights");
             pass_count = pass_count + 1;
         end else begin
-            $display("[FAIL] Identity attention TIMEOUT");
+            $display("[FAIL] Timeout waiting for attention output!");
+            fail_count = fail_count + 1;
+        end
+
+        #50;
+
+        // Test 2: Second token (tests KV cache)
+        $display("");
+        $display("[3] Test: Second token (KV cache)");
+        @(negedge clk);
+        x_in = {16'sd512, 16'sd512, 16'sd512, 16'sd512}; // [2.0, 2.0, 2.0, 2.0]
+        seq_pos = 1;
+        valid_in = 1'b1;
+        @(negedge clk);
+        valid_in = 1'b0;
+
+        timeout_cnt = 0;
+        while (!valid_out && timeout_cnt < 100) begin
+            @(negedge clk);
+            timeout_cnt = timeout_cnt + 1;
+        end
+
+        if (valid_out) begin
+            $display("    Output received after %0d cycles", timeout_cnt);
+            for (ii = 0; ii < ED; ii = ii + 1) begin
+                y_real = $signed(y_out[ii*DW +: DW]) / 256.0;
+                $display("    y[%0d] = %0d (%.3f)", ii, $signed(y_out[ii*DW +: DW]), y_real);
+            end
+            $display("[PASS] Second token with KV cache");
+            pass_count = pass_count + 1;
+        end else begin
+            $display("[FAIL] Timeout on second token!");
             fail_count = fail_count + 1;
         end
 
         #20;
+        $display("");
         $display("============================================");
-        $display("  Results: %0d PASSED, %0d FAILED", pass_count, fail_count);
+        $display("  Results: %0d passed, %0d failed", pass_count, fail_count);
         $display("============================================");
         $finish;
     end

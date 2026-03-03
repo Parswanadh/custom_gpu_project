@@ -1,0 +1,11 @@
+VCD info: dumpfile sim/waveforms/systolic_array.vcd opened for output.
+============================================
+  Systolic Array (4x4) Testbench
+============================================
+[PASS] Diagonal matrix: [10,40,90,160]
+[PASS] Full matrix: valid output received, got=[28,32,36,40]
+[PASS] Sparse activation: valid output received, got=[5,6,7,8]
+============================================
+  Results: 3 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/compute/systolic_array_tb.v:186: $finish called at 766000 (1ps)

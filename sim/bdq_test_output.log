@@ -1,0 +1,10 @@
+Test 1 - Basic dequant:
+  valid_out=1 [PASS]
+Test 2 - All zeros:
+Test 3 - Max range:
+Test 4 - Scale=0:
+========================================
+  16 [PASS], 0 [FAIL]
+  ALL TESTS PASSED [PASS]
+========================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/compute/block_dequantizer_tb.v:122: $finish called at 76000 (1ps)

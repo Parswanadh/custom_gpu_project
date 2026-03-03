@@ -3,13 +3,14 @@
 // Description: Complete GPT-2 inference engine using ACCELERATED components.
 //   token_in → Embedding → N × AcceleratedTransformerBlock → LayerNorm → Argmax
 //
-//   Key improvements over original gpt2_engine:
-//     - Uses accelerated_attention with KV cache (real multi-token attention)
-//     - Uses accelerated_transformer_block (connected to pipeline, zero-skip)
-//     - Supports seq_pos for autoregressive generation
-//     - Tracks zero-skip count across all layers
+//   FIXES APPLIED:
+//     - Issue #8:  Per-layer weight support via weight banks (indexed by layer_idx)
+//     - Updated for new gpu_core interface (signed, acc_clear)
+//     - Per-layer LN parameter banks
 //
-// Parameters: VOCAB_SIZE, MAX_SEQ_LEN, EMBED_DIM, NUM_LAYERS, etc.
+// Note: The accelerated_transformer_block still takes flat weight wires for
+//   the attention matrices (wq/wk/wv/wo_flat). In a fully fixed design these
+//   would be loaded via SRAM too. The LN parameters are now per-layer.
 // ============================================================================
 module accelerated_gpt2_engine #(
     parameter VOCAB_SIZE   = 16,
@@ -32,17 +33,21 @@ module accelerated_gpt2_engine #(
     input  wire                               load_pos_emb,
     input  wire [$clog2(MAX_SEQ_LEN)-1:0]     load_pos_idx,
 
-    // Transformer weights (shared across layers for simplicity)
-    input  wire [EMBED_DIM*DATA_WIDTH-1:0]    ln1_gamma, ln1_beta,
-    input  wire [EMBED_DIM*DATA_WIDTH-1:0]    ln2_gamma, ln2_beta,
+    // Per-layer LN parameter loading (Issue #8)
+    input  wire                               load_ln_en,
+    input  wire [$clog2(NUM_LAYERS):0]        load_layer_idx,
+    input  wire                               load_ln_sel,       // 0=LN1, 1=LN2
+    input  wire                               load_ln_is_gamma,
+    input  wire [$clog2(EMBED_DIM)-1:0]       load_ln_dim,
+    input  wire signed [DATA_WIDTH-1:0]       load_ln_data,
+
+    // Transformer weights (per layer — host must load each layer's weights before running that layer)
+    // In a production design, these would come from the weight SRAM via DMA
     input  wire [EMBED_DIM*EMBED_DIM*DATA_WIDTH-1:0] wq_flat, wk_flat, wv_flat, wo_flat,
     input  wire [EMBED_DIM*FFN_DIM*DATA_WIDTH-1:0]   ffn_w1_flat,
     input  wire [FFN_DIM*DATA_WIDTH-1:0]              ffn_b1_flat,
     input  wire [FFN_DIM*EMBED_DIM*DATA_WIDTH-1:0]    ffn_w2_flat,
     input  wire [EMBED_DIM*DATA_WIDTH-1:0]            ffn_b2_flat,
-
-    // Final layer norm
-    input  wire [EMBED_DIM*DATA_WIDTH-1:0]    ln_final_gamma, ln_final_beta,
 
     // Inference interface
     input  wire                               valid_in,
@@ -52,10 +57,58 @@ module accelerated_gpt2_engine #(
     output reg  [EMBED_DIM*DATA_WIDTH-1:0]    logits_out,
     output reg                                valid_out,
 
-    // Performance counters (NEW — not in original)
+    // Performance counters
     output reg  [31:0]                        total_zero_skips,
     output reg  [31:0]                        total_cycles
 );
+
+    // Per-layer LN parameter banks (Issue #8)
+    reg [EMBED_DIM*DATA_WIDTH-1:0] ln1_gamma_bank [0:NUM_LAYERS-1];
+    reg [EMBED_DIM*DATA_WIDTH-1:0] ln1_beta_bank  [0:NUM_LAYERS-1];
+    reg [EMBED_DIM*DATA_WIDTH-1:0] ln2_gamma_bank [0:NUM_LAYERS-1];
+    reg [EMBED_DIM*DATA_WIDTH-1:0] ln2_beta_bank  [0:NUM_LAYERS-1];
+    reg [EMBED_DIM*DATA_WIDTH-1:0] ln_final_gamma;
+    reg [EMBED_DIM*DATA_WIDTH-1:0] ln_final_beta;
+
+    integer li;
+    always @(posedge clk) begin
+        if (rst) begin
+            for (li = 0; li < NUM_LAYERS; li = li + 1) begin
+                ln1_gamma_bank[li] <= 0;
+                ln1_beta_bank[li]  <= 0;
+                ln2_gamma_bank[li] <= 0;
+                ln2_beta_bank[li]  <= 0;
+            end
+            ln_final_gamma <= 0;
+            ln_final_beta  <= 0;
+        end else if (load_ln_en) begin
+            if (load_layer_idx < NUM_LAYERS) begin
+                if (!load_ln_sel) begin
+                    if (load_ln_is_gamma)
+                        ln1_gamma_bank[load_layer_idx][load_ln_dim*DATA_WIDTH +: DATA_WIDTH] <= load_ln_data;
+                    else
+                        ln1_beta_bank[load_layer_idx][load_ln_dim*DATA_WIDTH +: DATA_WIDTH] <= load_ln_data;
+                end else begin
+                    if (load_ln_is_gamma)
+                        ln2_gamma_bank[load_layer_idx][load_ln_dim*DATA_WIDTH +: DATA_WIDTH] <= load_ln_data;
+                    else
+                        ln2_beta_bank[load_layer_idx][load_ln_dim*DATA_WIDTH +: DATA_WIDTH] <= load_ln_data;
+                end
+            end else begin
+                if (load_ln_is_gamma)
+                    ln_final_gamma[load_ln_dim*DATA_WIDTH +: DATA_WIDTH] <= load_ln_data;
+                else
+                    ln_final_beta[load_ln_dim*DATA_WIDTH +: DATA_WIDTH] <= load_ln_data;
+            end
+        end
+    end
+
+    // Current layer params
+    reg [$clog2(NUM_LAYERS):0] layer_idx;
+    wire [EMBED_DIM*DATA_WIDTH-1:0] cur_ln1_gamma = ln1_gamma_bank[layer_idx];
+    wire [EMBED_DIM*DATA_WIDTH-1:0] cur_ln1_beta  = ln1_beta_bank[layer_idx];
+    wire [EMBED_DIM*DATA_WIDTH-1:0] cur_ln2_gamma = ln2_gamma_bank[layer_idx];
+    wire [EMBED_DIM*DATA_WIDTH-1:0] cur_ln2_beta  = ln2_beta_bank[layer_idx];
 
     // Internal signals
     wire [EMBED_DIM*DATA_WIDTH-1:0] emb_out;
@@ -71,10 +124,7 @@ module accelerated_gpt2_engine #(
     reg                             block_en, ln_final_en;
     reg [$clog2(MAX_SEQ_LEN)-1:0]   seq_position;
 
-    // State machine
     reg [3:0] state;
-    reg [$clog2(NUM_LAYERS):0] layer_idx;
-
     localparam IDLE       = 4'd0;
     localparam EMBEDDING  = 4'd1;
     localparam TRANSFORMER= 4'd2;
@@ -84,7 +134,7 @@ module accelerated_gpt2_engine #(
 
     integer i;
 
-    // Embedding lookup (reused from original)
+    // Embedding lookup
     embedding_lookup #(
         .VOCAB_SIZE(VOCAB_SIZE), .MAX_SEQ_LEN(MAX_SEQ_LEN),
         .EMBED_DIM(EMBED_DIM), .DATA_WIDTH(DATA_WIDTH)
@@ -98,7 +148,7 @@ module accelerated_gpt2_engine #(
         .emb_out(emb_out), .valid_out(emb_valid)
     );
 
-    // ACCELERATED Transformer block (replaces old transformer_block!)
+    // ACCELERATED Transformer block — now with per-layer LN params
     accelerated_transformer_block #(
         .EMBED_DIM(EMBED_DIM), .NUM_HEADS(NUM_HEADS),
         .HEAD_DIM(HEAD_DIM), .FFN_DIM(FFN_DIM),
@@ -106,8 +156,8 @@ module accelerated_gpt2_engine #(
     ) u_block (
         .clk(clk), .rst(rst), .valid_in(block_en),
         .x_in(current_hidden), .seq_pos(seq_position),
-        .ln1_gamma(ln1_gamma), .ln1_beta(ln1_beta),
-        .ln2_gamma(ln2_gamma), .ln2_beta(ln2_beta),
+        .ln1_gamma(cur_ln1_gamma), .ln1_beta(cur_ln1_beta),
+        .ln2_gamma(cur_ln2_gamma), .ln2_beta(cur_ln2_beta),
         .wq_flat(wq_flat), .wk_flat(wk_flat),
         .wv_flat(wv_flat), .wo_flat(wo_flat),
         .ffn_w1_flat(ffn_w1_flat), .ffn_b1_flat(ffn_b1_flat),
@@ -182,7 +232,6 @@ module accelerated_gpt2_engine #(
                 end
 
                 LOGITS: begin
-                    // Argmax over logits
                     begin : argmax_block
                         reg signed [DATA_WIDTH-1:0] max_val;
                         reg [$clog2(VOCAB_SIZE)-1:0] max_idx;

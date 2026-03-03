@@ -1,0 +1,18 @@
+VCD info: dumpfile sim/waveforms/embedding_lookup.vcd opened for output.
+============================================
+  Embedding Lookup Testbench (Q8.8)
+============================================
+[PASS] Embedding lookup outputs:
+  emb[0] = 1.102
+  emb[1] = 2.199
+  emb[2] = 3.301
+  emb[3] = 4.398
+[PASS] Zero token/position outputs:
+  emb[0] = 0.000
+  emb[1] = 0.000
+  emb[2] = 0.000
+  emb[3] = 0.000
+============================================
+  Results: 2 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/gpt2/embedding_lookup_tb.v:139: $finish called at 251000 (1ps)

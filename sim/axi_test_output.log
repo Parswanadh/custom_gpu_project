@@ -1,0 +1,26 @@
+
+================================================================
+  AXI4-Lite Weight Memory Testbench
+================================================================
+[1] Writing weights via AXI...
+    Wrote 0xdeadbeef to addr 0x0000
+    Wrote 0x12345678 to addr 0x0004
+[2] Reading weights back via AXI...
+    Read from 0x0000: 0xdeadbeef  (expected 0xDEADBEEF)
+    [PASS]
+    Read from 0x0004: 0x12345678  (expected 0x12345678)
+    [PASS]
+[3] Reading control/status registers...
+    Weight count: 2
+    Zero-skip count: 42  (expected 42)
+    [PASS]
+[4] GPU-side weight read...
+    GPU read addr 0x00: 0xef (expected 0xEF)
+    [PASS]
+[5] Testing start inference control...
+    start_inference = 0 (expected 1)
+
+================================================================
+  === ALL AXI TESTS PASSED ===
+================================================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/memory/axi_weight_memory_tb.v:169: $finish called at 365000 (1ps)

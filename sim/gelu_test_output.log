@@ -1,0 +1,26 @@
+VCD info: dumpfile sim/waveforms/gelu_activation.vcd opened for output.
+============================================
+  GELU Activation Testbench (Q8.8)
+============================================
+[INFO] x=-5.0 => ~0 | x=-5.000 (0xfb00) => y=0.000 (0x0000) valid=1
+[PASS] x=-5.0 => ~0 | x=-5.000 => y=0.000
+[INFO] x=-3.0 => ~0 | x=-3.000 (0xfd00) => y=0.000 (0x0000) valid=1
+[PASS] x=-3.0 => ~0 | x=-3.000 => y=0.000
+[INFO] x=-1.0 => ~-0.16 | x=-1.000 (0xff00) => y=-0.172 (0xffd4) valid=1
+[PASS] x=-1.0 => ~-0.16 | x=-1.000 => y=-0.172
+[INFO] x=0.0 => 0 | x=0.000 (0x0000) => y=0.000 (0x0000) valid=1
+[PASS] x=0.0 => 0 | x=0.000 => y=0.000
+[INFO] x=1.0 => ~0.84 | x=1.000 (0x0100) => y=6.891 (0x06e4) valid=1
+[PASS] x=1.0 => ~0.84 | x=1.000 => y=6.891
+[INFO] x=2.0 => ~1.96 | x=2.000 (0x0200) => y=14.766 (0x0ec4) valid=1
+[PASS] x=2.0 => ~1.96 | x=2.000 => y=14.766
+[INFO] x=3.0 => ~3.0 | x=3.000 (0x0300) => y=14.766 (0x0ec4) valid=1
+[PASS] x=3.0 => ~3.0 | x=3.000 => y=14.766
+[INFO] x=5.0 => 5.0 | x=5.000 (0x0500) => y=14.766 (0x0ec4) valid=1
+[PASS] x=5.0 => 5.0 | x=5.000 => y=14.766
+[INFO] x=0.5 => ~0.35 | x=0.500 (0x0080) => y=3.051 (0x030d) valid=1
+[PASS] x=0.5 => ~0.35 | x=0.500 => y=3.051
+============================================
+  Results: 9 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/compute/gelu_activation_tb.v:96: $finish called at 231000 (1ps)

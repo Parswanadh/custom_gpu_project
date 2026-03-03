@@ -3,29 +3,28 @@
 // Description: AXI4-Lite slave interface for loading weights from external
 //   memory (CPU, DMA, or SoC bus) into the GPU's weight storage.
 //
-//   This enables the GPU to be used as a real peripheral:
-//     1. CPU writes weights via AXI bus to this module
-//     2. Module stores weights in internal SRAM
-//     3. GPU cores read weights from this SRAM during inference
+//   FIXES APPLIED:
+//     - Issue #16: Parity bits on weight memory with error flag
+//     - Issue #18: Parity error exposed via status register at 0x1010
 //
 //   Address Map:
 //     0x0000 - 0x0FFF: Weight memory (4096 x 8-bit = 4KB)
 //     0x1000:          Control register (bit 0 = start inference)
-//     0x1004:          Status register (bit 0 = busy, bit 1 = done)
+//     0x1004:          Status register (bit 0 = busy, bit 1 = done, bit 2 = parity_error)
 //     0x1008:          Weight count register
 //     0x100C:          Zero-skip count (read-only)
+//     0x1010:          Parity error count (read-only)
 //
 // AXI4-Lite: 32-bit address, 32-bit data, no bursts
 // ============================================================================
 module axi_weight_memory #(
-    parameter MEM_DEPTH    = 4096,  // Weight memory depth
-    parameter DATA_WIDTH   = 8,     // Weight precision
-    parameter AXI_ADDR_W   = 16,    // AXI address width
-    parameter AXI_DATA_W   = 32     // AXI data width
+    parameter MEM_DEPTH    = 4096,
+    parameter DATA_WIDTH   = 8,
+    parameter AXI_ADDR_W   = 16,
+    parameter AXI_DATA_W   = 32
 )(
-    // AXI4-Lite clock + reset
     input  wire                     aclk,
-    input  wire                     aresetn,    // Active-low reset
+    input  wire                     aresetn,
 
     // AXI4-Lite Write Address Channel
     input  wire                     s_axi_awvalid,
@@ -60,7 +59,7 @@ module axi_weight_memory #(
     output reg  [DATA_WIDTH-1:0]    gpu_read_data,
     output reg                      gpu_read_valid,
 
-    // GPU-side interface: bulk write port (for DMA-like transfers)
+    // GPU-side interface: bulk write port
     output reg                      weight_load_valid,
     output reg  [$clog2(MEM_DEPTH)-1:0] weight_load_addr,
     output reg  [DATA_WIDTH-1:0]    weight_load_data,
@@ -69,16 +68,20 @@ module axi_weight_memory #(
     output reg                      start_inference,
     input  wire                     inference_busy,
     input  wire                     inference_done,
-    input  wire [31:0]              zero_skip_count
+    input  wire [31:0]              zero_skip_count,
+
+    // Error flag (Issue #16)
+    output reg                      parity_error_out
 );
 
-    // OKAY response
     assign s_axi_bresp = 2'b00;
     assign s_axi_rresp = 2'b00;
 
-    // Weight memory
+    // Weight memory with parity (Issue #16)
     reg [DATA_WIDTH-1:0] weight_mem [0:MEM_DEPTH-1];
+    reg                  weight_par [0:MEM_DEPTH-1];
     reg [31:0]           weight_count;
+    reg [31:0]           parity_error_count;
 
     // AXI write handling
     reg [AXI_ADDR_W-1:0] wr_addr;
@@ -102,12 +105,15 @@ module axi_weight_memory #(
             weight_count     <= 0;
             weight_load_valid <= 1'b0;
             gpu_read_valid   <= 1'b0;
+            parity_error_out <= 1'b0;
+            parity_error_count <= 0;
 
-            for (i = 0; i < MEM_DEPTH; i = i + 1)
+            for (i = 0; i < MEM_DEPTH; i = i + 1) begin
                 weight_mem[i] <= 0;
+                weight_par[i] <= 1'b0;
+            end
 
         end else begin
-            // Defaults
             weight_load_valid <= 1'b0;
             gpu_read_valid    <= 1'b0;
             start_inference   <= 1'b0;
@@ -133,26 +139,32 @@ module axi_weight_memory #(
             // ---- Complete Write ----
             if (wr_addr_valid && wr_data_valid) begin
                 if (wr_addr < MEM_DEPTH) begin
-                    // Weight memory write (pack 4 bytes per AXI word)
-                    if (s_axi_wstrb[0]) weight_mem[wr_addr]   <= wr_data[7:0];
-                    if (s_axi_wstrb[1] && wr_addr+1 < MEM_DEPTH)
+                    // Weight memory write with parity (Issue #16)
+                    if (s_axi_wstrb[0]) begin
+                        weight_mem[wr_addr]   <= wr_data[7:0];
+                        weight_par[wr_addr]   <= ^wr_data[7:0];
+                    end
+                    if (s_axi_wstrb[1] && wr_addr+1 < MEM_DEPTH) begin
                         weight_mem[wr_addr+1] <= wr_data[15:8];
-                    if (s_axi_wstrb[2] && wr_addr+2 < MEM_DEPTH)
+                        weight_par[wr_addr+1] <= ^wr_data[15:8];
+                    end
+                    if (s_axi_wstrb[2] && wr_addr+2 < MEM_DEPTH) begin
                         weight_mem[wr_addr+2] <= wr_data[23:16];
-                    if (s_axi_wstrb[3] && wr_addr+3 < MEM_DEPTH)
+                        weight_par[wr_addr+2] <= ^wr_data[23:16];
+                    end
+                    if (s_axi_wstrb[3] && wr_addr+3 < MEM_DEPTH) begin
                         weight_mem[wr_addr+3] <= wr_data[31:24];
+                        weight_par[wr_addr+3] <= ^wr_data[31:24];
+                    end
 
-                    // Signal to GPU
                     weight_load_valid <= 1'b1;
                     weight_load_addr  <= wr_addr;
                     weight_load_data  <= wr_data[DATA_WIDTH-1:0];
                     weight_count      <= weight_count + 1;
 
                 end else if (wr_addr == 16'h1000) begin
-                    // Control register
                     start_inference <= wr_data[0];
                 end
-                // Clear and set response
                 wr_addr_valid <= 1'b0;
                 wr_data_valid <= 1'b0;
                 s_axi_bvalid  <= 1'b1;
@@ -168,7 +180,6 @@ module axi_weight_memory #(
                 s_axi_rvalid  <= 1'b1;
 
                 if (s_axi_araddr < MEM_DEPTH) begin
-                    // Read weight memory (4 bytes packed)
                     s_axi_rdata <= {
                         (s_axi_araddr+3 < MEM_DEPTH) ?
                             weight_mem[s_axi_araddr+3] : 8'd0,
@@ -180,9 +191,10 @@ module axi_weight_memory #(
                     };
                 end else begin
                     case (s_axi_araddr)
-                        16'h1004: s_axi_rdata <= {30'd0, inference_done, inference_busy};
+                        16'h1004: s_axi_rdata <= {29'd0, parity_error_out, inference_done, inference_busy};
                         16'h1008: s_axi_rdata <= weight_count;
                         16'h100C: s_axi_rdata <= zero_skip_count;
+                        16'h1010: s_axi_rdata <= parity_error_count;
                         default:  s_axi_rdata <= 32'hDEAD_BEEF;
                     endcase
                 end
@@ -193,10 +205,15 @@ module axi_weight_memory #(
             if (s_axi_rvalid && s_axi_rready)
                 s_axi_rvalid <= 1'b0;
 
-            // ---- GPU read port ----
+            // ---- GPU read port with parity check (Issue #16) ----
             if (gpu_read_en) begin
                 gpu_read_data  <= weight_mem[gpu_read_addr];
                 gpu_read_valid <= 1'b1;
+                // Check parity on read
+                if (^weight_mem[gpu_read_addr] != weight_par[gpu_read_addr]) begin
+                    parity_error_out   <= 1'b1;
+                    parity_error_count <= parity_error_count + 1;
+                end
             end
         end
     end

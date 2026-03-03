@@ -1,0 +1,17 @@
+============================================
+  Scratchpad (Dual-Port SRAM) Testbench
+============================================
+[1] Port A write + Port A read...
+[PASS] Port A: read 0xcafe from addr 10
+[2] Port A write, Port B read...
+[PASS] Port B: read 0xbeef from addr 20 (cross-port)
+[3] Port B write, Port A read...
+[PASS] Port A: read 0xdead from addr 30 (cross-port)
+[4] Simultaneous write from Port A and Port B...
+[PASS] Simultaneous writes: addr40=0x1111, addr50=0x2222
+[5] Burst write/read pattern...
+[PASS] Burst write/read: 8 values verified
+============================================
+  Results: 5 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/memory/scratchpad_tb.v:215: $finish called at 605000 (1ps)

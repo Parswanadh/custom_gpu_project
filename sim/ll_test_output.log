@@ -1,0 +1,18 @@
+VCD info: dumpfile sim/waveforms/linear_layer.vcd opened for output.
+============================================
+  Linear Layer Testbench (Q8.8)
+============================================
+[PASS] Identity transform outputs:
+  y[0] = 1.000
+  y[1] = 2.000
+  y[2] = 3.000
+  y[3] = 4.000
+[PASS] With bias=0.5 outputs:
+  y[0] = 1.500
+  y[1] = 2.500
+  y[2] = 3.500
+  y[3] = 4.500
+============================================
+  Results: 2 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/transformer/linear_layer_tb.v:148: $finish called at 550000 (1ps)

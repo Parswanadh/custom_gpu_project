@@ -71,13 +71,16 @@ module zero_detect_mult_tb;
         rst = 1; valid_in = 0; a = 0; b = 0;
         #25; rst = 0; #15;
 
+        // Module uses signed 8-bit inputs: range [-128, 127]
         apply_and_check(8'd5, 8'd3, 16'd15, 1'b0, "Normal: 5 x 3 = 15");
         apply_and_check(8'd0, 8'd7, 16'd0, 1'b1, "Zero A: 0 x 7 = 0");
         apply_and_check(8'd9, 8'd0, 16'd0, 1'b1, "Zero B: 9 x 0 = 0");
         apply_and_check(8'd0, 8'd0, 16'd0, 1'b1, "Both zero: 0 x 0 = 0");
-        apply_and_check(8'd255, 8'd255, 16'd65025, 1'b0, "Max: 255 x 255 = 65025");
-        apply_and_check(8'd1, 8'd200, 16'd200, 1'b0, "Identity: 1 x 200 = 200");
-        apply_and_check(8'd12, 8'd10, 16'd120, 1'b0, "Typical: 12 x 10 = 120");
+        // Signed: -1 * -1 = 1 (8'hFF = -1 signed)
+        apply_and_check(-8'sd1, -8'sd1, 16'sd1, 1'b0, "Signed max: -1 x -1 = 1");
+        // Signed: 1 * 100 = 100 (within signed range)
+        apply_and_check(8'sd1, 8'sd100, 16'sd100, 1'b0, "Identity: 1 x 100 = 100");
+        apply_and_check(8'sd12, 8'sd10, 16'sd120, 1'b0, "Typical: 12 x 10 = 120");
 
         #20;
         $display("============================================");

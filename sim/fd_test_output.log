@@ -1,0 +1,16 @@
+VCD info: dumpfile sim/waveforms/fused_dequantizer.vcd opened for output.
+============================================
+  Fused Dequantizer Testbench
+============================================
+[PASS] Basic: (6-0)*5=30 | in=6 scale=5 offset=0 => out=30
+[PASS] With offset: (10-2)*3=24 | in=10 scale=3 offset=2 => out=24
+[PASS] Zero input: (0-0)*10=0 | in=0 scale=10 offset=0 => out=0
+[PASS] Max clamped: (15-0)*15=225=>127 | in=15 scale=15 offset=0 => out=127
+[PASS] Equal to offset: (5-5)*10=0 | in=5 scale=10 offset=5 => out=0
+[PASS] Negative: (3-8)*2=-10 | in=3 scale=2 offset=8 => out=246
+[PASS] Minimum: (1-0)*1=1 | in=1 scale=1 offset=0 => out=1
+[PASS] Scale 1: (8-0)*1=8 | in=8 scale=1 offset=0 => out=8
+============================================
+  Results: 8 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/primitives/fused_dequantizer_tb.v:94: $finish called at 286000 (1ps)
