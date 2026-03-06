@@ -202,7 +202,15 @@ Run-Test "P11" "flash_attention_unit" "flash_test" @("rtl/transformer/flash_atte
 Run-Test "P11" "mixed_precision_decompressor" "mpd_test" @("rtl/compute/mixed_precision_decompressor.v") "tb/compute/mixed_precision_decompressor_tb.v"
 Run-Test "P11" "q4_weight_pipeline" "q4_test" @("rtl/compute/w4a8_decompressor.v", "rtl/compute/mixed_precision_decompressor.v", "rtl/compute/q4_weight_pipeline.v") "tb/compute/q4_weight_pipeline_tb.v"
 Write-Host ""
-
+# -- Phase 13: Novel Breakthroughs (2024-2026 Papers) --
+Write-Host "--- Phase 13: Novel Breakthrough Features ---" -ForegroundColor Yellow
+Run-Test "P13" "ternary_mac_engine" "ternary_test" @("rtl/compute/ternary_mac_engine.v") "tb/compute/ternary_mac_engine_tb.v"
+Run-Test "P13" "rope_encoder" "rope_test" @("rtl/transformer/rope_encoder.v") "tb/transformer/rope_encoder_tb.v"
+Run-Test "P13" "grouped_query_attention" "gqa_test" @("rtl/transformer/grouped_query_attention.v") "tb/transformer/grouped_query_attention_tb.v"
+Run-Test "P13" "kv_cache_quantizer" "kv_quant_test" @("rtl/memory/kv_cache_quantizer.v") "tb/memory/kv_cache_quantizer_tb.v"
+Run-Test "P13" "medusa_head_predictor" "medusa_test" @("rtl/compute/medusa_head_predictor.v") "tb/compute/medusa_head_predictor_tb.v"
+Run-Test "P13" "prefetch_engine" "prefetch_test" @("rtl/memory/prefetch_engine.v") "tb/memory/prefetch_engine_tb.v"
+Write-Host ""
 # -- Summary --
 Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host "                    TEST RESULTS SUMMARY                        " -ForegroundColor Cyan
