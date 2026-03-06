@@ -1,0 +1,44 @@
+VCD info: dumpfile sim/waveforms/combined_improvements.vcd opened for output.
+
+================================================================
+  COMBINED IMPROVEMENTS INTEGRATION TEST
+  Testing all Phase 8 modules working together
+================================================================
+
+--- Stage 1: PMU Boot ---
+[PASS] PMU: FULL mode, all cores ON
+--- Stage 2: Weight Double Buffer Load ---
+[PASS] Double Buffer: Layer 0 weights loaded (first weight = 64)
+--- Stage 3: 2:4 Sparsity Decoder ---
+[PASS] 2:4 Sparsity: result=4480 (2 mults done, 2 skipped)
+--- Stage 4: Parallel Attention (4 heads, 2 parallel) ---
+[PASS] Parallel Attention: processed in 9 cycles, 2 heads
+--- Stage 5: Online Softmax (streaming) ---
+[PASS] Online Softmax: probs=[8,22,60,164] sum=254
+--- Stage 6: Activation Compression ---
+[PASS] Compression: scale=2, saved 4 bytes
+[PASS] Decompression: round-trip complete
+--- Stage 7: Autonomous Token Generation ---
+[PASS] Token Scheduler: generated 5 tokens in 21 cycles
+       Sequence: 1 -> 4 -> 7 -> 10 -> 13 -> 0
+--- Stage 8: PMU Power Down ---
+[PASS] PMU: SLEEP mode, all cores OFF
+
+================================================================
+  COMBINED IMPROVEMENTS ΓÇö INTEGRATION RESULTS
+================================================================
+  Total tests:     9
+  Passed:          9
+  Failed:          0
+
+  PMU active cycles:     78
+  PMU gated core-cycles: 8
+  2:4 skipped mults:     2 / 4 total
+  Attn heads processed:  2
+  Bytes saved (compress):4
+  Tokens generated:      5
+  Weight buffer swaps:   2
+================================================================
+  >>> ALL IMPROVEMENTS VERIFIED IN INTEGRATION <<<
+
+tb/integration/combined_improvements_tb.v:465: $finish called at 865000 (1ps)

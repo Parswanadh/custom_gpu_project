@@ -190,7 +190,9 @@ module accelerated_gpt2_engine #(
         end else begin
             block_en    <= 0;
             ln_final_en <= 0;
-            total_cycles <= total_cycles + 1;
+            if (state != IDLE) begin
+                total_cycles <= total_cycles + 1;
+            end
 
             case (state)
                 IDLE: begin

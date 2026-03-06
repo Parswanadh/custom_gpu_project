@@ -50,11 +50,12 @@ module ffn_block #(
 
     integer i, j;
     reg [3:0] state;
-    localparam IDLE    = 4'd0;
-    localparam LINEAR1 = 4'd1;
-    localparam GELU_ST = 4'd2;
-    localparam LINEAR2 = 4'd3;
-    localparam DONE    = 4'd4;
+    localparam IDLE     = 4'd0;
+    localparam LINEAR1  = 4'd1;
+    localparam GELU_SET = 4'd2;  // Set LUT input
+    localparam GELU_READ = 4'd5; // Read LUT output (1-cycle latency fix)
+    localparam LINEAR2  = 4'd3;
+    localparam DONE     = 4'd4;
 
     // Issue #13: GELU LUT instance (combinational)
     reg signed [DATA_WIDTH-1:0] gelu_input;
@@ -117,25 +118,30 @@ module ffn_block #(
                             if (x[i] != 0 && w1[i][j] != 0) begin
                                 product = x[i] * w1[i][j];
                                 accum = accum + product;
-                            end else begin
-                                zero_skip_count <= zero_skip_count + 1;
                             end
                         end
                         hidden[j] = accum[DATA_WIDTH+7:8] + b1[j];
                     end
                     gelu_idx <= 0;
-                    state <= GELU_ST;
+                    state <= GELU_SET;
                 end
 
-                GELU_ST: begin
-                    // Issue #13: Apply GELU via LUT, one element per cycle
+                // BUG 3 FIX: Split GELU into two states for LUT latency
+                GELU_SET: begin
+                    // Set LUT input (registered — output valid next cycle)
                     if (gelu_idx < FFN_DIM) begin
                         gelu_input <= hidden[gelu_idx];
-                        activated[gelu_idx] <= gelu_output;
-                        gelu_idx <= gelu_idx + 1;
+                        state <= GELU_READ;  // Wait 1 cycle for LUT output
                     end else begin
                         state <= LINEAR2;
                     end
+                end
+
+                GELU_READ: begin
+                    // LUT output is now valid — read it
+                    activated[gelu_idx] <= gelu_output;
+                    gelu_idx <= gelu_idx + 1;
+                    state <= GELU_SET;  // Back to set next input
                 end
 
                 LINEAR2: begin
@@ -145,8 +151,6 @@ module ffn_block #(
                             if (activated[i] != 0 && w2[i][j] != 0) begin
                                 product = activated[i] * w2[i][j];
                                 accum = accum + product;
-                            end else begin
-                                zero_skip_count <= zero_skip_count + 1;
                             end
                         end
                         y_out[j*DATA_WIDTH +: DATA_WIDTH] <= accum[DATA_WIDTH+7:8] + b2[j];

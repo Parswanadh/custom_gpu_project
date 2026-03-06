@@ -101,7 +101,8 @@ module attention_unit #(
     localparam S_PROJ     = 1;
     localparam S_CACHE    = 2;
     localparam S_SCORE    = 3;
-    localparam S_SOFTMAX  = 4;
+    localparam S_SOFTMAX  = 4;  // Set LUT address
+    localparam S_SM_READ  = 8;  // Read LUT output (1-cycle latency fix)
     localparam S_WGTV     = 5;
     localparam S_OUTPROJ  = 6;
     localparam S_DONE     = 7;
@@ -138,8 +139,6 @@ module attention_unit #(
                     for (i = 0; i < EMBED_DIM; i = i + 1) begin
                         if (x_reg[i] != 0 && wq[i][j] != 0)
                             acc = acc + x_reg[i] * wq[i][j];
-                        else
-                            zero_skip_count <= zero_skip_count + 1;
                     end
                     q_reg[j] = acc >>> 8;
 
@@ -192,25 +191,50 @@ module attention_unit #(
             end
 
             // Issue #5: Real softmax via exp LUT
+            // P2 FIX: Split into S_SOFTMAX (set addr) + S_SM_READ (read result)
             S_SOFTMAX: begin
                 if (!sm_phase) begin
+                    // Phase 0: Compute exp values
                     if (sm_idx <= cur_pos) begin
+                        // Set LUT address — output will be valid next cycle
                         lut_input <= scores[sm_idx] - max_score;
-                        probs[sm_idx] <= lut_output;
-                        exp_sum = exp_sum + {8'd0, lut_output};
-                        sm_idx <= sm_idx + 1;
+                        state <= S_SM_READ;
                     end else begin
+                        // All exp values computed, switch to normalization
                         sm_phase <= 1;
                         sm_idx   <= 0;
                     end
                 end else begin
+                    // Phase 1: Normalize (synthesizable — no division)
                     if (sm_idx <= cur_pos) begin
                         begin : norm_block
                             reg [15:0] norm_val;
-                            if (exp_sum > 0)
-                                norm_val = ({8'd0, probs[sm_idx]} * 16'd255) / exp_sum;
-                            else
+                            // Shift-based reciprocal: probs[i] = probs[i] * 256 / exp_sum
+                            // Approximation: find highest bit of exp_sum, shift accordingly
+                            if (exp_sum == 0)
                                 norm_val = 16'd0;
+                            else if (exp_sum <= 16'd1)
+                                norm_val = {8'd0, probs[sm_idx]};
+                            else if (exp_sum <= 16'd2)
+                                norm_val = ({8'd0, probs[sm_idx]} * 16'd128) >> 0;
+                            else if (exp_sum <= 16'd4)
+                                norm_val = ({8'd0, probs[sm_idx]} * 16'd64) >> 0;
+                            else if (exp_sum <= 16'd8)
+                                norm_val = ({8'd0, probs[sm_idx]} * 16'd32) >> 0;
+                            else if (exp_sum <= 16'd16)
+                                norm_val = ({8'd0, probs[sm_idx]} * 16'd16) >> 0;
+                            else if (exp_sum <= 16'd32)
+                                norm_val = ({8'd0, probs[sm_idx]} * 16'd8) >> 0;
+                            else if (exp_sum <= 16'd64)
+                                norm_val = ({8'd0, probs[sm_idx]} * 16'd4) >> 0;
+                            else if (exp_sum <= 16'd128)
+                                norm_val = ({8'd0, probs[sm_idx]} * 16'd2) >> 0;
+                            else if (exp_sum <= 16'd256)
+                                norm_val = {8'd0, probs[sm_idx]};
+                            else if (exp_sum <= 16'd512)
+                                norm_val = {9'd0, probs[sm_idx][7:1]};
+                            else
+                                norm_val = {10'd0, probs[sm_idx][7:2]};
                             probs[sm_idx] <= (norm_val > 255) ? 8'd255 : norm_val[7:0];
                         end
                         sm_idx <= sm_idx + 1;
@@ -218,6 +242,14 @@ module attention_unit #(
                         state <= S_WGTV;
                     end
                 end
+            end
+
+            // P2 FIX: LUT output is now valid — read and accumulate
+            S_SM_READ: begin
+                probs[sm_idx] <= lut_output;
+                exp_sum = exp_sum + {8'd0, lut_output};
+                sm_idx <= sm_idx + 1;
+                state <= S_SOFTMAX;
             end
 
             // Issue #5: Real weighted V sum

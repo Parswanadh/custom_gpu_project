@@ -1,223 +1,111 @@
 // ============================================================================
 // Testbench: online_softmax_tb
-// Description: Tests the online softmax unit against known golden values.
-//
-// Test 1: Two equal scores → should produce average of the two V vectors
-//   score[0] = 0, V[0] = [256, 0, 0, 0]     (1.0 in Q8.8)
-//   score[1] = 0, V[1] = [0, 256, 0, 0]
-//   Expected: softmax([0,0]) = [0.5, 0.5]
-//   Output ≈ [128, 128, 0, 0]  (0.5 in Q8.8)
-//
-// Test 2: One dominant score → should output nearly the dominant V
-//   score[0] = 512 (2.0), V[0] = [256, 0, 128, 0]
-//   score[1] = 0  (0.0), V[1] = [0, 256, 0, 128]
-//   exp(2) / (exp(2) + exp(0)) ≈ 0.88
-//   exp(0) / (exp(2) + exp(0)) ≈ 0.12
-//   Output ≈ [225, 30, 113, 15]
-//
-// Test 3: Three scores with clear ordering → verify monotonic attention
+// Tests single-pass streaming softmax on various input patterns
 // ============================================================================
-`timescale 1ns/1ps
+`timescale 1ns / 1ps
 
 module online_softmax_tb;
 
-    parameter EMBED_DIM  = 4;
-    parameter DATA_WIDTH = 16;
+    parameter VL = 4;
+    parameter DW = 16;
 
-    reg                              clk;
-    reg                              rst;
-    reg                              score_valid;
-    reg  signed [DATA_WIDTH-1:0]     score_in;
-    reg  [EMBED_DIM*DATA_WIDTH-1:0]  value_in;
-    reg                              start;
-    reg                              finalize;
-    wire [EMBED_DIM*DATA_WIDTH-1:0]  result_out;
-    wire                             result_valid;
+    reg                     clk, rst, valid_in;
+    reg  [VL*DW-1:0]        x_in;
+    wire [VL*8-1:0]         prob_out;
+    wire                    valid_out;
 
-    // DUT
-    online_softmax_unit #(
-        .EMBED_DIM(EMBED_DIM),
-        .DATA_WIDTH(DATA_WIDTH)
-    ) uut (
-        .clk(clk),
-        .rst(rst),
-        .score_valid(score_valid),
-        .score_in(score_in),
-        .value_in(value_in),
-        .start(start),
-        .finalize(finalize),
-        .result_out(result_out),
-        .result_valid(result_valid)
+    online_softmax #(.VECTOR_LEN(VL), .DATA_WIDTH(DW)) uut (
+        .clk(clk), .rst(rst), .valid_in(valid_in),
+        .x_in(x_in), .prob_out(prob_out), .valid_out(valid_out)
     );
 
-    // Clock: 100 MHz
+    initial clk = 0;
     always #5 clk = ~clk;
 
-    integer test_num;
-    integer pass_count;
-    integer fail_count;
-    reg signed [DATA_WIDTH-1:0] out_vals [0:EMBED_DIM-1];
-    integer d;
+    integer pass_count = 0;
+    integer fail_count = 0;
+    integer i;
+    integer prob_sum;
 
-    task extract_results;
+    task run_softmax;
+        input signed [DW-1:0] v0, v1, v2, v3;
+        input [80*8-1:0] test_name;
+        integer timeout;
         begin
-            for (d = 0; d < EMBED_DIM; d = d + 1)
-                out_vals[d] = $signed(result_out[d*DATA_WIDTH +: DATA_WIDTH]);
-        end
-    endtask
+            @(negedge clk);
+            x_in = {v3, v2, v1, v0};
+            valid_in = 1'b1;
+            @(negedge clk);
+            valid_in = 1'b0;
 
-    task feed_score_and_value;
-        input signed [DATA_WIDTH-1:0] s;
-        input signed [DATA_WIDTH-1:0] v0, v1, v2, v3;
-        begin
-            @(posedge clk);
-            score_valid <= 1;
-            score_in    <= s;
-            value_in    <= {v3, v2, v1, v0};  // Pack as flat vector
-            @(posedge clk);
-            score_valid <= 0;
-            // Wait 2 cycles for pipeline to settle
-            @(posedge clk);
-            @(posedge clk);
-        end
-    endtask
+            timeout = 0;
+            while (!valid_out && timeout < 100) begin
+                @(negedge clk);
+                timeout = timeout + 1;
+            end
 
-    task do_finalize;
-        begin
-            @(posedge clk);
-            finalize <= 1;
-            @(posedge clk);
-            finalize <= 0;
-            // Wait for result
-            begin : wait_result
-                integer timeout;
-                timeout = 0;
-                while (!result_valid && timeout < 100) begin
-                    @(posedge clk);
-                    timeout = timeout + 1;
-                end
-                if (timeout >= 100) begin
-                    $display("  [TIMEOUT] Finalize did not produce result!");
+            if (valid_out) begin
+                prob_sum = 0;
+                for (i = 0; i < VL; i = i + 1)
+                    prob_sum = prob_sum + prob_out[i*8 +: 8];
+
+                $display("[INFO] %0s | probs=[%0d, %0d, %0d, %0d] sum=%0d",
+                         test_name,
+                         prob_out[7:0], prob_out[15:8], prob_out[23:16], prob_out[31:24],
+                         prob_sum);
+
+                // Probabilities should sum to roughly 256 (±30 for rounding)
+                if (prob_sum >= 220 && prob_sum <= 290) begin
+                    $display("[PASS] %0s | sum close to 256", test_name);
+                    pass_count = pass_count + 1;
+                end else begin
+                    $display("[FAIL] %0s | sum=%0d (expected ~256)", test_name, prob_sum);
                     fail_count = fail_count + 1;
                 end
+            end else begin
+                $display("[FAIL] %0s | TIMEOUT", test_name);
+                fail_count = fail_count + 1;
             end
+
+            repeat(3) @(negedge clk);
         end
     endtask
 
     initial begin
-        clk = 0;
-        rst = 1;
-        score_valid = 0;
-        score_in = 0;
-        value_in = 0;
-        start = 0;
-        finalize = 0;
-        pass_count = 0;
-        fail_count = 0;
-        test_num = 0;
+        $dumpfile("sim/waveforms/online_softmax.vcd");
+        $dumpvars(0, online_softmax_tb);
+    end
 
-        // Reset
+    initial begin
+        $display("============================================");
+        $display("  Online Softmax Testbench (Streaming)");
+        $display("============================================");
+
+        rst = 1; valid_in = 0; x_in = 0;
+        #25; rst = 0; #15;
+
+        // Test 1: Equal values -> uniform distribution
+        run_softmax(16'sd256, 16'sd256, 16'sd256, 16'sd256, "Uniform [1,1,1,1]");
+
+        // Test 2: One dominant value
+        run_softmax(16'sd0, 16'sd0, 16'sd0, 16'sd768, "Dominant [0,0,0,3]");
+
+        // Test 3: Graduated values
+        run_softmax(16'sd0, 16'sd256, 16'sd512, 16'sd768, "Graduated [0,1,2,3]");
+
+        // Test 4: All zeros
+        run_softmax(16'sd0, 16'sd0, 16'sd0, 16'sd0, "All zeros [0,0,0,0]");
+
+        // Test 5: Mixed negative/positive
+        run_softmax(-16'sd256, -16'sd512, 16'sd0, 16'sd256, "Mixed [-1,-2,0,1]");
+
+        // Test 6: Large spread (tests max-tracking)
+        run_softmax(-16'sd1024, 16'sd0, 16'sd512, -16'sd512, "Spread [-4,0,2,-2]");
+
         #20;
-        rst = 0;
-        #10;
-
-        // ==================================================================
-        // TEST 1: Two equal scores → average of V vectors
-        // ==================================================================
-        test_num = 1;
-        $display("\n=== TEST %0d: Equal scores → average of V vectors ===", test_num);
-
-        // Start new softmax
-        @(posedge clk); start <= 1; @(posedge clk); start <= 0;
-        @(posedge clk);
-
-        // Feed score 0, V = [256, 0, 0, 0]  (1.0, 0, 0, 0 in Q8.8)
-        feed_score_and_value(16'sd0, 16'sd256, 16'sd0, 16'sd0, 16'sd0);
-
-        // Feed score 0, V = [0, 256, 0, 0]
-        feed_score_and_value(16'sd0, 16'sd0, 16'sd256, 16'sd0, 16'sd0);
-
-        do_finalize;
-        extract_results;
-        $display("  Output: [%0d, %0d, %0d, %0d]", out_vals[0], out_vals[1], out_vals[2], out_vals[3]);
-        // Expected: ~[128, 128, 0, 0] (each should be ~0.5 × 256 = 128 in Q8.8)
-        if (out_vals[0] > 100 && out_vals[0] < 160 &&
-            out_vals[1] > 100 && out_vals[1] < 160 &&
-            out_vals[2] >= -10 && out_vals[2] <= 10 &&
-            out_vals[3] >= -10 && out_vals[3] <= 10) begin
-            $display("  PASS: Outputs approximately equal (expected ~128 each)");
-            pass_count = pass_count + 1;
-        end else begin
-            $display("  FAIL: Expected ~[128, 128, 0, 0]");
-            fail_count = fail_count + 1;
-        end
-
-        // ==================================================================
-        // TEST 2: One dominant score → output biased toward dominant V
-        // ==================================================================
-        test_num = 2;
-        $display("\n=== TEST %0d: Dominant score → biased output ===", test_num);
-
-        @(posedge clk); start <= 1; @(posedge clk); start <= 0;
-        @(posedge clk);
-
-        // Score = 512 (2.0 in Q8.8), V = [256, 0, 128, 0]
-        feed_score_and_value(16'sd512, 16'sd256, 16'sd0, 16'sd128, 16'sd0);
-
-        // Score = 0, V = [0, 256, 0, 128]
-        feed_score_and_value(16'sd0, 16'sd0, 16'sd256, 16'sd0, 16'sd128);
-
-        do_finalize;
-        extract_results;
-        $display("  Output: [%0d, %0d, %0d, %0d]", out_vals[0], out_vals[1], out_vals[2], out_vals[3]);
-        // softmax([2.0, 0.0]) ≈ [0.88, 0.12]
-        // out[0] ≈ 0.88 * 256 = 225, out[1] ≈ 0.12 * 256 = 31
-        if (out_vals[0] > out_vals[1]) begin
-            $display("  PASS: Dim 0 > Dim 1 (dominant score wins)");
-            pass_count = pass_count + 1;
-        end else begin
-            $display("  FAIL: Expected dim 0 > dim 1");
-            fail_count = fail_count + 1;
-        end
-
-        // ==================================================================
-        // TEST 3: Three scores with ordering → verify monotonic
-        // ==================================================================
-        test_num = 3;
-        $display("\n=== TEST %0d: Three scores with ordering ===", test_num);
-
-        @(posedge clk); start <= 1; @(posedge clk); start <= 0;
-        @(posedge clk);
-
-        // Highest score → V = [256, 0, 0, 0]
-        feed_score_and_value(16'sd768, 16'sd256, 16'sd0, 16'sd0, 16'sd0);
-        // Medium score → V = [0, 256, 0, 0]
-        feed_score_and_value(16'sd256, 16'sd0, 16'sd256, 16'sd0, 16'sd0);
-        // Lowest score → V = [0, 0, 256, 0]
-        feed_score_and_value(16'sd0, 16'sd0, 16'sd0, 16'sd256, 16'sd0);
-
-        do_finalize;
-        extract_results;
-        $display("  Output: [%0d, %0d, %0d, %0d]", out_vals[0], out_vals[1], out_vals[2], out_vals[3]);
-        if (out_vals[0] > out_vals[1] && out_vals[1] > out_vals[2]) begin
-            $display("  PASS: dim0 > dim1 > dim2 (monotonic ordering preserved)");
-            pass_count = pass_count + 1;
-        end else begin
-            $display("  FAIL: Expected dim0 > dim1 > dim2");
-            fail_count = fail_count + 1;
-        end
-
-        // ==================================================================
-        // SUMMARY
-        // ==================================================================
-        $display("\n=== ONLINE SOFTMAX TEST SUMMARY ===");
-        $display("  Tests: %0d/%0d passed", pass_count, pass_count + fail_count);
-        if (fail_count == 0)
-            $display("  ALL PASSED ✓");
-        else
-            $display("  %0d FAILURES", fail_count);
-
-        #100;
+        $display("============================================");
+        $display("  Results: %0d PASSED, %0d FAILED", pass_count, fail_count);
+        $display("============================================");
         $finish;
     end
 

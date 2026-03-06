@@ -176,6 +176,33 @@ Run-Test "P7" "gpu_system_top" "sys_test" @(
 ) "tb/top/gpu_system_top_tb.v"
 Write-Host ""
 
+# -- Phase 8: Architecture Improvements --
+Write-Host "--- Phase 8: Architecture Improvements ---" -ForegroundColor Yellow
+Run-Test "P8" "online_softmax" "osm_test" @("rtl/compute/exp_lut_256.v", "rtl/compute/recip_lut_256.v", "rtl/compute/online_softmax.v") "tb/compute/online_softmax_tb.v"
+Run-Test "P8" "sparsity_decoder_2_4" "sp24_test" @("rtl/compute/sparsity_decoder_2_4.v") "tb/compute/sparsity_decoder_2_4_tb.v"
+Run-Test "P8" "activation_compressor" "ac_test" @("rtl/compute/activation_compressor.v") "tb/compute/activation_compressor_tb.v"
+Run-Test "P8" "weight_double_buffer" "wdb_test" @("rtl/memory/weight_double_buffer.v") "tb/memory/weight_double_buffer_tb.v"
+Run-Test "P8" "parallel_attention" "pa_test" @("rtl/transformer/parallel_attention.v") "tb/transformer/parallel_attention_tb.v"
+Run-Test "P8" "token_scheduler" "ts_test" @("rtl/top/token_scheduler.v") "tb/top/token_scheduler_tb.v"
+Run-Test "P8" "power_management_unit" "pmu_test" @("rtl/top/power_management_unit.v") "tb/top/power_management_unit_tb.v"
+Write-Host ""
+# -- Phase 9: Advanced SOTA Integrations --
+Write-Host "--- Phase 9: Advanced SOTA Integrations ---" -ForegroundColor Yellow
+Run-Test "P9" "w4a8_decompressor" "w4a8_test" @("rtl/compute/w4a8_decompressor.v") "tb/compute/w4a8_decompressor_tb.v"
+Run-Test "P9" "moe_router" "moe_test" @("rtl/compute/moe_router.v") "tb/compute/moe_router_tb.v"
+Write-Host ""
+# -- Phase 10: New Features --
+Write-Host "--- Phase 10: New Features ---" -ForegroundColor Yellow
+Run-Test "P10" "speculative_decode_engine" "spec_test" @("rtl/compute/speculative_decode_engine.v") "tb/compute/speculative_decode_engine_tb.v"
+Run-Test "P10" "paged_attention_mmu" "pa_mmu_test" @("rtl/memory/paged_attention_mmu.v") "tb/memory/paged_attention_mmu_tb.v"
+Write-Host ""
+# -- Phase 11: Closing SOTA Gaps --
+Write-Host "--- Phase 11: Closing SOTA Gaps ---" -ForegroundColor Yellow
+Run-Test "P11" "flash_attention_unit" "flash_test" @("rtl/transformer/flash_attention_unit.v") "tb/transformer/flash_attention_unit_tb.v"
+Run-Test "P11" "mixed_precision_decompressor" "mpd_test" @("rtl/compute/mixed_precision_decompressor.v") "tb/compute/mixed_precision_decompressor_tb.v"
+Run-Test "P11" "q4_weight_pipeline" "q4_test" @("rtl/compute/w4a8_decompressor.v", "rtl/compute/mixed_precision_decompressor.v", "rtl/compute/q4_weight_pipeline.v") "tb/compute/q4_weight_pipeline_tb.v"
+Write-Host ""
+
 # -- Summary --
 Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host "                    TEST RESULTS SUMMARY                        " -ForegroundColor Cyan

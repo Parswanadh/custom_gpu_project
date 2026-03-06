@@ -1,0 +1,284 @@
+`timescale 1ns / 1ps
+
+// ============================================================================
+// Module: recip_lut_256
+// Description: 256-entry reciprocal lookup table for division-free 
+//   normalization in softmax and similar operations.
+//   
+//   Input:  8-bit unsigned value (upper 8 bits of denominator)
+//   Output: 16-bit reciprocal ≈ 65536 / input_value
+//
+//   This replaces unsynthesizable Verilog '/' division operators with a
+//   pure combinational ROM lookup, making the design fully FPGA-ready.
+//
+//   Usage: To compute A / B:
+//     1. Feed B[15:8] into x_in (the upper byte of B)
+//     2. Compute: result = (A * recip_out) >> 16
+// ============================================================================
+module recip_lut_256 (
+    input  wire [7:0]  x_in,
+    output reg  [15:0] recip_out
+);
+
+    always @(*) begin
+        case (x_in)
+            8'd0:   recip_out = 16'd65535;  // Avoid div-by-0
+            8'd1:   recip_out = 16'd65535;
+            8'd2:   recip_out = 16'd32768;
+            8'd3:   recip_out = 16'd21845;
+            8'd4:   recip_out = 16'd16384;
+            8'd5:   recip_out = 16'd13107;
+            8'd6:   recip_out = 16'd10923;
+            8'd7:   recip_out = 16'd9362;
+            8'd8:   recip_out = 16'd8192;
+            8'd9:   recip_out = 16'd7282;
+            8'd10:  recip_out = 16'd6554;
+            8'd11:  recip_out = 16'd5958;
+            8'd12:  recip_out = 16'd5461;
+            8'd13:  recip_out = 16'd5041;
+            8'd14:  recip_out = 16'd4681;
+            8'd15:  recip_out = 16'd4369;
+            8'd16:  recip_out = 16'd4096;
+            8'd17:  recip_out = 16'd3855;
+            8'd18:  recip_out = 16'd3641;
+            8'd19:  recip_out = 16'd3449;
+            8'd20:  recip_out = 16'd3277;
+            8'd21:  recip_out = 16'd3121;
+            8'd22:  recip_out = 16'd2979;
+            8'd23:  recip_out = 16'd2849;
+            8'd24:  recip_out = 16'd2731;
+            8'd25:  recip_out = 16'd2621;
+            8'd26:  recip_out = 16'd2521;
+            8'd27:  recip_out = 16'd2427;
+            8'd28:  recip_out = 16'd2341;
+            8'd29:  recip_out = 16'd2260;
+            8'd30:  recip_out = 16'd2185;
+            8'd31:  recip_out = 16'd2114;
+            8'd32:  recip_out = 16'd2048;
+            8'd33:  recip_out = 16'd1986;
+            8'd34:  recip_out = 16'd1928;
+            8'd35:  recip_out = 16'd1872;
+            8'd36:  recip_out = 16'd1820;
+            8'd37:  recip_out = 16'd1771;
+            8'd38:  recip_out = 16'd1725;
+            8'd39:  recip_out = 16'd1680;
+            8'd40:  recip_out = 16'd1638;
+            8'd41:  recip_out = 16'd1598;
+            8'd42:  recip_out = 16'd1560;
+            8'd43:  recip_out = 16'd1524;
+            8'd44:  recip_out = 16'd1489;
+            8'd45:  recip_out = 16'd1456;
+            8'd46:  recip_out = 16'd1425;
+            8'd47:  recip_out = 16'd1394;
+            8'd48:  recip_out = 16'd1365;
+            8'd49:  recip_out = 16'd1337;
+            8'd50:  recip_out = 16'd1311;
+            8'd51:  recip_out = 16'd1285;
+            8'd52:  recip_out = 16'd1260;
+            8'd53:  recip_out = 16'd1237;
+            8'd54:  recip_out = 16'd1214;
+            8'd55:  recip_out = 16'd1192;
+            8'd56:  recip_out = 16'd1170;
+            8'd57:  recip_out = 16'd1150;
+            8'd58:  recip_out = 16'd1130;
+            8'd59:  recip_out = 16'd1111;
+            8'd60:  recip_out = 16'd1092;
+            8'd61:  recip_out = 16'd1074;
+            8'd62:  recip_out = 16'd1057;
+            8'd63:  recip_out = 16'd1040;
+            8'd64:  recip_out = 16'd1024;
+            8'd65:  recip_out = 16'd1008;
+            8'd66:  recip_out = 16'd993;
+            8'd67:  recip_out = 16'd978;
+            8'd68:  recip_out = 16'd964;
+            8'd69:  recip_out = 16'd950;
+            8'd70:  recip_out = 16'd936;
+            8'd71:  recip_out = 16'd923;
+            8'd72:  recip_out = 16'd910;
+            8'd73:  recip_out = 16'd898;
+            8'd74:  recip_out = 16'd886;
+            8'd75:  recip_out = 16'd874;
+            8'd76:  recip_out = 16'd862;
+            8'd77:  recip_out = 16'd851;
+            8'd78:  recip_out = 16'd840;
+            8'd79:  recip_out = 16'd830;
+            8'd80:  recip_out = 16'd819;
+            8'd81:  recip_out = 16'd809;
+            8'd82:  recip_out = 16'd799;
+            8'd83:  recip_out = 16'd790;
+            8'd84:  recip_out = 16'd780;
+            8'd85:  recip_out = 16'd771;
+            8'd86:  recip_out = 16'd762;
+            8'd87:  recip_out = 16'd753;
+            8'd88:  recip_out = 16'd745;
+            8'd89:  recip_out = 16'd736;
+            8'd90:  recip_out = 16'd728;
+            8'd91:  recip_out = 16'd720;
+            8'd92:  recip_out = 16'd712;
+            8'd93:  recip_out = 16'd705;
+            8'd94:  recip_out = 16'd697;
+            8'd95:  recip_out = 16'd690;
+            8'd96:  recip_out = 16'd683;
+            8'd97:  recip_out = 16'd676;
+            8'd98:  recip_out = 16'd669;
+            8'd99:  recip_out = 16'd662;
+            8'd100: recip_out = 16'd655;
+            8'd101: recip_out = 16'd649;
+            8'd102: recip_out = 16'd643;
+            8'd103: recip_out = 16'd636;
+            8'd104: recip_out = 16'd630;
+            8'd105: recip_out = 16'd624;
+            8'd106: recip_out = 16'd618;
+            8'd107: recip_out = 16'd613;
+            8'd108: recip_out = 16'd607;
+            8'd109: recip_out = 16'd601;
+            8'd110: recip_out = 16'd596;
+            8'd111: recip_out = 16'd591;
+            8'd112: recip_out = 16'd585;
+            8'd113: recip_out = 16'd580;
+            8'd114: recip_out = 16'd575;
+            8'd115: recip_out = 16'd570;
+            8'd116: recip_out = 16'd565;
+            8'd117: recip_out = 16'd560;
+            8'd118: recip_out = 16'd555;
+            8'd119: recip_out = 16'd551;
+            8'd120: recip_out = 16'd546;
+            8'd121: recip_out = 16'd542;
+            8'd122: recip_out = 16'd537;
+            8'd123: recip_out = 16'd533;
+            8'd124: recip_out = 16'd528;
+            8'd125: recip_out = 16'd524;
+            8'd126: recip_out = 16'd520;
+            8'd127: recip_out = 16'd516;
+            8'd128: recip_out = 16'd512;
+            8'd129: recip_out = 16'd508;
+            8'd130: recip_out = 16'd504;
+            8'd131: recip_out = 16'd500;
+            8'd132: recip_out = 16'd497;
+            8'd133: recip_out = 16'd493;
+            8'd134: recip_out = 16'd489;
+            8'd135: recip_out = 16'd486;
+            8'd136: recip_out = 16'd482;
+            8'd137: recip_out = 16'd478;
+            8'd138: recip_out = 16'd475;
+            8'd139: recip_out = 16'd472;
+            8'd140: recip_out = 16'd468;
+            8'd141: recip_out = 16'd465;
+            8'd142: recip_out = 16'd462;
+            8'd143: recip_out = 16'd458;
+            8'd144: recip_out = 16'd455;
+            8'd145: recip_out = 16'd452;
+            8'd146: recip_out = 16'd449;
+            8'd147: recip_out = 16'd446;
+            8'd148: recip_out = 16'd443;
+            8'd149: recip_out = 16'd440;
+            8'd150: recip_out = 16'd437;
+            8'd151: recip_out = 16'd434;
+            8'd152: recip_out = 16'd431;
+            8'd153: recip_out = 16'd428;
+            8'd154: recip_out = 16'd426;
+            8'd155: recip_out = 16'd423;
+            8'd156: recip_out = 16'd420;
+            8'd157: recip_out = 16'd418;
+            8'd158: recip_out = 16'd415;
+            8'd159: recip_out = 16'd412;
+            8'd160: recip_out = 16'd410;
+            8'd161: recip_out = 16'd407;
+            8'd162: recip_out = 16'd405;
+            8'd163: recip_out = 16'd402;
+            8'd164: recip_out = 16'd400;
+            8'd165: recip_out = 16'd397;
+            8'd166: recip_out = 16'd395;
+            8'd167: recip_out = 16'd393;
+            8'd168: recip_out = 16'd390;
+            8'd169: recip_out = 16'd388;
+            8'd170: recip_out = 16'd386;
+            8'd171: recip_out = 16'd383;
+            8'd172: recip_out = 16'd381;
+            8'd173: recip_out = 16'd379;
+            8'd174: recip_out = 16'd377;
+            8'd175: recip_out = 16'd374;
+            8'd176: recip_out = 16'd372;
+            8'd177: recip_out = 16'd370;
+            8'd178: recip_out = 16'd368;
+            8'd179: recip_out = 16'd366;
+            8'd180: recip_out = 16'd364;
+            8'd181: recip_out = 16'd362;
+            8'd182: recip_out = 16'd360;
+            8'd183: recip_out = 16'd358;
+            8'd184: recip_out = 16'd356;
+            8'd185: recip_out = 16'd354;
+            8'd186: recip_out = 16'd352;
+            8'd187: recip_out = 16'd350;
+            8'd188: recip_out = 16'd349;
+            8'd189: recip_out = 16'd347;
+            8'd190: recip_out = 16'd345;
+            8'd191: recip_out = 16'd343;
+            8'd192: recip_out = 16'd341;
+            8'd193: recip_out = 16'd340;
+            8'd194: recip_out = 16'd338;
+            8'd195: recip_out = 16'd336;
+            8'd196: recip_out = 16'd334;
+            8'd197: recip_out = 16'd333;
+            8'd198: recip_out = 16'd331;
+            8'd199: recip_out = 16'd329;
+            8'd200: recip_out = 16'd328;
+            8'd201: recip_out = 16'd326;
+            8'd202: recip_out = 16'd325;
+            8'd203: recip_out = 16'd323;
+            8'd204: recip_out = 16'd321;
+            8'd205: recip_out = 16'd320;
+            8'd206: recip_out = 16'd318;
+            8'd207: recip_out = 16'd317;
+            8'd208: recip_out = 16'd315;
+            8'd209: recip_out = 16'd314;
+            8'd210: recip_out = 16'd312;
+            8'd211: recip_out = 16'd311;
+            8'd212: recip_out = 16'd309;
+            8'd213: recip_out = 16'd308;
+            8'd214: recip_out = 16'd306;
+            8'd215: recip_out = 16'd305;
+            8'd216: recip_out = 16'd303;
+            8'd217: recip_out = 16'd302;
+            8'd218: recip_out = 16'd301;
+            8'd219: recip_out = 16'd299;
+            8'd220: recip_out = 16'd298;
+            8'd221: recip_out = 16'd297;
+            8'd222: recip_out = 16'd295;
+            8'd223: recip_out = 16'd294;
+            8'd224: recip_out = 16'd293;
+            8'd225: recip_out = 16'd291;
+            8'd226: recip_out = 16'd290;
+            8'd227: recip_out = 16'd289;
+            8'd228: recip_out = 16'd287;
+            8'd229: recip_out = 16'd286;
+            8'd230: recip_out = 16'd285;
+            8'd231: recip_out = 16'd284;
+            8'd232: recip_out = 16'd282;
+            8'd233: recip_out = 16'd281;
+            8'd234: recip_out = 16'd280;
+            8'd235: recip_out = 16'd279;
+            8'd236: recip_out = 16'd278;
+            8'd237: recip_out = 16'd277;
+            8'd238: recip_out = 16'd275;
+            8'd239: recip_out = 16'd274;
+            8'd240: recip_out = 16'd273;
+            8'd241: recip_out = 16'd272;
+            8'd242: recip_out = 16'd271;
+            8'd243: recip_out = 16'd270;
+            8'd244: recip_out = 16'd269;
+            8'd245: recip_out = 16'd268;
+            8'd246: recip_out = 16'd266;
+            8'd247: recip_out = 16'd265;
+            8'd248: recip_out = 16'd264;
+            8'd249: recip_out = 16'd263;
+            8'd250: recip_out = 16'd262;
+            8'd251: recip_out = 16'd261;
+            8'd252: recip_out = 16'd260;
+            8'd253: recip_out = 16'd259;
+            8'd254: recip_out = 16'd258;
+            8'd255: recip_out = 16'd257;
+        endcase
+    end
+
+endmodule

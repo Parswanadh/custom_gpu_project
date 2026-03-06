@@ -67,12 +67,12 @@ module dma_engine #(
     // Local memory write interface (for ext→local transfers)
     output reg                      local_write_en,
     output reg  [LOCAL_ADDR_W-1:0]  local_write_addr,
-    output reg  [7:0]              local_write_data,
+    output reg  [AXI_DATA_W-1:0]   local_write_data,   // Full AXI-width write (was 8-bit, lost 3 bytes/beat)
 
     // Local memory read interface (for local→ext transfers)
     output reg                      local_read_en,
     output reg  [LOCAL_ADDR_W-1:0]  local_read_addr,
-    input  wire [7:0]              local_read_data,
+    input  wire [AXI_DATA_W-1:0]   local_read_data,    // Full AXI-width read
 
     // Interrupt
     output reg                      interrupt
@@ -140,11 +140,11 @@ module dma_engine #(
                 S_RD_ADDR: begin
                     m_axi_arvalid <= 1'b1;
                     m_axi_araddr  <= cur_ext_addr;
-                    // Compute burst length
+                    // Compute burst length (synthesizable — shift instead of divide)
                     burst_count <= (remaining > MAX_BURST*4) ?
-                                   (MAX_BURST - 1) : ((remaining + 3) / 4 - 1);
+                                   (MAX_BURST - 1) : (((remaining + 3) >> 2) - 1);
                     m_axi_arlen <= (remaining > MAX_BURST*4) ?
-                                   (MAX_BURST - 1) : ((remaining + 3) / 4 - 1);
+                                   (MAX_BURST - 1) : (((remaining + 3) >> 2) - 1);
                     if (m_axi_arready && m_axi_arvalid) begin
                         m_axi_arvalid <= 1'b0;
                         m_axi_rready  <= 1'b1;
@@ -155,10 +155,10 @@ module dma_engine #(
 
                 S_RD_DATA: begin
                     if (m_axi_rvalid && m_axi_rready) begin
-                        // Write 4 bytes to local memory
+                        // Write full 32-bit word to local memory (all 4 bytes)
                         local_write_en   <= 1'b1;
                         local_write_addr <= cur_local_addr;
-                        local_write_data <= m_axi_rdata[7:0];
+                        local_write_data <= m_axi_rdata;   // Full word, not just [7:0]
                         cur_local_addr   <= cur_local_addr + 4;
                         cur_ext_addr     <= cur_ext_addr + 4;
                         remaining        <= (remaining >= 4) ? remaining - 4 : 0;
@@ -179,12 +179,12 @@ module dma_engine #(
                     m_axi_awvalid <= 1'b1;
                     m_axi_awaddr  <= cur_ext_addr;
                     m_axi_awlen   <= (remaining > MAX_BURST*4) ?
-                                     (MAX_BURST - 1) : ((remaining + 3) / 4 - 1);
+                                     (MAX_BURST - 1) : (((remaining + 3) >> 2) - 1);
                     if (m_axi_awready && m_axi_awvalid) begin
                         m_axi_awvalid <= 1'b0;
                         beat_count    <= 0;
                         burst_count   <= (remaining > MAX_BURST*4) ?
-                                         MAX_BURST : (remaining + 3) / 4;
+                                         MAX_BURST : ((remaining + 3) >> 2);
                         state <= S_WR_DATA;
                     end
                 end
@@ -193,7 +193,7 @@ module dma_engine #(
                     local_read_en   <= 1'b1;
                     local_read_addr <= cur_local_addr;
                     m_axi_wvalid    <= 1'b1;
-                    m_axi_wdata     <= {24'd0, local_read_data};
+                    m_axi_wdata     <= local_read_data;   // Full word, not zero-padded byte
                     m_axi_wlast     <= (beat_count + 1 >= burst_count);
 
                     if (m_axi_wready && m_axi_wvalid) begin

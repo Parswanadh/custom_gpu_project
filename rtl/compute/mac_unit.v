@@ -20,9 +20,19 @@ module mac_unit #(
 
     wire signed [2*DATA_WIDTH-1:0] product;
     wire is_zero;
+    wire signed [ACC_WIDTH-1:0] sum_result;
+    wire overflow_pos, overflow_neg;
 
     assign is_zero = (a == {DATA_WIDTH{1'b0}}) || (b == {DATA_WIDTH{1'b0}});
     assign product = a * b;
+    
+    // Sign-extended product for accumulation
+    wire signed [ACC_WIDTH-1:0] product_ext = {{(ACC_WIDTH-2*DATA_WIDTH){product[2*DATA_WIDTH-1]}}, product};
+    assign sum_result = acc_out + product_ext;
+    
+    // Overflow detection: if signs of operands match but result sign differs
+    assign overflow_pos = !acc_out[ACC_WIDTH-1] && !product_ext[ACC_WIDTH-1] && sum_result[ACC_WIDTH-1];
+    assign overflow_neg = acc_out[ACC_WIDTH-1] && product_ext[ACC_WIDTH-1] && !sum_result[ACC_WIDTH-1];
 
     always @(posedge clk) begin
         if (rst || clear_acc) begin
@@ -30,8 +40,13 @@ module mac_unit #(
             valid_out <= 1'b0;
         end else if (valid_in) begin
             if (!is_zero) begin
-                // Sign-extend product to ACC_WIDTH before adding
-                acc_out <= acc_out + {{(ACC_WIDTH-2*DATA_WIDTH){product[2*DATA_WIDTH-1]}}, product};
+                // Saturating accumulation — clamp on overflow
+                if (overflow_pos)
+                    acc_out <= {1'b0, {(ACC_WIDTH-1){1'b1}}};  // Max positive
+                else if (overflow_neg)
+                    acc_out <= {1'b1, {(ACC_WIDTH-1){1'b0}}};  // Max negative
+                else
+                    acc_out <= sum_result;
             end
             valid_out <= 1'b1;
         end else begin

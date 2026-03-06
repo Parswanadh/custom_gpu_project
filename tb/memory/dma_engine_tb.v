@@ -50,10 +50,10 @@ module dma_engine_tb;
     // Local memory interface
     wire                    local_write_en;
     wire [LOCAL_ADDR_W-1:0] local_write_addr;
-    wire [7:0]              local_write_data;
+    wire [AXI_DATA_W-1:0]  local_write_data;
     wire                    local_read_en;
     wire [LOCAL_ADDR_W-1:0] local_read_addr;
-    reg  [7:0]              local_read_data;
+    reg  [AXI_DATA_W-1:0]  local_read_data;
 
     wire                    interrupt;
 
