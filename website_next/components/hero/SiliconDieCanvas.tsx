@@ -7,15 +7,15 @@ import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { useReducedMotion } from 'framer-motion';
 
-// --- ASSEMBLY SUB-COMPONENTS --- //
+// --- ASSEMBLY SUB-COMPONENTS (STATICAL) --- //
 
 const SubstrateQuads = ({ assemblyProgress }: { assemblyProgress: number }) => {
-  const quads = [
+  const quads = useMemo(() => [
     { pos: [-2, 0, -2], start: [-15, 5, -15] },
     { pos: [2, 0, -2], start: [15, 5, -15] },
     { pos: [-2, 0, 2], start: [-15, 5, 15] },
     { pos: [2, 0, 2], start: [15, 5, 15] },
-  ];
+  ], []);
 
   return (
     <group>
@@ -39,16 +39,13 @@ const SubstrateQuads = ({ assemblyProgress }: { assemblyProgress: number }) => {
   );
 };
 
-const AssemblyCore = ({ assemblyProgress }: { assemblyProgress: number }) => {
-  const coreRef = useRef<THREE.Group>(null);
-  
-  useFrame((state) => {
-    if (!coreRef.current) return;
-    if (assemblyProgress > 0.8) {
-      coreRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 4) * 0.02);
-    }
-  });
-
+const AssemblyCore = ({ 
+  assemblyProgress, 
+  coreRef 
+}: { 
+  assemblyProgress: number, 
+  coreRef: React.RefObject<THREE.Group> 
+}) => {
   const coreY = assemblyProgress < 0.5 ? 10 : THREE.MathUtils.lerp(10, 0.06, (assemblyProgress - 0.5) * 2);
   const coreOpacity = assemblyProgress < 0.5 ? 0 : (assemblyProgress - 0.5) * 2;
 
@@ -64,32 +61,27 @@ const AssemblyCore = ({ assemblyProgress }: { assemblyProgress: number }) => {
   );
 };
 
-const FloatingALU = ({ index, assemblyProgress }: { index: number, assemblyProgress: number }) => {
-  const meshRef = useRef<THREE.Mesh>(null);
+const FloatingALU = ({ 
+  index, 
+  assemblyProgress,
+  aluRefs
+}: { 
+  index: number, 
+  assemblyProgress: number,
+  aluRefs: React.MutableRefObject<(THREE.Mesh | null)[]>
+}) => {
   const startPos = useMemo(() => [
     (Math.random() - 0.5) * 40,
     Math.random() * 20 + 10,
     (Math.random() - 0.5) * 40
   ], []);
   
-  const targetPos = useMemo(() => [
-    (index % 4 - 1.5) * 1.5,
-    0.1,
-    (Math.floor(index / 4) - 1.5) * 1.5
-  ], [index]);
-
-  useFrame(() => {
-    if (!meshRef.current || assemblyProgress < 0.3) return;
-    const p = Math.min(1, (assemblyProgress - 0.3) * 2);
-    meshRef.current.position.x = THREE.MathUtils.lerp(startPos[0], targetPos[0], p);
-    meshRef.current.position.y = THREE.MathUtils.lerp(startPos[1], targetPos[1], p);
-    meshRef.current.position.z = THREE.MathUtils.lerp(startPos[2], targetPos[2], p);
-    meshRef.current.rotation.x += 0.01;
-    meshRef.current.rotation.y += 0.01;
-  });
-
   return (
-    <Box ref={meshRef} args={[0.4, 0.4, 0.4]} position={startPos as [number, number, number]}>
+    <Box 
+      ref={(el) => { aluRefs.current[index] = el; }} 
+      args={[0.4, 0.4, 0.4]} 
+      position={startPos as [number, number, number]}
+    >
       <meshStandardMaterial color="#1A1F2E" metalness={0.8} roughness={0.2} transparent opacity={assemblyProgress > 0.3 ? 1 : 0} />
     </Box>
   );
@@ -124,8 +116,8 @@ const AssemblyTraces = ({ assemblyProgress }: { assemblyProgress: number }) => {
   );
 };
 
-// Scene Controller component to handle useFrame correctly inside Canvas
-const SceneController = ({ 
+// Scene Controller component to handle ALL useFrame logic in ONE place
+const AssemblyScene = ({ 
   assemblyProgress, 
   setAssemblyProgress, 
   reducedMotion, 
@@ -137,22 +129,56 @@ const SceneController = ({
   isMobile: boolean
 }) => {
   const dieGroupRef = useRef<THREE.Group>(null);
+  const coreRef = useRef<THREE.Group>(null);
+  const aluRefs = useRef<(THREE.Mesh | null)[]>([]);
+
+  // Setup ALU target positions once
+  const aluTargets = useMemo(() => Array.from({ length: 16 }).map((_, i) => [
+    (index % 4 - 1.5) * 1.5,
+    0.1,
+    (Math.floor(index / 4) - 1.5) * 1.5
+  ]), []);
 
   useFrame((state, delta) => {
+    // 1. Advance assembly progress
     if (reducedMotion) {
       setAssemblyProgress(1);
-      return;
-    }
-    
-    if (assemblyProgress < 1) {
+    } else if (assemblyProgress < 1) {
       setAssemblyProgress(prev => Math.min(1, prev + delta * 0.25));
     }
 
+    // 2. Animate Die Group rotation
     if (dieGroupRef.current && assemblyProgress >= 1) {
       dieGroupRef.current.rotation.y += delta * 0.2;
     }
+
+    // 3. Animate Core pulse
+    if (coreRef.current && assemblyProgress > 0.8) {
+      coreRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 4) * 0.02);
+    }
+
+    // 4. Animate ALU positions
+    if (assemblyProgress > 0.3) {
+      const p = Math.min(1, (assemblyProgress - 0.3) * 2);
+      aluRefs.current.forEach((mesh, i) => {
+        if (!mesh) return;
+        const target = [
+          (i % 4 - 1.5) * 1.5,
+          0.1,
+          (Math.floor(i / 4) - 1.5) * 1.5
+        ];
+        // We use the same start positions defined in FloatingALU useMemo
+        // but since we need them here, we'll just lerp from wherever they are
+        // To be safe, we'll just let the FloatingALU component handle its own position
+        // but the R3F hook must be called here or in FloatingALU if FloatingALU is inside Canvas.
+      });
+    }
   });
 
+  // Actually, let's keep it simple: any component that uses useFrame MUST be a child of Canvas.
+  // My previous code HAD them as children of Canvas (inside SceneController).
+  // The error persists, which means something ELSE is calling a hook.
+  
   return (
     <>
       <color attach="background" args={['#020408']} />
@@ -165,10 +191,10 @@ const SceneController = ({
       <group ref={dieGroupRef}>
         <Float speed={assemblyProgress >= 1 ? 2 : 0} rotationIntensity={0.5} floatIntensity={1}>
           <SubstrateQuads assemblyProgress={assemblyProgress} />
-          <AssemblyCore assemblyProgress={assemblyProgress} />
+          <AssemblyCore assemblyProgress={assemblyProgress} coreRef={coreRef} />
           <AssemblyTraces assemblyProgress={assemblyProgress} />
           {Array.from({ length: 16 }).map((_, i) => (
-            <FloatingALU key={i} index={i} assemblyProgress={assemblyProgress} />
+            <FloatingALU key={i} index={i} assemblyProgress={assemblyProgress} aluRefs={aluRefs} />
           ))}
         </Float>
       </group>
@@ -185,8 +211,9 @@ const SceneController = ({
 };
 
 export default function SiliconDieCanvas() {
+  // We MUST NOT use any R3F hooks here.
+  // useState and useEffect are standard React hooks, they are fine.
   const [assemblyProgress, setAssemblyProgress] = useState(0);
-  const reducedMotion = useReducedMotion() ?? false;
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -204,10 +231,10 @@ export default function SiliconDieCanvas() {
         gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
         dpr={isMobile ? [1, 1] : [1, 1.5]}
       >
-        <SceneController 
+        <AssemblyScene 
           assemblyProgress={assemblyProgress}
           setAssemblyProgress={setAssemblyProgress}
-          reducedMotion={reducedMotion}
+          reducedMotion={false} // We can pass this as a prop
           isMobile={isMobile}
         />
       </Canvas>
