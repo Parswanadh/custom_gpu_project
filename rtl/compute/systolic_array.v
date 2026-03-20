@@ -133,11 +133,11 @@ module systolic_array #(
                 reg                         pe_valid_reg;
 
                 // Q4 dequant: extract INT4 weight, apply (w - zero) * scale
-                wire [3:0] q4_weight_raw = weights[pr][pc][3:0];
-                wire signed [4:0] q4_shifted = $signed({1'b0, q4_weight_raw}) - $signed({1'b0, q4_block_zero});
-                wire signed [12:0] q4_product = q4_shifted * $signed({1'b0, q4_block_scale});
-                // Sign-extend 13-bit product to DATA_WIDTH (q4_product max = ±3825, fits in 16-bit)
-                wire signed [DATA_WIDTH-1:0] q4_dequant_weight = {{(DATA_WIDTH-13){q4_product[12]}}, q4_product};
+                wire signed [3:0] q4_weight_raw = weights[pr][pc][3:0];
+                wire signed [5:0] q4_shifted = $signed({{2{q4_weight_raw[3]}}, q4_weight_raw}) - $signed({2'b00, q4_block_zero});
+                wire signed [13:0] q4_product = q4_shifted * $signed({1'b0, q4_block_scale});
+                // Sign-extend to DATA_WIDTH (q4_product max magnitude = 5865 with signed INT4 + zero-point shift)
+                wire signed [DATA_WIDTH-1:0] q4_dequant_weight = {{(DATA_WIDTH-14){q4_product[13]}}, q4_product};
 
                 // Combinational: product + zero-skip
                 wire signed [DATA_WIDTH-1:0] pe_weight = (precision_mode == 2'd1) ? q4_dequant_weight : weights[pr][pc];
@@ -181,21 +181,16 @@ module systolic_array #(
         end
     endgenerate
 
-    // Valid output: pipeline delay = ARRAY_SIZE + ARRAY_SIZE - 1 cycles
-    reg [$clog2(2*ARRAY_SIZE):0] valid_counter;
+    // Valid output: shift pipeline supports consecutive valid_in pulses.
+    reg [2*ARRAY_SIZE-1:0] valid_pipe;
     always @(posedge clk) begin
         if (rst || clear_acc) begin
-            valid_out     <= 1'b0;
-            valid_counter <= 0;
-        end else if (valid_in && valid_counter == 0) begin
-            valid_counter <= 1;
-        end else if (valid_counter > 0 && valid_counter < 2*ARRAY_SIZE) begin
-            valid_counter <= valid_counter + 1;
-        end else if (valid_counter == 2*ARRAY_SIZE) begin
-            valid_out <= 1'b1;
-            valid_counter <= 0;
+            valid_out  <= 1'b0;
+            valid_pipe <= {2*ARRAY_SIZE{1'b0}};
         end else begin
-            valid_out <= 1'b0;
+            valid_pipe[0] <= valid_in;
+            valid_pipe[2*ARRAY_SIZE-1:1] <= valid_pipe[2*ARRAY_SIZE-2:0];
+            valid_out <= valid_pipe[2*ARRAY_SIZE-1];
         end
     end
 

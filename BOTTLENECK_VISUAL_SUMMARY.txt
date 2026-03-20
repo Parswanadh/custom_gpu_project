@@ -1,0 +1,261 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║         BITBYBIT ACTIVE INFERENCE ARCHITECTURE BOTTLENECK ANALYSIS         ║
+║          Analysis of Throughput/Latency Constraints by Design Choice       ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌─ BASELINE PERFORMANCE ────────────────────────────────────────────────────┐
+│ • Latency: 130 cycles/token @ 100 MHz = 1.3 µs per token                  │
+│ • Throughput: 0.77 Mtokens/sec                                             │
+│ • Sparsity benefit: 28.7% zero-skip rate = 1.4× effective speedup         │
+│ • Full-model path: 6 integrated stages (RoPE→GQA→Softmax→GELU→KV→Compress)│
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌─ BOTTLENECK RANKING (BY IMPACT) ──────────────────────────────────────────┐
+│                                                                             │
+│  1. PIPELINE STAGE HANDOFF               ████████████████████░  30.8%      │
+│     40 cycles wasted in FSM wait states                                    │
+│     ⚠ CRITICAL: Blocks all other optimizations                            │
+│     📍 Fix: Remove wait states + add ready/valid handshaking              │
+│     📊 Expected: 115 cycles (-11% speedup)                                 │
+│     ⏱ Effort: MEDIUM (5-7 days)                                            │
+│                                                                             │
+│  2. SOFTMAX STATE MACHINE                ████████████░░░░░░░░  19.2%      │
+│     25 cycles (6-state FSM + crude exp approximation)                     │
+│     📍 Fix: Use exp_lut_256 (exists!) + parallelize tree                   │
+│     📊 Expected: 122 cycles (-4% additional)                               │
+│     ⏱ Effort: LOW-MEDIUM (2 days, includes 5-min trivial fix)             │
+│                                                                             │
+│  3. KV CACHE QUANTIZATION                ██████████░░░░░░░░░░  11.5%      │
+│     15 cycles (sequential loops + division)                                │
+│     📍 Fix: Parallelize min/max + reciprocal LUT                           │
+│     📊 Expected: 110 cycles (-5% additional)                               │
+│     ⏱ Effort: MEDIUM (2-3 days)                                            │
+│                                                                             │
+│  4. DMA ENGINE STALL                     ████░░░░░░░░░░░░░░░░   6-11%     │
+│     5-8 cycles (reactive loading, scales with model size)                  │
+│     ⚠ HIDDEN IN BASELINE (small DIM=8); critical for large models         │
+│     📍 Fix: Wire existing prefetch_engine module (10 lines!)               │
+│     📊 Expected: Hide 8-15 cycles latency (6-11% for larger models)       │
+│     ⏱ Effort: LOW (1-2 days, module already exists!)                      │
+│                                                                             │
+│  5. SYSTOLIC ARRAY SMALL-MATRIX          ████░░░░░░░░░░░░░░░░   6.2%      │
+│     8 cycles (4×4 array, 8D embeddings need 2 passes)                     │
+│     📍 Fix: Either expand to 8×8 OR implement weight prefetch tiling      │
+│     📊 Expected: 100-105 cycles (additional 3-5%)                         │
+│     ⏱ Effort: MEDIUM (2-3 days, area/power tradeoff)                      │
+│                                                                             │
+│  6. SOFTMAX ACCUMULATION                 ██░░░░░░░░░░░░░░░░░░   1.9%      │
+│     2-3 cycles (narrow accumulators overflow)                              │
+│     📍 Fix: Widen exp_val (8→16 bit) + exp_sum (16→21 bit)                │
+│     📊 Expected: ~1-2 cycles reduction                                     │
+│     ⏱ Effort: TRIVIAL (1 hour)                                             │
+│                                                                             │
+│  7-12. LOWER-IMPACT ITEMS                ████░░░░░░░░░░░░░░░░   7-8%      │
+│     • GQA head replication (2.3%, 1 day)                                   │
+│     • KV double-buffering (1.5%, 2 days)                                  │
+│     • Activation compression (1.5%, 1 day)                                │
+│     • Recip LUT speculation (0.8%, 1 day)                                 │
+│     • Imprinted path extension (94% conditional, 3 days special case)     │
+│     • LayerNorm+Residuals (correctness, may add overhead)                │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌─ SPEEDUP PROJECTION BY PHASE ─────────────────────────────────────────────┐
+│                                                                             │
+│  PHASE 0 (Current):        ████████████████████████████░░░░░░░░ 130 cycles│
+│                             Baseline: 1.30 µs latency                       │
+│                                                                             │
+│  PHASE 1 (Week 1):         ███████████████████████░░░░░░░░░░░░░ 115 cycles│
+│  +Pipeline Handoff         -11% speedup (1.13× faster)                     │
+│  +Softmax exp LUT          Foundation for all subsequent work              │
+│  +Accumulator widening     Unblocks memory/compute optimizations           │
+│                                                                             │
+│  PHASE 2 (Week 2):         ███████████████████░░░░░░░░░░░░░░░░░  95 cycles│
+│  +KV Quantization Fusion   -26% cumulative speedup (1.37× faster)         │
+│  +DMA Prefetch Wiring      Memory latency begins hiding                    │
+│  +GQA Head Pipeline        Timing margin improved                          │
+│                                                                             │
+│  PHASE 3 (Week 3):         ████████████████░░░░░░░░░░░░░░░░░░░░  80 cycles│
+│  +Double-Buffering         -38% cumulative speedup (1.63× faster)         │
+│  ±Systolic 8×8 (optional)  Area/power tradeoff for 5% additional gain     │
+│  +LayerNorm+Residuals      Correctness fix (may add 6-8 cycles)           │
+│                                                                             │
+│  OPTIONAL SPECIALIZATION:                                                  │
+│  • With 8×8 Systolic:      ██████████░░░░░░░░░░░░░░░░░░░░░░░░░░  73 cycles│
+│                             -43% cumulative (1.78× faster)                  │
+│                             Area cost: ~4× (16 → 64 PEs)                   │
+│                                                                             │
+│  • With Imprinting*:        ██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  8 cycles│
+│                             -94% speedup for compatible models!            │
+│                             16× FASTER (Gemma-3, OPT-350M profiles)       │
+│                             *Not general-purpose; model-specific           │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌─ EFFORT × IMPACT MATRIX ──────────────────────────────────────────────────┐
+│                                                                             │
+│   Highest Priority (Do First):                                             │
+│   ✓ Softmax exp LUT (5 min)         - HIGH IMPACT, ZERO EFFORT             │
+│   ✓ Accumulator widening (1 hr)     - EASY, UNBLOCKING                    │
+│   ✓ Pipeline Handoff (5-7 days)     - FOUNDATION, CRITICAL!               │
+│                                                                             │
+│   High Priority (Week 2-3):                                                │
+│   ✓ DMA Prefetch Wiring (1 day)     - Module exists! Just wire it         │
+│   ✓ KV Quantization (2-3 days)      - Good ROI                             │
+│   ✓ GQA Head Pipeline (1 day)       - Quick timing relief                 │
+│                                                                             │
+│   Medium Priority (Conditional):                                           │
+│   ○ Systolic 8×8 (2-3 days)        - IF area budget allows                │
+│   ○ Double-Buffering (2 days)      - Incremental gain                     │
+│   ○ LayerNorm+Residuals (3 days)   - CORRECTNESS (not perf)               │
+│                                                                             │
+│   Specialized/Optional:                                                    │
+│   ◇ Imprinted Profiles (3 days)    - High gain but model-specific         │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌─ DESIGN CHOICES CREATING BOTTLENECKS ──────────────────────────────────────┐
+│                                                                             │
+│ CHOICE 1: Sequential FSM Stage Handoff                                     │
+│   ├─ Blocking: Stages wait for prior .done before starting                 │
+│   ├─ Impact: 40 cycles idle (30% waste)                                    │
+│   └─ Trade-off: Simpler FSM logic vs. high latency                         │
+│                                                                             │
+│ CHOICE 2: Fixed ARRAY_SIZE=4, Fixed DIM=8                                  │
+│   ├─ Constraint: 4×4 PE grid cannot single-pass 8D embeddings              │
+│   ├─ Impact: 2 matmul passes per token (14 cycles vs. optimal 7)          │
+│   ├─ PE utilization: Only 25% active per cycle                            │
+│   └─ Trade-off: Small area footprint vs. throughput                        │
+│                                                                             │
+│ CHOICE 3: Reactive DMA Loading (No Prefetch)                               │
+│   ├─ Pattern: Compute blocks for weights → AXI handshake → data arrives   │
+│   ├─ Impact: 8-15 cycle stalls per layer (hidden in small models)          │
+│   ├─ Bonus: prefetch_engine.v ALREADY EXISTS but not wired!               │
+│   └─ Trade-off: Simpler control vs. latency hiding                         │
+│                                                                             │
+│ CHOICE 4: Crude Softmax exp() Approximation                                │
+│   ├─ Implementation: Shift-based piecewise (8 cases, ~5-10% error)        │
+│   ├─ Impact: 5-10% numerical error, requires correction cycles             │
+│   ├─ Reality: exp_lut_256 module exists but not used!                     │
+│   └─ Trade-off: LUT area vs. accuracy/convergence                          │
+│                                                                             │
+│ CHOICE 5: Single KV Cache RAM                                              │
+│   ├─ Access pattern: Read previous entries while writing new ones          │
+│   ├─ Stall: Read-after-write dependency (must wait for write commit)       │
+│   ├─ Impact: 2-3 cycles per token                                          │
+│   └─ Trade-off: Memory area vs. throughput                                 │
+│                                                                             │
+│ CHOICE 6: Narrow Accumulators                                              │
+│   ├─ Constraint: exp_val 8-bit, exp_sum 16-bit (limited dynamic range)    │
+│   ├─ Impact: Saturation triggering extra correction (2-3 cycles)           │
+│   ├─ Root: FPGA resource constraints                                       │
+│   └─ Trade-off: Small storage vs. precision loss                           │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌─ REALISTIC IMPLEMENTATION TIMELINE ───────────────────────────────────────┐
+│                                                                             │
+│  WEEK 1: Foundation (5-7 days elapsed)                                     │
+│  ├─ Mon-Tue:  Softmax exp LUT + Accumulator widening (easy warm-up)       │
+│  ├─ Wed-Sun:  Pipeline FSM refactor (hard but unblocking)                 │
+│  ├─ Daily:    Cosim validation (115 cycles target)                        │
+│  └─ Result:   11% speedup, foundation for all subsequent work              │
+│                                                                             │
+│  WEEK 2: Memory & Compute (5-7 days elapsed)                              │
+│  ├─ Mon-Tue:  KV Quantization fusion (medium complexity)                   │
+│  ├─ Wed:      DMA Prefetch wiring (easy, module exists!)                   │
+│  ├─ Thu-Fri:  GQA Head replication pipeline (quick)                        │
+│  ├─ Sat:      Multi-token testing (5-10 tokens for prefetch validation)   │
+│  └─ Result:   26% cumulative speedup, memory latency hiding begins         │
+│                                                                             │
+│  WEEK 3: Scaling (5-7 days elapsed)                                        │
+│  ├─ Mon-Tue:  Decide systolic array 8×8 vs. prefetch tiling               │
+│  ├─ Wed-Thu:  Double-buffering implementation                              │
+│  ├─ Fri:      LayerNorm+Residuals (correctness, possible slowdown)         │
+│  ├─ Sat:      Full regression test suite                                   │
+│  └─ Result:   38% cumulative speedup, scaled architecture                  │
+│                                                                             │
+│  WEEK 4: Specialization (3-5 days)                                         │
+│  ├─ Mon-Tue:  Profile OPT-350M, LLaMA-7B for imprinting                   │
+│  ├─ Wed-Thu:  Generate hardwired coefficients                              │
+│  ├─ Fri:      Extend imprinted_mini_transformer_core                       │
+│  └─ Result:   94% speedup for compatible model profiles                    │
+│                                                                             │
+│  Total Effort: ~3-4 weeks full-time (or 1-2 months part-time)             │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌─ KEY METRICS & VALIDATION ────────────────────────────────────────────────┐
+│                                                                             │
+│ PRIMARY METRIC: Cycles per Token (measured with cosim_report.txt)          │
+│   Target Week 1: < 120 cycles (from 130)                                   │
+│   Target Week 2: <  95 cycles                                              │
+│   Target Week 3: <  80 cycles                                              │
+│   Target Week 4: <   8 cycles (for compatible profiles)                    │
+│                                                                             │
+│ SECONDARY METRICS (must preserve):                                         │
+│   Zero-skip rate: 28.7% ± 2% (sparsity benefit = 1.4× multiplier)         │
+│   Per-stage breakdown: Verify stages overlap after Phase 1 fix             │
+│   Timing margin: Ensure synthesis closure (especially wide buses)          │
+│   Accuracy: LayerNorm+Residuals may require perplexity validation          │
+│                                                                             │
+│ REGRESSION TEST SUITE:                                                     │
+│   ✓ Each phase must pass unit tests                                        │
+│   ✓ Cosim cycle count captured after each fix                              │
+│   ✓ Zero-skip rate validated (not degraded)                                │
+│   ✓ Functional correctness vs. Python reference model                      │
+│   ✓ Timing analysis after each major change                                │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌─ CRITICAL SUCCESS FACTORS ────────────────────────────────────────────────┐
+│                                                                             │
+│ 1. Pipeline Handoff MUST be first                                          │
+│    └─ All memory/compute optimization gains depend on pipelined stages    │
+│    └─ Without this fix, can't hide latency → phases 2-3 won't show ROI    │
+│                                                                             │
+│ 2. Test incrementally (not all-at-once)                                    │
+│    └─ Measure each phase independently with cosim_report.txt              │
+│    └─ Don't combine fixes → can't identify regressions                    │
+│                                                                             │
+│ 3. Preserve 28.7% zero-skip sparsity benefit                              │
+│    └─ This 1.4× speedup multiplier is FREE; don't break it!               │
+│    └─ Validate after each phase (acceptable range: 26-30%)                │
+│                                                                             │
+│ 4. DMA Prefetch testing requires multi-token sequences                     │
+│    └─ Baseline uses small DIM=8 (hides stalls naturally)                  │
+│    └─ Test with seq_len ≥ 5 tokens to observe latency hiding              │
+│                                                                             │
+│ 5. Timing closure on critical path                                         │
+│    └─ 256-bit GQA buses + Softmax tree may create routing delays          │
+│    └─ Run synthesis timing analysis after each phase                      │
+│                                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                          IMMEDIATE NEXT STEPS                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+1. TODAY (5 minutes):
+   □ Replace rtl/compute/parallel_softmax.v fast_exp() with exp_lut_256
+     (Module already exists on lines 54-60, just use it!)
+
+2. THIS WEEK (5-7 days):
+   □ Refactor optimized_transformer_layer FSM (CRITICAL FOUNDATION)
+   □ Create skid_buffer.v module
+   □ Add ready/valid signals to all 6 stages
+   □ Run cosim validation (target: 115 cycles)
+
+3. NEXT WEEK (5 days):
+   □ Wire DMA prefetch_engine (module exists!)
+   □ Fuse KV quantization (parallel min/max + recip LUT)
+   □ Measure with seq_len=5 tokens
+   □ Validate sparsity preserved
+
+4. WEEK 3 (5 days):
+   □ Decide: Systolic 8×8 vs. prefetch tiling
+   □ Implement double-buffering
+   □ Add LayerNorm+Residuals
+   □ Run full regression suite
+
+═══════════════════════════════════════════════════════════════════════════════

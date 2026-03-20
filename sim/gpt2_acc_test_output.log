@@ -10,30 +10,30 @@
 [4] Generating 3 tokens autoregressively...
     Seed token: 2
 
-    Token 0: predicted=0, cycles=328, zero_skips=13
-      logit[0] = x (0.000)
-      logit[1] = x (0.000)
-      logit[2] = x (0.000)
-      logit[3] = x (0.000)
+    Token 0: predicted=0, cycles=327, zero_skips=13
+      logit[0] = 140 (0.547)
+      logit[1] = 138 (0.539)
+      logit[2] = 136 (0.531)
+      logit[3] = 134 (0.523)
 [PASS] Token 0 generated successfully
-    Token 1: predicted=3, cycles=326, zero_skips=27
-      logit[0] = -170 (-0.664)
-      logit[1] = -57 (-0.223)
-      logit[2] = 56 (0.219)
-      logit[3] = 169 (0.660)
+    Token 1: predicted=0, cycles=326, zero_skips=27
+      logit[0] = 140 (0.547)
+      logit[1] = 138 (0.539)
+      logit[2] = 136 (0.531)
+      logit[3] = 134 (0.523)
 [PASS] Token 1 generated successfully
-    Token 2: predicted=3, cycles=328, zero_skips=42
-      logit[0] = -170 (-0.664)
-      logit[1] = -57 (-0.223)
-      logit[2] = 56 (0.219)
-      logit[3] = 169 (0.660)
+    Token 2: predicted=0, cycles=329, zero_skips=42
+      logit[0] = 140 (0.547)
+      logit[1] = 138 (0.539)
+      logit[2] = 136 (0.531)
+      logit[3] = 134 (0.523)
 [PASS] Token 2 generated successfully
 
 ================================================================
   Performance Summary
 ================================================================
-  Total inference cycles: 1091
+  Total inference cycles: 982
   Total zero-skips:       42
-  Sequence generated:     2 → 0 → 3 → 3
+  Sequence generated:     2 â†’ 0 â†’ 0 â†’ 0
 ================================================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/gpt2/accelerated_gpt2_engine_tb.v:220: $finish called at 10945000 (1ps)
+D:\Projects\BitbyBit\custom_gpu_project\tb/gpt2/accelerated_gpt2_engine_tb.v:220: $finish called at 11005000 (1ps)

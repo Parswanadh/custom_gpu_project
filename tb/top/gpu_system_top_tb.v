@@ -101,18 +101,31 @@ module gpu_system_top_tb;
         input [AXI_ADDR_W-1:0] addr;
         input [AXI_DATA_W-1:0] data;
         integer timeout;
+        reg got_bresp;
         begin
             @(posedge clk);
             s_axi_awvalid <= 1'b1; s_axi_awaddr <= addr;
             s_axi_wvalid  <= 1'b1; s_axi_wdata  <= data;
             s_axi_bready  <= 1'b1;
             timeout = 0;
-            while (timeout < 20) begin
+            got_bresp = 1'b0;
+            while (timeout < 20 && !got_bresp) begin
                 @(posedge clk);
                 if (s_axi_awready) s_axi_awvalid <= 1'b0;
                 if (s_axi_wready) s_axi_wvalid <= 1'b0;
-                if (s_axi_bvalid) begin s_axi_bready <= 1'b0; timeout = 20; end
+                if (s_axi_bvalid) begin
+                    if (s_axi_bresp != 2'b00) begin
+                        $display("[FATAL] AXI write BRESP error at addr=0x%0H resp=%0b", addr, s_axi_bresp);
+                        $fatal(1);
+                    end
+                    s_axi_bready <= 1'b0;
+                    got_bresp = 1'b1;
+                end
                 timeout = timeout + 1;
+            end
+            if (!got_bresp) begin
+                $display("[FATAL] AXI write timeout at addr=0x%0H", addr);
+                $fatal(1);
             end
             @(posedge clk);
             s_axi_awvalid <= 1'b0; s_axi_wvalid <= 1'b0; s_axi_bready <= 1'b0;
@@ -123,15 +136,28 @@ module gpu_system_top_tb;
     task axi_read;
         input [AXI_ADDR_W-1:0] addr;
         integer timeout;
+        reg got_rdata;
         begin
             @(posedge clk);
             s_axi_arvalid <= 1'b1; s_axi_araddr <= addr;
             s_axi_rready  <= 1'b1;
             timeout = 0;
-            while (!s_axi_rvalid && timeout < 20) begin
+            got_rdata = 1'b0;
+            while (!got_rdata && timeout < 20) begin
                 @(posedge clk);
                 if (s_axi_arready) s_axi_arvalid <= 1'b0;
+                if (s_axi_rvalid) begin
+                    if (s_axi_rresp != 2'b00) begin
+                        $display("[FATAL] AXI read RRESP error at addr=0x%0H resp=%0b", addr, s_axi_rresp);
+                        $fatal(1);
+                    end
+                    got_rdata = 1'b1;
+                end
                 timeout = timeout + 1;
+            end
+            if (!got_rdata) begin
+                $display("[FATAL] AXI read timeout at addr=0x%0H", addr);
+                $fatal(1);
             end
             @(posedge clk);
             s_axi_arvalid <= 1'b0; s_axi_rready <= 1'b0;
@@ -141,7 +167,17 @@ module gpu_system_top_tb;
     // Push command task
     task push_cmd;
         input [63:0] cmd;
+        integer wait_cycles;
         begin
+            wait_cycles = 0;
+            while (!cmd_ready && wait_cycles < 100) begin
+                @(negedge clk);
+                wait_cycles = wait_cycles + 1;
+            end
+            if (!cmd_ready) begin
+                $display("[FATAL] cmd_ready timeout while pushing cmd=0x%0H", cmd);
+                $fatal(1);
+            end
             @(negedge clk);
             cmd_valid <= 1'b1; cmd_data <= cmd;
             @(negedge clk);
@@ -207,24 +243,24 @@ module gpu_system_top_tb;
         repeat(10) @(posedge clk);
         // Check status shows idle
         axi_read(16'h0004); // GPU_STATUS
-        if (s_axi_rdata[1] == 1'b1) begin // idle bit
+        if (s_axi_rdata[1] == 1'b1 && s_axi_rdata[2] == 1'b0) begin // idle and no error
             $display("[PASS] NOP completed, GPU idle");
             pass_count = pass_count + 1;
         end else begin
-            $display("[FAIL] GPU not idle after NOP: status=0x%08H", s_axi_rdata);
+            $display("[FAIL] Unexpected status after NOP: status=0x%08H", s_axi_rdata);
             fail_count = fail_count + 1;
         end
 
-        // Test 5: MATMUL command (compute auto-ack stub)
+        // Test 5: MATMUL command must latch explicit stub error (fail-closed semantics)
         $display("[5] Dispatching MATMUL command...");
         push_cmd({8'h02, 8'hAA, 16'h0100, 16'h0200, 16'h0010}); // CMD_MATMUL
         repeat(15) @(posedge clk);
         axi_read(16'h0004);
-        if (s_axi_rdata[1] == 1'b1) begin
-            $display("[PASS] MATMUL completed (auto-ack), GPU idle");
+        if (s_axi_rdata[1] == 1'b1 && s_axi_rdata[2] == 1'b1) begin
+            $display("[PASS] MATMUL completed with expected compute-stub error latch");
             pass_count = pass_count + 1;
         end else begin
-            $display("[FAIL] GPU not idle after MATMUL: status=0x%08H", s_axi_rdata);
+            $display("[FAIL] Expected idle+error after MATMUL stub: status=0x%08H", s_axi_rdata);
             fail_count = fail_count + 1;
         end
 
@@ -264,8 +300,8 @@ module gpu_system_top_tb;
         push_cmd({8'h0F, 56'd0}); // FENCE
         repeat(40) @(posedge clk);
         axi_read(16'h0004);
-        if (s_axi_rdata[1] == 1'b1) begin
-            $display("[PASS] Multiple commands completed successfully");
+        if (s_axi_rdata[1] == 1'b1 && s_axi_rdata[2] == 1'b1) begin
+            $display("[PASS] Multiple commands completed and stub error remained visible");
             pass_count = pass_count + 1;
         end else begin
             $display("[FAIL] Commands still processing: status=0x%08H", s_axi_rdata);
@@ -276,6 +312,9 @@ module gpu_system_top_tb;
         $display("============================================");
         $display("  Results: %0d PASSED, %0d FAILED", pass_count, fail_count);
         $display("============================================");
+        $display("TB_RESULT pass=%0d fail=%0d", pass_count, fail_count);
+        if (fail_count != 0)
+            $fatal(1, "gpu_system_top_tb failed with %0d checks failing", fail_count);
         $finish;
     end
 

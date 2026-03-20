@@ -20,6 +20,7 @@ module dma_engine_tb;
     reg  [15:0]             transfer_len;
     reg                     direction;
     wire                    done, busy;
+    wire                    error;
 
     // AXI Read Address
     wire                    m_axi_arvalid;
@@ -64,7 +65,7 @@ module dma_engine_tb;
         .clk(clk), .rst(rst),
         .start(start), .ext_addr(ext_addr), .local_addr(local_addr),
         .transfer_len(transfer_len), .direction(direction),
-        .done(done), .busy(busy),
+        .done(done), .busy(busy), .error(error),
         .m_axi_arvalid(m_axi_arvalid), .m_axi_arready(m_axi_arready),
         .m_axi_araddr(m_axi_araddr), .m_axi_arlen(m_axi_arlen),
         .m_axi_arsize(m_axi_arsize), .m_axi_arburst(m_axi_arburst),
@@ -223,10 +224,262 @@ module dma_engine_tb;
             fail_count = fail_count + 1;
         end
 
+        // Test 5: Zero-length transfer guard
+        $display("[5] Testing zero-length transfer guard...");
+        begin : test_zero_length
+            integer t;
+            integer saw_done;
+            integer saw_interrupt;
+            integer saw_axi_traffic;
+
+            saw_done = 0;
+            saw_interrupt = 0;
+            saw_axi_traffic = 0;
+
+            @(negedge clk);
+            start        <= 1'b1;
+            ext_addr     <= 32'h0000_3000;
+            local_addr   <= 16'h0200;
+            transfer_len <= 16'd0;
+            direction    <= 1'b0;
+            @(negedge clk);
+            start <= 1'b0;
+
+            if (done) saw_done = 1;
+            if (interrupt) saw_interrupt = 1;
+
+            for (t = 0; t < 6; t = t + 1) begin
+                @(posedge clk);
+                if (done) saw_done = 1;
+                if (interrupt) saw_interrupt = 1;
+                if (m_axi_arvalid || m_axi_awvalid || m_axi_wvalid || m_axi_rready || m_axi_bready)
+                    saw_axi_traffic = 1;
+            end
+
+            if (saw_done && saw_interrupt && !saw_axi_traffic && !busy) begin
+                $display("[PASS] Zero-length transfer completes with no AXI traffic");
+                pass_count = pass_count + 1;
+            end else begin
+                $display("[FAIL] Zero-length guard failed: done=%0d intr=%0d axi=%0d busy=%b",
+                         saw_done, saw_interrupt, saw_axi_traffic, busy);
+                fail_count = fail_count + 1;
+            end
+        end
+
+        // Test 6: Tail-byte write uses safe WSTRB policy
+        $display("[6] Testing tail-byte write WSTRB policy...");
+        begin : test_write_tail
+            integer t;
+            integer saw_wbeat;
+            reg [3:0] sampled_wstrb;
+            reg [31:0] sampled_wdata;
+            reg sampled_wlast;
+
+            saw_wbeat = 0;
+            sampled_wstrb = 4'b0000;
+            sampled_wdata = 32'd0;
+            sampled_wlast = 1'b0;
+            local_read_data = 32'hDDCC_BBAA;
+
+            @(posedge clk);
+            start        <= 1'b1;
+            ext_addr     <= 32'h0000_4000;
+            local_addr   <= 16'h0300;
+            transfer_len <= 16'd3;
+            direction    <= 1'b1; // local→ext
+            @(posedge clk);
+            start <= 1'b0;
+
+            t = 0;
+            while (!m_axi_awvalid && t < 20) begin @(posedge clk); t = t + 1; end
+            if (!m_axi_awvalid || m_axi_awlen != 0) begin
+                $display("[FAIL] Tail write did not issue single-beat AW (valid=%b len=%0d)", m_axi_awvalid, m_axi_awlen);
+                fail_count = fail_count + 1;
+            end else begin
+                @(posedge clk); m_axi_awready <= 1'b1;
+                @(posedge clk); m_axi_awready <= 1'b0;
+
+                t = 0;
+                while (!m_axi_wvalid && t < 20) begin @(posedge clk); t = t + 1; end
+                if (m_axi_wvalid) begin
+                    saw_wbeat = 1;
+                    sampled_wstrb = m_axi_wstrb;
+                    sampled_wdata = m_axi_wdata;
+                    sampled_wlast = m_axi_wlast;
+                    @(posedge clk); m_axi_wready <= 1'b1;
+                    @(posedge clk); m_axi_wready <= 1'b0;
+                end
+
+                t = 0;
+                while (!m_axi_bready && t < 20) begin @(posedge clk); t = t + 1; end
+                if (m_axi_bready) begin
+                    @(posedge clk); m_axi_bvalid <= 1'b1;
+                    @(posedge clk); m_axi_bvalid <= 1'b0;
+                end
+
+                t = 0;
+                while (!done && t < 40) begin @(posedge clk); t = t + 1; end
+
+                if (saw_wbeat &&
+                    sampled_wstrb == 4'b0111 &&
+                    sampled_wdata == 32'h00CC_BBAA &&
+                    sampled_wlast &&
+                    done && interrupt) begin
+                    $display("[PASS] Tail write uses masked data + WSTRB=0x7");
+                    pass_count = pass_count + 1;
+                end else begin
+                    $display("[FAIL] Tail write policy failed: wvalid=%0d wstrb=0x%0h wdata=0x%08h wlast=%b done=%b intr=%b",
+                             saw_wbeat, sampled_wstrb, sampled_wdata, sampled_wlast, done, interrupt);
+                    fail_count = fail_count + 1;
+                end
+            end
+        end
+
+        // Test 7: Tail-byte read masks local write data
+        $display("[7] Testing tail-byte read local write mask...");
+        begin : test_read_tail
+            integer t;
+            reg sampled_local_write;
+            reg [31:0] sampled_local_data;
+
+            sampled_local_write = 1'b0;
+            sampled_local_data = 32'd0;
+
+            @(posedge clk);
+            start        <= 1'b1;
+            ext_addr     <= 32'h0000_5000;
+            local_addr   <= 16'h0400;
+            transfer_len <= 16'd3;
+            direction    <= 1'b0; // ext→local
+            @(posedge clk);
+            start <= 1'b0;
+
+            t = 0;
+            while (!m_axi_arvalid && t < 20) begin @(posedge clk); t = t + 1; end
+            if (!m_axi_arvalid || m_axi_arlen != 0) begin
+                $display("[FAIL] Tail read did not issue single-beat AR (valid=%b len=%0d)", m_axi_arvalid, m_axi_arlen);
+                fail_count = fail_count + 1;
+            end else begin
+                @(posedge clk); m_axi_arready <= 1'b1;
+                @(posedge clk); m_axi_arready <= 1'b0;
+
+                t = 0;
+                while (!m_axi_rready && t < 20) begin @(posedge clk); t = t + 1; end
+
+                @(negedge clk);
+                m_axi_rvalid <= 1'b1;
+                m_axi_rdata  <= 32'h1122_3344;
+                m_axi_rlast  <= 1'b1;
+
+                t = 0;
+                while (!sampled_local_write && t < 20) begin
+                    @(negedge clk);
+                    if (local_write_en) begin
+                        sampled_local_write = 1'b1;
+                        sampled_local_data = local_write_data;
+                    end
+                    t = t + 1;
+                end
+
+                m_axi_rvalid <= 1'b0;
+                m_axi_rlast  <= 1'b0;
+
+                t = 0;
+                while (!done && t < 40) begin @(posedge clk); t = t + 1; end
+
+                if (sampled_local_write &&
+                    sampled_local_data == 32'h0022_3344 &&
+                    done && interrupt) begin
+                    $display("[PASS] Tail read masks upper byte on local write");
+                    pass_count = pass_count + 1;
+                end else begin
+                    $display("[FAIL] Tail read mask failed: wren=%b wdata=0x%08h done=%b intr=%b",
+                             sampled_local_write, sampled_local_data, done, interrupt);
+                    fail_count = fail_count + 1;
+                end
+            end
+        end
+
+        // Test 8: AXI read error response should fail-closed and assert error
+        $display("[8] Testing AXI read error response handling...");
+        begin : test_rresp_error
+            integer t;
+            @(posedge clk);
+            start        <= 1'b1;
+            ext_addr     <= 32'h0000_6000;
+            local_addr   <= 16'h0500;
+            transfer_len <= 16'd4;
+            direction    <= 1'b0;
+            @(posedge clk);
+            start <= 1'b0;
+
+            t = 0;
+            while (!m_axi_arvalid && t < 20) begin @(posedge clk); t = t + 1; end
+            @(posedge clk); m_axi_arready <= 1'b1;
+            @(posedge clk); m_axi_arready <= 1'b0;
+
+            @(posedge clk);
+            m_axi_rvalid <= 1'b1;
+            m_axi_rdata  <= 32'hCAFE_BABE;
+            m_axi_rresp  <= 2'b10; // SLVERR
+            m_axi_rlast  <= 1'b1;
+            @(posedge clk);
+            m_axi_rvalid <= 1'b0;
+            m_axi_rresp  <= 2'b00;
+            m_axi_rlast  <= 1'b0;
+
+            t = 0;
+            while (!done && t < 40) begin @(posedge clk); t = t + 1; end
+            if (done && interrupt && error) begin
+                $display("[PASS] AXI read error surfaces via dma error pulse");
+                pass_count = pass_count + 1;
+            end else begin
+                $display("[FAIL] AXI read error not surfaced: done=%b intr=%b error=%b", done, interrupt, error);
+                fail_count = fail_count + 1;
+            end
+        end
+
+        // Test 9: Address-channel watchdog should terminate hung transfer
+        $display("[9] Testing address-channel watchdog timeout...");
+        begin : test_watchdog_timeout
+            integer t;
+            reg saw_done;
+            reg saw_error;
+            saw_done = 1'b0;
+            saw_error = 1'b0;
+
+            @(posedge clk);
+            start        <= 1'b1;
+            ext_addr     <= 32'h0000_7000;
+            local_addr   <= 16'h0600;
+            transfer_len <= 16'd4;
+            direction    <= 1'b0;
+            @(posedge clk);
+            start <= 1'b0;
+
+            for (t = 0; t < 4300; t = t + 1) begin
+                @(posedge clk);
+                if (done) saw_done = 1'b1;
+                if (error) saw_error = 1'b1;
+            end
+
+            if (saw_done && saw_error && !busy) begin
+                $display("[PASS] DMA watchdog timed out stalled transfer safely");
+                pass_count = pass_count + 1;
+            end else begin
+                $display("[FAIL] DMA watchdog timeout failed: saw_done=%b saw_error=%b busy=%b",
+                         saw_done, saw_error, busy);
+                fail_count = fail_count + 1;
+            end
+        end
+
         #20;
         $display("============================================");
         $display("  Results: %0d PASSED, %0d FAILED", pass_count, fail_count);
         $display("============================================");
+        if (fail_count != 0) begin
+            $fatal(1, "dma_engine_tb failed");
+        end
         $finish;
     end
 

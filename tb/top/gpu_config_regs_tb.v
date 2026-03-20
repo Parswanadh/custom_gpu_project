@@ -231,6 +231,43 @@ module gpu_config_regs_tb;
             fail_count = fail_count + 1;
         end
 
+        // Test 9: IRQ W1C clear + pending set in same cycle (set wins)
+        $display("[9] Testing IRQ_STATUS W1C + set merge...");
+        irq_pending = 8'h00;
+        axi_write(16'h0044, 32'h0000_00FF);  // Clear any stale latched IRQs
+
+        // Start IRQ_STATUS clear transaction and hold irq_pending high through
+        // the write-commit cycle.
+        @(negedge aclk);
+        s_axi_awvalid = 1'b1;
+        s_axi_awaddr  = 16'h0044;
+        s_axi_wvalid  = 1'b1;
+        s_axi_wdata   = 32'h0000_0002;
+        s_axi_bready  = 1'b1;
+        irq_pending   = 8'h02;
+
+        // 1st posedge: address/data capture, 2nd posedge: write commit.
+        @(posedge aclk);
+        if (s_axi_awready) s_axi_awvalid = 1'b0;
+        if (s_axi_wready)  s_axi_wvalid  = 1'b0;
+        @(posedge aclk);
+        @(negedge aclk);
+        irq_pending = 8'h00;
+        while (!s_axi_bvalid) @(posedge aclk);
+        @(posedge aclk);
+        s_axi_bready  = 1'b0;
+        s_axi_awvalid = 1'b0;
+        s_axi_wvalid  = 1'b0;
+
+        axi_read(16'h0044);
+        if (s_axi_rdata[7:0] == 8'h02) begin
+            $display("[PASS] IRQ merge keeps new pending bit set (0x%02H)", s_axi_rdata[7:0]);
+            pass_count = pass_count + 1;
+        end else begin
+            $display("[FAIL] IRQ merge lost pending bit: 0x%02H (expected 0x02)", s_axi_rdata[7:0]);
+            fail_count = fail_count + 1;
+        end
+
         #20;
         $display("============================================");
         $display("  Results: %0d PASSED, %0d FAILED", pass_count, fail_count);

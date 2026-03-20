@@ -98,6 +98,156 @@ def load_weights(weight_dir=None):
         
         return data, "identity"
 
+
+async def load_model_into_dut(dut, weights, ED, FD, VS, MSL, num_layers=2):
+    """Load LN/attention/FFN weights + embeddings via the load-based DUT interface."""
+
+    # LayerNorm weights per layer
+    for layer in range(num_layers):
+        for dim in range(ED):
+            await FallingEdge(dut.clk)
+            dut.load_ln_en.value = 1
+            dut.load_layer_idx.value = layer
+            dut.load_ln_sel.value = 0
+            dut.load_ln_is_gamma.value = 1
+            dut.load_ln_dim.value = dim
+            dut.load_ln_data.value = int(weights['ln1_gamma'][dim]) & 0xFFFF
+            await FallingEdge(dut.clk)
+            dut.load_ln_en.value = 0
+
+            await FallingEdge(dut.clk)
+            dut.load_ln_en.value = 1
+            dut.load_layer_idx.value = layer
+            dut.load_ln_sel.value = 0
+            dut.load_ln_is_gamma.value = 0
+            dut.load_ln_dim.value = dim
+            dut.load_ln_data.value = int(weights['ln1_beta'][dim]) & 0xFFFF
+            await FallingEdge(dut.clk)
+            dut.load_ln_en.value = 0
+
+            await FallingEdge(dut.clk)
+            dut.load_ln_en.value = 1
+            dut.load_layer_idx.value = layer
+            dut.load_ln_sel.value = 1
+            dut.load_ln_is_gamma.value = 1
+            dut.load_ln_dim.value = dim
+            dut.load_ln_data.value = int(weights['ln2_gamma'][dim]) & 0xFFFF
+            await FallingEdge(dut.clk)
+            dut.load_ln_en.value = 0
+
+            await FallingEdge(dut.clk)
+            dut.load_ln_en.value = 1
+            dut.load_layer_idx.value = layer
+            dut.load_ln_sel.value = 1
+            dut.load_ln_is_gamma.value = 0
+            dut.load_ln_dim.value = dim
+            dut.load_ln_data.value = int(weights['ln2_beta'][dim]) & 0xFFFF
+            await FallingEdge(dut.clk)
+            dut.load_ln_en.value = 0
+
+    # Final LayerNorm is addressed with layer_idx == NUM_LAYERS
+    for dim in range(ED):
+        await FallingEdge(dut.clk)
+        dut.load_ln_en.value = 1
+        dut.load_layer_idx.value = num_layers
+        dut.load_ln_sel.value = 0
+        dut.load_ln_is_gamma.value = 1
+        dut.load_ln_dim.value = dim
+        dut.load_ln_data.value = int(weights['ln_final_gamma'][dim]) & 0xFFFF
+        await FallingEdge(dut.clk)
+        dut.load_ln_en.value = 0
+
+        await FallingEdge(dut.clk)
+        dut.load_ln_en.value = 1
+        dut.load_layer_idx.value = num_layers
+        dut.load_ln_sel.value = 0
+        dut.load_ln_is_gamma.value = 0
+        dut.load_ln_dim.value = dim
+        dut.load_ln_data.value = int(weights['ln_final_beta'][dim]) & 0xFFFF
+        await FallingEdge(dut.clk)
+        dut.load_ln_en.value = 0
+
+    # Attention matrices Wq/Wk/Wv/Wo
+    for row in range(ED):
+        for col in range(ED):
+            for sel, key in ((0, 'wq'), (1, 'wk'), (2, 'wv'), (3, 'wo')):
+                await FallingEdge(dut.clk)
+                dut.load_attn_weight_en.value = 1
+                dut.load_attn_matrix_sel.value = sel
+                dut.load_attn_row.value = row
+                dut.load_attn_col.value = col
+                dut.load_attn_data.value = int(weights[key][row, col]) & 0xFFFF
+                await FallingEdge(dut.clk)
+                dut.load_attn_weight_en.value = 0
+
+    # FFN W1 + b1
+    for row in range(ED):
+        for col in range(FD):
+            await FallingEdge(dut.clk)
+            dut.load_ffn_weight_en.value = 1
+            dut.load_ffn_layer_sel.value = 0
+            dut.load_ffn_is_bias.value = 0
+            dut.load_ffn_row.value = row
+            dut.load_ffn_col.value = col
+            dut.load_ffn_data.value = int(weights['ffn_w1'][row, col]) & 0xFFFF
+            await FallingEdge(dut.clk)
+            dut.load_ffn_weight_en.value = 0
+    for col in range(FD):
+        await FallingEdge(dut.clk)
+        dut.load_ffn_weight_en.value = 1
+        dut.load_ffn_layer_sel.value = 0
+        dut.load_ffn_is_bias.value = 1
+        dut.load_ffn_row.value = 0
+        dut.load_ffn_col.value = col
+        dut.load_ffn_data.value = int(weights['ffn_b1'][col]) & 0xFFFF
+        await FallingEdge(dut.clk)
+        dut.load_ffn_weight_en.value = 0
+
+    # FFN W2 + b2
+    for row in range(FD):
+        for col in range(ED):
+            await FallingEdge(dut.clk)
+            dut.load_ffn_weight_en.value = 1
+            dut.load_ffn_layer_sel.value = 1
+            dut.load_ffn_is_bias.value = 0
+            dut.load_ffn_row.value = row
+            dut.load_ffn_col.value = col
+            dut.load_ffn_data.value = int(weights['ffn_w2'][row, col]) & 0xFFFF
+            await FallingEdge(dut.clk)
+            dut.load_ffn_weight_en.value = 0
+    for col in range(ED):
+        await FallingEdge(dut.clk)
+        dut.load_ffn_weight_en.value = 1
+        dut.load_ffn_layer_sel.value = 1
+        dut.load_ffn_is_bias.value = 1
+        dut.load_ffn_row.value = 0
+        dut.load_ffn_col.value = col
+        dut.load_ffn_data.value = int(weights['ffn_b2'][col]) & 0xFFFF
+        await FallingEdge(dut.clk)
+        dut.load_ffn_weight_en.value = 0
+
+    # Token embeddings
+    for tid in range(VS):
+        for dim in range(ED):
+            await FallingEdge(dut.clk)
+            dut.load_token_emb.value = 1
+            dut.load_token_idx.value = tid
+            dut.load_dim_idx.value = dim
+            dut.load_emb_data.value = int(weights['token_emb'][tid, dim]) & 0xFFFF
+            await FallingEdge(dut.clk)
+            dut.load_token_emb.value = 0
+
+    # Position embeddings
+    for pid in range(MSL):
+        for dim in range(ED):
+            await FallingEdge(dut.clk)
+            dut.load_pos_emb.value = 1
+            dut.load_pos_idx.value = pid
+            dut.load_dim_idx.value = dim
+            dut.load_emb_data.value = int(weights['pos_emb'][pid, dim]) & 0xFFFF
+            await FallingEdge(dut.clk)
+            dut.load_pos_emb.value = 0
+
 # ============================================================================
 # Cocotb Tests
 # ============================================================================
@@ -119,6 +269,23 @@ async def test_load_real_weights(dut):
     dut.load_dim_idx.value = 0
     dut.load_emb_data.value = 0
     dut.load_pos_idx.value = 0
+    dut.load_ln_en.value = 0
+    dut.load_layer_idx.value = 0
+    dut.load_ln_sel.value = 0
+    dut.load_ln_is_gamma.value = 0
+    dut.load_ln_dim.value = 0
+    dut.load_ln_data.value = 0
+    dut.load_attn_weight_en.value = 0
+    dut.load_attn_matrix_sel.value = 0
+    dut.load_attn_row.value = 0
+    dut.load_attn_col.value = 0
+    dut.load_attn_data.value = 0
+    dut.load_ffn_weight_en.value = 0
+    dut.load_ffn_layer_sel.value = 0
+    dut.load_ffn_is_bias.value = 0
+    dut.load_ffn_row.value = 0
+    dut.load_ffn_col.value = 0
+    dut.load_ffn_data.value = 0
     dut.token_in.value = 0
     dut.position_in.value = 0
     
@@ -136,48 +303,8 @@ async def test_load_real_weights(dut):
     
     cocotb.log.info(f"Weight source: {source}")
     cocotb.log.info(f"Setting transformer weights...")
-    
-    # Set weight buses (combinational inputs)
-    dut.ln1_gamma.value = pack_vector(weights['ln1_gamma'][:ED])
-    dut.ln1_beta.value = pack_vector(weights['ln1_beta'][:ED])
-    dut.ln2_gamma.value = pack_vector(weights['ln2_gamma'][:ED])
-    dut.ln2_beta.value = pack_vector(weights['ln2_beta'][:ED])
-    dut.ln_final_gamma.value = pack_vector(weights['ln_final_gamma'][:ED])
-    dut.ln_final_beta.value = pack_vector(weights['ln_final_beta'][:ED])
-    
-    dut.wq_flat.value = pack_matrix(weights['wq'][:ED, :ED])
-    dut.wk_flat.value = pack_matrix(weights['wk'][:ED, :ED])
-    dut.wv_flat.value = pack_matrix(weights['wv'][:ED, :ED])
-    dut.wo_flat.value = pack_matrix(weights['wo'][:ED, :ED])
-    
-    dut.ffn_w1_flat.value = pack_matrix(weights['ffn_w1'][:ED, :FD])
-    dut.ffn_b1_flat.value = pack_vector(weights['ffn_b1'][:FD])
-    dut.ffn_w2_flat.value = pack_matrix(weights['ffn_w2'][:FD, :ED])
-    dut.ffn_b2_flat.value = pack_vector(weights['ffn_b2'][:ED])
-    
-    # Load token embeddings
-    cocotb.log.info(f"Loading {VS} token embeddings...")
-    for tid in range(VS):
-        for dim in range(ED):
-            await FallingEdge(dut.clk)
-            dut.load_token_emb.value = 1
-            dut.load_token_idx.value = tid
-            dut.load_dim_idx.value = dim
-            dut.load_emb_data.value = int(weights['token_emb'][tid, dim]) & 0xFFFF
-            await FallingEdge(dut.clk)
-            dut.load_token_emb.value = 0
-    
-    # Load position embeddings
-    cocotb.log.info(f"Loading {MSL} position embeddings...")
-    for pid in range(MSL):
-        for dim in range(ED):
-            await FallingEdge(dut.clk)
-            dut.load_pos_emb.value = 1
-            dut.load_pos_idx.value = pid
-            dut.load_dim_idx.value = dim
-            dut.load_emb_data.value = int(weights['pos_emb'][pid, dim]) & 0xFFFF
-            await FallingEdge(dut.clk)
-            dut.load_pos_emb.value = 0
+    cocotb.log.info("Loading weights + embeddings through DUT load interface...")
+    await load_model_into_dut(dut, weights, ED, FD, VS, MSL, num_layers=2)
     
     await Timer(20, units="ns")
     
@@ -205,21 +332,20 @@ async def test_load_real_weights(dut):
             await FallingEdge(dut.clk)
             timeout += 1
         
-        if int(dut.valid_out.value):
-            predicted = int(dut.token_out.value)
-            logits_raw = int(dut.logits_out.value)
-            
-            # Extract individual logit values
-            logits = []
-            for i in range(ED):
-                val = (logits_raw >> (i * DW)) & 0xFFFF
-                logits.append(from_q88(val))
-            
-            cocotb.log.info(f"Token {token_id:2d} → Predicted: {predicted} | "
-                          f"Logits: [{', '.join(f'{l:.3f}' for l in logits)}] | "
-                          f"Cycles: {timeout}")
-        else:
-            cocotb.log.error(f"Token {token_id}: TIMEOUT after {timeout} cycles!")
+        assert int(dut.valid_out.value), f"Token {token_id}: TIMEOUT after {timeout} cycles"
+
+        predicted = int(dut.token_out.value)
+        logits_raw = int(dut.logits_out.value)
+        
+        # Extract individual logit values
+        logits = []
+        for i in range(ED):
+            val = (logits_raw >> (i * DW)) & 0xFFFF
+            logits.append(from_q88(val))
+        
+        cocotb.log.info(f"Token {token_id:2d} → Predicted: {predicted} | "
+                      f"Logits: [{', '.join(f'{l:.3f}' for l in logits)}] | "
+                      f"Cycles: {timeout}")
         
         # Wait between inferences
         for _ in range(10):
@@ -242,6 +368,9 @@ async def test_compare_with_reference(dut):
     dut.valid_in.value = 0
     dut.load_token_emb.value = 0
     dut.load_pos_emb.value = 0
+    dut.load_ln_en.value = 0
+    dut.load_attn_weight_en.value = 0
+    dut.load_ffn_weight_en.value = 0
     
     await Timer(35, units="ns")
     dut.rst.value = 0
@@ -254,41 +383,7 @@ async def test_compare_with_reference(dut):
     VS = 16
     MSL = 8
     
-    # Load all weights into DUT
-    dut.ln1_gamma.value = pack_vector(weights['ln1_gamma'][:ED])
-    dut.ln1_beta.value = pack_vector(weights['ln1_beta'][:ED])
-    dut.ln2_gamma.value = pack_vector(weights['ln2_gamma'][:ED])
-    dut.ln2_beta.value = pack_vector(weights['ln2_beta'][:ED])
-    dut.ln_final_gamma.value = pack_vector(weights['ln_final_gamma'][:ED])
-    dut.ln_final_beta.value = pack_vector(weights['ln_final_beta'][:ED])
-    dut.wq_flat.value = pack_matrix(weights['wq'][:ED, :ED])
-    dut.wk_flat.value = pack_matrix(weights['wk'][:ED, :ED])
-    dut.wv_flat.value = pack_matrix(weights['wv'][:ED, :ED])
-    dut.wo_flat.value = pack_matrix(weights['wo'][:ED, :ED])
-    dut.ffn_w1_flat.value = pack_matrix(weights['ffn_w1'][:ED, :FD])
-    dut.ffn_b1_flat.value = pack_vector(weights['ffn_b1'][:FD])
-    dut.ffn_w2_flat.value = pack_matrix(weights['ffn_w2'][:FD, :ED])
-    dut.ffn_b2_flat.value = pack_vector(weights['ffn_b2'][:ED])
-    
-    for tid in range(VS):
-        for dim in range(ED):
-            await FallingEdge(dut.clk)
-            dut.load_token_emb.value = 1
-            dut.load_token_idx.value = tid
-            dut.load_dim_idx.value = dim
-            dut.load_emb_data.value = int(weights['token_emb'][tid, dim]) & 0xFFFF
-            await FallingEdge(dut.clk)
-            dut.load_token_emb.value = 0
-    
-    for pid in range(MSL):
-        for dim in range(ED):
-            await FallingEdge(dut.clk)
-            dut.load_pos_emb.value = 1
-            dut.load_pos_idx.value = pid
-            dut.load_dim_idx.value = dim
-            dut.load_emb_data.value = int(weights['pos_emb'][pid, dim]) & 0xFFFF
-            await FallingEdge(dut.clk)
-            dut.load_pos_emb.value = 0
+    await load_model_into_dut(dut, weights, ED, FD, VS, MSL, num_layers=2)
     
     await Timer(20, units="ns")
     
@@ -326,6 +421,7 @@ async def test_compare_with_reference(dut):
         while int(dut.valid_out.value) == 0 and timeout < 500:
             await FallingEdge(dut.clk)
             timeout += 1
+        assert int(dut.valid_out.value), f"Token {token_id}: TIMEOUT after {timeout} cycles"
         
         verilog_pred = int(dut.token_out.value)
         logits_raw = int(dut.logits_out.value)
@@ -347,6 +443,10 @@ async def test_compare_with_reference(dut):
             
             cocotb.log.info(f"  Token {token_id:2d}: Verilog={verilog_pred} Ref={ref_pred} {match} "
                           f"MSE={mse:.4f}")
+            assert ref_pred == verilog_pred, (
+                f"Token {token_id}: prediction mismatch (verilog={verilog_pred}, "
+                f"reference={ref_pred}, mse={mse:.6f})"
+            )
         else:
             cocotb.log.info(f"  Token {token_id:2d}: Verilog predicted={verilog_pred} "
                           f"logits={verilog_logits}")

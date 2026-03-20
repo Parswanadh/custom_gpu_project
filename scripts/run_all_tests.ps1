@@ -4,9 +4,32 @@
 # ============================================================================
 
 $ErrorActionPreference = "Continue"
-$iverilog = "D:\Tools\iverilog\bin\iverilog.exe"
-$vvp = "D:\Tools\iverilog\bin\vvp.exe"
-$root = "D:\Projects\BitbyBit\custom_gpu_project"
+
+function Resolve-ToolPath {
+    param(
+        [string]$EnvVar,
+        [string]$DefaultPath,
+        [string]$FallbackCommand
+    )
+
+    $fromEnv = [Environment]::GetEnvironmentVariable($EnvVar)
+    if ($fromEnv) {
+        if (Test-Path $fromEnv) { return $fromEnv }
+        throw "$EnvVar is set but file does not exist: $fromEnv"
+    }
+
+    if (Test-Path $DefaultPath) { return $DefaultPath }
+
+    $cmd = Get-Command $FallbackCommand -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Source) { return $cmd.Source }
+
+    throw "Unable to locate $FallbackCommand. Set $EnvVar or install tool in PATH."
+}
+
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$root = Split-Path -Parent $scriptDir
+$iverilog = Resolve-ToolPath -EnvVar "BITBYBIT_IVERILOG" -DefaultPath "D:\Tools\iverilog\bin\iverilog.exe" -FallbackCommand "iverilog"
+$vvp = Resolve-ToolPath -EnvVar "BITBYBIT_VVP" -DefaultPath "D:\Tools\iverilog\bin\vvp.exe" -FallbackCommand "vvp"
 
 # Create sim output directory if missing
 $simDir = Join-Path $root "sim"
@@ -25,6 +48,7 @@ $totalPass = 0
 $totalFail = 0
 $totalModules = 0
 $results = @()
+$simulationTimeoutSec = 60
 
 function Run-Test {
     param(
@@ -37,34 +61,146 @@ function Run-Test {
 
     $allFiles = ($Sources + $Testbench) | ForEach-Object { Join-Path $root $_ }
     $outPath = Join-Path (Join-Path $root "sim") $OutputBin
+    $logPath = Join-Path (Join-Path $root "sim") "${OutputBin}_output.log"
 
     Write-Host "  [$Phase] $Name ... " -NoNewline
 
     # Compile
-    $compileArgs = @("-o", $outPath) + $allFiles
-    $compileResult = & $iverilog @compileArgs 2>&1
+    $compileArgs = @("-g2012", "-o", $outPath) + $allFiles
+    $compileResult = ""
+    $compileLaunchFailed = $false
+    try {
+        $compileResult = & $iverilog @compileArgs 2>&1
+    } catch {
+        $compileLaunchFailed = $true
+        $compileResult = ($_ | Out-String)
+    }
+
+    if ($compileLaunchFailed) {
+        Write-Host "COMPILE LAUNCH FAIL" -ForegroundColor Red
+        Set-Content -Path $logPath -Value ($compileResult | Out-String)
+        $script:totalFail++
+        $script:totalModules++
+        $script:results += [PSCustomObject]@{Phase=$Phase; Module=$Name; Status="COMPILE LAUNCH FAIL"; Tests="-"}
+        return
+    }
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "COMPILE FAIL" -ForegroundColor Red
+        Set-Content -Path $logPath -Value ($compileResult | Out-String)
         $script:totalFail++
         $script:totalModules++
         $script:results += [PSCustomObject]@{Phase=$Phase; Module=$Name; Status="COMPILE FAIL"; Tests="-"}
         return
     }
 
-    # Simulate
-    $simOutput = & $vvp $outPath 2>&1 | Out-String -Width 300
+    # Simulate with per-test timeout to prevent hangs
+    $simOutput = ""
+    $simExitCode = 1
+    $simTimedOut = $false
+    $simLaunchFailed = $false
+    $stdoutPath = [System.IO.Path]::GetTempFileName()
+    $stderrPath = [System.IO.Path]::GetTempFileName()
+    $simProcess = $null
 
-    # Count PASS/FAIL from output (match [PASS]/[FAIL] and also "N passed, N failed" summary)
-    $passes = ([regex]::Matches($simOutput, '\[PASS\]')).Count
-    $fails = ([regex]::Matches($simOutput, '\[FAIL\]')).Count
+    try {
+        $simProcess = Start-Process -FilePath $vvp -ArgumentList @($outPath) -NoNewWindow -PassThru `
+            -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
 
-    # Fallback: if no [PASS]/[FAIL] markers, try to parse "Results: N passed, N failed"
-    if ($passes -eq 0 -and $fails -eq 0) {
-        $summaryMatch = [regex]::Match($simOutput, '(\d+)\s+(?:PASSED|passed),\s+(\d+)\s+(?:FAILED|failed)')
-        if ($summaryMatch.Success) {
-            $passes = [int]$summaryMatch.Groups[1].Value
-            $fails = [int]$summaryMatch.Groups[2].Value
+        $simTimedOut = -not $simProcess.WaitForExit($simulationTimeoutSec * 1000)
+        if ($simTimedOut) {
+            try {
+                Stop-Process -Id $simProcess.Id -Force -ErrorAction Stop
+            } catch {
+                # Best effort process cleanup on timeout
+            }
+            try {
+                $null = $simProcess.WaitForExit(5000)
+            } catch {
+                # Continue with timeout failure path even if wait throws
+            }
+        }
+
+        if (-not $simTimedOut) {
+            $simExitCode = [int]$simProcess.ExitCode
+        }
+
+        if (Test-Path $stdoutPath) {
+            $simOutput += (Get-Content -Path $stdoutPath -Raw)
+        }
+        if (Test-Path $stderrPath) {
+            $simOutput += (Get-Content -Path $stderrPath -Raw)
+        }
+    } catch {
+        $simLaunchFailed = $true
+        $simOutput += ($_ | Out-String)
+    } finally {
+        if ($simProcess -ne $null) {
+            $simProcess.Dispose()
+        }
+        if (Test-Path $stdoutPath) {
+            Remove-Item -Path $stdoutPath -Force -ErrorAction SilentlyContinue
+        }
+        if (Test-Path $stderrPath) {
+            Remove-Item -Path $stderrPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    if ($simTimedOut) {
+        Write-Host "TIMEOUT" -ForegroundColor Red
+        Set-Content -Path $logPath -Value $simOutput
+        $script:totalFail++
+        $script:totalModules++
+        $script:results += [PSCustomObject]@{Phase=$Phase; Module=$Name; Status="TIMEOUT"; Tests="-"}
+        return
+    }
+
+    if ($simLaunchFailed) {
+        Write-Host "SIM LAUNCH FAIL" -ForegroundColor Red
+        Set-Content -Path $logPath -Value $simOutput
+        $script:totalFail++
+        $script:totalModules++
+        $script:results += [PSCustomObject]@{Phase=$Phase; Module=$Name; Status="SIM LAUNCH FAIL"; Tests="-"}
+        return
+    }
+
+    if ($simExitCode -ne 0) {
+        Write-Host "SIM FAIL" -ForegroundColor Red
+        Set-Content -Path $logPath -Value $simOutput
+        $script:totalFail++
+        $script:totalModules++
+        $script:results += [PSCustomObject]@{Phase=$Phase; Module=$Name; Status="SIM FAIL"; Tests="-"}
+        return
+    }
+
+    # Preferred parser: explicit machine-readable TB summary.
+    $tbResult = [regex]::Match($simOutput, 'TB_RESULT\s+pass=(\d+)\s+fail=(\d+)', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if ($tbResult.Success) {
+        $passes = [int]$tbResult.Groups[1].Value
+        $fails = [int]$tbResult.Groups[2].Value
+    } else {
+        # Backward-compatible fallback for legacy benches.
+        $passes = ([regex]::Matches($simOutput, '\[PASS\]')).Count
+        $fails = ([regex]::Matches($simOutput, '\[FAIL\]')).Count
+
+        # Remove summary marker matches like "4 [PASS], 0 [FAIL]"
+        $summaryMatches = [regex]::Matches($simOutput, '(\d+)\s+\[PASS\],\s+(\d+)\s+\[FAIL\]')
+        foreach ($m in $summaryMatches) {
+            if ($passes -gt 0) { $passes-- }
+            if ($fails -gt 0) { $fails-- }
+            if ($passes -le 1 -and $fails -le 0) {
+                $passes = [int]$m.Groups[1].Value
+                $fails = [int]$m.Groups[2].Value
+            }
+        }
+
+        # Fallback: if no [PASS]/[FAIL] markers, try to parse "Results: N passed, N failed"
+        if ($passes -eq 0 -and $fails -eq 0) {
+            $summaryMatch = [regex]::Match($simOutput, '(\d+)\s+(?:PASSED|passed),\s+(\d+)\s+(?:FAILED|failed)')
+            if ($summaryMatch.Success) {
+                $passes = [int]$summaryMatch.Groups[1].Value
+                $fails = [int]$summaryMatch.Groups[2].Value
+            }
         }
     }
 
@@ -75,12 +211,16 @@ function Run-Test {
     if ($fails -eq 0 -and $passes -gt 0) {
         Write-Host "$passes/$passes PASS" -ForegroundColor Green
         $script:results += [PSCustomObject]@{Phase=$Phase; Module=$Name; Status="PASS"; Tests="$passes/$passes"}
-    } elseif ($passes -gt 0) {
+    } elseif ($passes -gt 0 -and $fails -gt 0) {
         $total = $passes + $fails
         Write-Host "$passes PASS, $fails FAIL" -ForegroundColor Yellow
         $script:results += [PSCustomObject]@{Phase=$Phase; Module=$Name; Status="PARTIAL"; Tests="$passes/$total"}
+    } elseif ($fails -gt 0) {
+        Write-Host "0 PASS, $fails FAIL" -ForegroundColor Red
+        $script:results += [PSCustomObject]@{Phase=$Phase; Module=$Name; Status="FAIL"; Tests="0/$fails"}
     } else {
         Write-Host "NO OUTPUT" -ForegroundColor Red
+        $script:totalFail++
         $script:results += [PSCustomObject]@{Phase=$Phase; Module=$Name; Status="NO OUTPUT"; Tests="0/0"}
     }
 }
@@ -211,6 +351,77 @@ Run-Test "P13" "kv_cache_quantizer" "kv_quant_test" @("rtl/memory/kv_cache_quant
 Run-Test "P13" "medusa_head_predictor" "medusa_test" @("rtl/compute/medusa_head_predictor.v") "tb/compute/medusa_head_predictor_tb.v"
 Run-Test "P13" "prefetch_engine" "prefetch_test" @("rtl/memory/prefetch_engine.v") "tb/memory/prefetch_engine_tb.v"
 Write-Host ""
+# -- Phase 14: Memory Bandwidth Solutions (3D Stacking + Near-Memory) --
+Write-Host "--- Phase 14: Memory Bandwidth Solutions ---" -ForegroundColor Yellow
+Run-Test "P14" "multibank_sram_controller" "sram_bank_test" @("rtl/memory/multibank_sram_controller.v") "tb/memory/multibank_sram_controller_tb.v"
+Run-Test "P14" "compute_in_sram" "cis_test" @("rtl/memory/compute_in_sram.v") "tb/memory/compute_in_sram_tb.v"
+Run-Test "P14" "hbm_controller" "hbm_test" @("rtl/memory/hbm_controller.v") "tb/memory/hbm_controller_tb.v"
+Write-Host ""
+# -- Phase 15: Speed Optimizations --
+Write-Host "--- Phase 15: Speed Optimizations ---" -ForegroundColor Yellow
+Run-Test "P15" "simd_ternary_engine" "simd_test" @("rtl/compute/simd_ternary_engine.v") "tb/compute/simd_ternary_engine_tb.v"
+Run-Test "P15" "parallel_softmax" "parsm_test" @(
+    "rtl/compute/parallel_softmax.v",
+    "rtl/compute/exp_lut_256.v",
+    "rtl/compute/recip_lut_256.v"
+) "tb/compute/parallel_softmax_tb.v"
+Run-Test "P15" "layer_pipeline_controller" "pipe_test" @("rtl/control/layer_pipeline_controller.v") "tb/control/layer_pipeline_controller_tb.v"
+Write-Host ""
+# -- Phase 16: End-to-End Integration --
+Write-Host "--- Phase 16: End-to-End Pipeline Integration ---" -ForegroundColor Yellow
+Run-Test "P16" "optimized_transformer_layer" "e2e_test" @(
+    "rtl/integration/optimized_transformer_layer.v",
+    "rtl/transformer/rope_encoder.v",
+    "rtl/transformer/grouped_query_attention.v",
+    "rtl/compute/parallel_softmax.v",
+    "rtl/compute/exp_lut_256.v",
+    "rtl/compute/recip_lut_256.v",
+    "rtl/compute/gelu_activation.v",
+    "rtl/compute/gelu_lut_256.v",
+    "rtl/memory/kv_cache_quantizer.v",
+    "rtl/compute/activation_compressor.v"
+) "tb/integration/end_to_end_pipeline_tb.v"
+Write-Host ""
+
+# -- Phase 17: Continuation Integrations (Q4 + Unified Top) --
+Write-Host "--- Phase 17: Continuation Integrations ---" -ForegroundColor Yellow
+Run-Test "P17" "block_dequantizer" "bdq_test" @("rtl/compute/block_dequantizer.v") "tb/compute/block_dequantizer_tb.v"
+Run-Test "P17" "systolic_array_q4" "sa_q4_test" @("rtl/compute/systolic_array.v") "tb/compute/systolic_array_q4_tb.v"
+Run-Test "P17" "nanogpt_q4_e2e" "nanogpt_q4_test" @(
+    "rtl/compute/gelu_lut_256.v",
+    "rtl/compute/exp_lut_256.v",
+    "rtl/compute/inv_sqrt_lut_256.v",
+    "rtl/transformer/layer_norm.v",
+    "rtl/transformer/attention_unit.v",
+    "rtl/transformer/ffn_block.v",
+    "rtl/gpt2/transformer_block.v",
+    "rtl/gpt2/embedding_lookup.v",
+    "rtl/gpt2/gpt2_engine.v"
+) "tb/gpt2/nanogpt_q4_tb.v"
+Run-Test "P17" "gpu_system_top_v2" "sys_v2_test" @(
+    "rtl/top/reset_synchronizer.v",
+    "rtl/top/gpu_config_regs.v",
+    "rtl/top/command_processor.v",
+    "rtl/top/perf_counters.v",
+    "rtl/memory/scratchpad.v",
+    "rtl/memory/dma_engine.v",
+    "rtl/memory/imprinted_embedding_rom.v",
+    "rtl/integration/imprinted_mini_transformer_core.v",
+    "rtl/transformer/rope_encoder.v",
+    "rtl/transformer/grouped_query_attention.v",
+    "rtl/compute/parallel_softmax.v",
+    "rtl/compute/exp_lut_256.v",
+    "rtl/compute/recip_lut_256.v",
+    "rtl/compute/gelu_lut_256.v",
+    "rtl/compute/gelu_activation.v",
+    "rtl/memory/kv_cache_quantizer.v",
+    "rtl/compute/activation_compressor.v",
+    "rtl/memory/prefetch_engine.v",
+    "rtl/control/layer_pipeline_controller.v",
+    "rtl/integration/optimized_transformer_layer.v",
+    "rtl/top/gpu_system_top_v2.v"
+) "tb/top/gpu_system_top_v2_tb.v"
+Write-Host ""
 # -- Summary --
 Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host "                    TEST RESULTS SUMMARY                        " -ForegroundColor Cyan
@@ -229,9 +440,13 @@ $results | Format-Table -AutoSize
 
 if ($totalFail -eq 0 -and $totalPass -gt 0) {
     Write-Host "  >>> ALL TESTS PASSED - GPU READY FOR DEPLOYMENT <<<" -ForegroundColor Green
-} elseif ($totalPass -eq 0) {
-    Write-Host "  >>> NO TESTS RAN - CHECK IVERILOG INSTALLATION <<<" -ForegroundColor Red
-} else {
+    $exitCode = 0
+} elseif ($totalFail -gt 0) {
     Write-Host "  >>> SOME TESTS FAILED - REVIEW REQUIRED <<<" -ForegroundColor Red
+    $exitCode = 1
+} else {
+    Write-Host "  >>> NO TESTS RAN - CHECK IVERILOG INSTALLATION <<<" -ForegroundColor Red
+    $exitCode = 2
 }
 Write-Host ""
+exit $exitCode

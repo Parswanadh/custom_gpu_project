@@ -1,0 +1,267 @@
+# BITBYBIT ARCHITECTURE BOTTLENECK SUMMARY
+## Quick Reference: Impact × Effort Matrix
+
+---
+
+## 🔴 CRITICAL BOTTLENECKS (MUST FIX)
+
+### 1. SEQUENTIAL PIPELINE STAGE HANDOFF
+- **Impact:** 40 cycles (30.8% of total latency)
+- **Root Cause:** FSM wait states block downstream stages
+- **Fix:** Remove S_*_W states, add ready/valid handshaking + skid buffers
+- **Effort:** MEDIUM (5-7 days)
+- **Expected Speedup:** 12-15 cycles (9-11% overall)
+- **Priority:** 1 — FOUNDATION (blocks all other optimizations)
+- **Files:** optimized_transformer_layer.v, NEW: skid_buffer.v
+
+### 2. SOFTMAX SEQUENTIAL STATE MACHINE
+- **Impact:** 25 cycles (19.2% of latency)
+- **Root Cause:** 6-state FSM + crude fast_exp() approximation
+- **Fix:** Two independent fixes:
+  - Replace fast_exp() with exp_lut_256 (TRIVIAL - 5 minutes!)
+  - Parallelize tree reduction (1 day)
+- **Effort:** LOW-MEDIUM (2 days total)
+- **Expected Speedup:** 3-5 cycles (2-4% overall) + accuracy improvement
+- **Priority:** 1 — Can do in parallel with #1
+- **Files:** parallel_softmax.v
+
+### 3. KV CACHE QUANTIZATION LOOP
+- **Impact:** 15 cycles (11.5% of latency)
+- **Root Cause:** Two sequential for-loops (min/max search + quantization)
+- **Fix:** Parallelize min/max tree + replace division with reciprocal LUT
+- **Effort:** MEDIUM (2-3 days)
+- **Expected Speedup:** 3-5 cycles (2-4% overall)
+- **Priority:** 2 — After pipeline foundation fixed
+- **Files:** kv_cache_quantizer.v
+
+### 4. DMA ENGINE MEMORY STALL
+- **Impact:** 5-8 cycles per token (scales with model size to 6-11%)
+- **Root Cause:** Reactive weight loading (no prefetch orchestration)
+- **Fix:** Instantiate existing prefetch_engine.v and wire layer scheduling
+- **Effort:** LOW (1-2 days) — Module ALREADY EXISTS!
+- **Expected Speedup:** 8-15 cycles hidden latency (6-11%)
+- **Priority:** 2 — High ROI for low cost
+- **Files:** gpu_system_top_v2.v, layer_pipeline_controller.v
+- **Bonus:** Scales with model size; becomes critical for large models
+
+---
+
+## 🟡 HIGH-IMPACT, LOWER-PRIORITY ITEMS
+
+### 5. SYSTOLIC ARRAY SMALL-MATRIX STALL
+- **Impact:** 8 cycles (6.2% of latency)
+- **Root Cause:** 4×4 array processing 8D embeddings requires 2 passes
+- **Options:**
+  - Option A: Increase to 8×8 (4× area cost, 7-cycle reduction)
+  - Option B: Weight prefetch tiling (low cost, 2-3 cycle improvement)
+- **Effort:** MEDIUM (2-3 days for Option A, 1 day for Option B)
+- **Expected Speedup:** 4-7 cycles (3-5% overall)
+- **Priority:** 3 — Area/power tradeoff decision
+- **Files:** systolic_array.v
+
+### 6. SOFTMAX FIXED-POINT ACCUMULATION
+- **Impact:** 2-3 cycles (1.9% of latency)
+- **Root Cause:** Narrow accumulators (exp_val: 8-bit, exp_sum: 16-bit)
+- **Fix:** Expand to 16-bit exp_val, 21-bit exp_sum
+- **Effort:** LOW (1 hour)
+- **Expected Speedup:** 1-2 cycles (0.8% overall) + accuracy
+- **Priority:** 1 — Trivial, do with Softmax exp LUT fix
+- **Files:** parallel_softmax.v
+
+### 7. GQA HEAD REPLICATION MUX PATH
+- **Impact:** 3-5 cycles (2.3% of latency)
+- **Root Cause:** 256-bit wide data bus creates routing delays
+- **Fix:** Add pipeline stage for head replication muxing
+- **Effort:** LOW (1 day)
+- **Expected Speedup:** 1-2 cycles (0.8% overall) + timing margin
+- **Priority:** 2 — Low effort, improves critical path
+- **Files:** optimized_transformer_layer.v
+
+### 8. KV CACHE DOUBLE-BUFFER CONFLICTS
+- **Impact:** 2-3 cycles (1.5% of latency)
+- **Root Cause:** Single KV cache → read-after-write stalls
+- **Fix:** Implement ping-pong KV cache (dual RAMs)
+- **Effort:** MEDIUM (2 days)
+- **Expected Speedup:** 2-3 cycles (1.5% overall)
+- **Priority:** 3 — After foundation phases
+- **Files:** NEW: kv_cache_pingpong.v
+
+### 9. ACTIVATION COMPRESSION STALL
+- **Impact:** 2-3 cycles (1.5% of latency)
+- **Root Cause:** Sequential min/max → quantize loop (like KV quantization)
+- **Fix:** Parallelize and fuse with GELU output pipeline
+- **Effort:** LOW (1 day)
+- **Expected Speedup:** 1-2 cycles (0.8% overall)
+- **Priority:** 4 — Lower impact
+- **Files:** activation_compressor.v
+
+### 10. RECIP LUT LOOKUP LATENCY
+- **Impact:** 1-2 cycles (0.8% of latency)
+- **Root Cause:** Sequential LUT lookup for reciprocal
+- **Fix:** Speculate reciprocal in parallel with exp accumulation
+- **Effort:** LOW (1 day, but risky)
+- **Expected Speedup:** 0.5-1 cycles (0.4% overall)
+- **Priority:** 4 — Speculative, low impact
+- **Files:** parallel_softmax.v
+
+---
+
+## 🟢 SPECIALIZED / OPTIONAL
+
+### 11. IMPRINTED PATH UNDERUTILIZED
+- **Impact:** 122 cycles conditional speedup (94% reduction)
+- **Root Cause:** Hardwired mini-model exists but only supports 2 profiles
+- **Fix:** Profile more models (OPT-350M, LLaMA-7B), generate coefficients
+- **Effort:** LOW-MEDIUM (3 days, profile + coefficient generation)
+- **Expected Speedup:** 8 cycles/token for compatible models (16× speedup!)
+- **Limitation:** Only for specific model families (not general)
+- **Priority:** 4 — Specialized acceleration, nice-to-have
+- **Files:** imprinted_mini_transformer_core.v
+
+### 12. MISSING LAYER NORM + RESIDUALS
+- **Impact:** 0 current (hidden; required for correctness)
+- **Root Cause:** Real transformer needs LayerNorm before/after attention
+- **Overhead:** May add 6-8 cycles (but necessary for accuracy)
+- **Fix:** Add LayerNorm stages + residual connections
+- **Effort:** MEDIUM-HIGH (3-4 days)
+- **Expected Impact:** 0 cycles (required for functional correctness, not optimization)
+- **Priority:** 2 — Correctness fix (not performance)
+- **Files:** optimized_transformer_layer.v
+
+---
+
+## COMBINED SPEEDUP PROJECTION
+
+`
+PHASE 0 (Baseline):
+    130 cycles/token @ 100 MHz = 1.30 µs latency
+
+PHASE 1 (Week 1):  +Pipeline Handoff +Softmax Exp +Accumulators
+    115 cycles/token = 1.15 µs (-11% speedup, 1.13× faster)
+
+PHASE 2 (Week 2):  +KV Quantization +DMA Prefetch +GQA Pipeline
+     95 cycles/token = 0.95 µs (-26% cumulative, 1.37× faster)
+
+PHASE 3 (Week 3):  +Double-Buffering ±Systolic8×8
+     80-85 cycles/token = 0.80 µs (-35-38% cumulative, 1.54-1.63× faster)
+
+OPTIONAL:
+     With 8×8 systolic (area tradeoff): 73 cycles (-43% cumulative, 1.78× faster)
+     With imprinting (model-specific):  8 cycles (-94% for compatible models, 16× faster!)
+`
+
+---
+
+## EFFORT ESTIMATES & DEPENDENCIES
+
+`
+Week 1:
+  └─ Softmax exp LUT (5 min) ✓ INDEPENDENT
+  └─ Pipeline Handoff (5-7 days) ✓ INDEPENDENT (but foundation!)
+     └─ Accumulator widening (1 hr) ✓ (can do in parallel)
+
+Week 2:
+  ├─ KV Quantization Fusion (2-3 days) ✓ DEPENDS ON Phase 1
+  ├─ DMA Prefetch Wiring (1-2 days) ✓ Can start after Week 1 FSM core done
+  └─ GQA Head Pipeline (1 day) ✓ INDEPENDENT
+
+Week 3:
+  ├─ Double-Buffering (2 days) ✓ DEPENDS ON Phase 1+2
+  ├─ Systolic 8×8 (2-3 days) ✓ OPTIONAL area tradeoff
+  └─ LayerNorm+Residuals (3-4 days) ✓ DEPENDS ON Phase 1 (correctness)
+
+Week 4:
+  └─ Imprinted Profiles (3 days) ✓ OPTIONAL specialization
+`
+
+---
+
+## CRITICAL SUCCESS FACTORS
+
+1. **Phase 1 Pipeline Handoff is BLOCKING**
+   - All subsequent memory/compute optimizations depend on pipelining
+   - Without this, can't hide latency (stages still serialize)
+   - Must complete before Phase 2 measurements become meaningful
+
+2. **Test Incrementally (not all-at-once)**
+   - Each phase should be measured independently
+   - Use cosim_report.txt cycle tracking after each fix
+   - Don't accumulate bugs from untested combinations
+
+3. **Preserve Sparsity Benefit**
+   - Current 28.7% zero-skip rate = 1.4× speedup multiplier
+   - New logic must not break activation sparsity
+   - Validate zero-skip rate after each phase (should remain 26-30%)
+
+4. **DMA Prefetch Testing**
+   - Current baseline uses small DIM=8 (hides memory stalls naturally)
+   - Prefetch benefit only visible with seq_len > 4 tokens
+   - Test with multi-token sequences to observe latency hiding
+
+5. **Timing Closure on Critical Path**
+   - Several fixes (esp. Softmax, KV quant) impact critical path
+   - Synthesis may struggle with wide buses (256-bit GQA data)
+   - Run timing analysis after each phase; backend optimization may be needed
+
+---
+
+## IMPLEMENTATION PRIORITY MATRIX
+
+`
+                    HIGH EFFORT  │  LOW EFFORT
+          ──────────────────────────────────────
+HIGH IMPACT  │  Systolic 8×8       │  Softmax exp LUT
+             │  Double-Buffering   │  Accumulator widen
+             │  LayerNorm (correct)│  GQA pipeline
+             │                     │  Prefetch wiring
+             │  Pipeline Handoff (CRITICAL - all depend on this!)
+          ──────────────────────────────────────
+LOW IMPACT   │  Imprinted extend   │  Compression fusion
+             │                     │  Recip LUT speculate
+`
+
+**Recommended execution order (by ROI):**
+1. **Softmax exp LUT** (5 min, no downsides)
+2. **Pipeline Handoff** (5-7 days, unblocks all others)
+3. **Accumulators** (1 hr, no downsides)
+4. **DMA Prefetch** (1-2 days, module exists!)
+5. **KV Quantization** (2-3 days, good savings)
+6. **GQA Pipeline** (1 day, timing relief)
+7. **Systolic 8×8 or Prefetch Tiling** (depends on area budget)
+8. **Double-Buffering** (2 days, incremental gain)
+9. **LayerNorm+Residuals** (correctness, may slow down but required)
+10. **Imprinting** (specialized, nice-to-have)
+
+---
+
+## MEASUREMENT & VALIDATION
+
+**After each phase, run:**
+`ash
+# Cycle measurement
+python cosim_runner.py --output report_phase_X.txt
+
+# Extract metrics
+grep "total_cycles\|zero_skip_rate\|rope_cycles\|gqa_cycles\|softmax_cycles" report_phase_X.txt
+
+# Compare to baseline
+echo "Phase 0: 130 cycles (baseline)"
+echo "Phase X:  cycles"
+echo "Improvement: 130 cycles"
+`
+
+**Zero-skip validation:**
+`ash
+grep "zero_skip_rate" report_phase_X.txt
+# Expected: 28.7% ±2%, never drop below 26%
+`
+
+---
+
+## FIRST STEPS (TODAY)
+
+1. **5-minute task:** Replace Softmax fast_exp() with exp_lut_256
+2. **Plan Phase 1 FSM refactor:** Schedule 5-7 days
+3. **Create test suite:** cosim phase measurement automation
+4. **Set up git branches:** phase-1, phase-2, etc. for tracking
+

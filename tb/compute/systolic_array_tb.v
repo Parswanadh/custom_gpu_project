@@ -183,6 +183,8 @@ module systolic_array_tb;
         $display("============================================");
         $display("  Results: %0d PASSED, %0d FAILED", pass_count, fail_count);
         $display("============================================");
+        if (fail_count != 0)
+            $fatal(1, "systolic_array_tb failed with %0d checks failing", fail_count);
         $finish;
     end
 

@@ -1,40 +1,43 @@
 # ============================================================================
-# run_demo.ps1 - Science Fest Live Demo
-# Compiles and runs the GPT-2 pipeline demo with formatted output
+# run_demo.ps1 - Compatibility wrapper for live simulation demos.
+# Delegates to demo_day.ps1 so demo paths stay aligned with maintained benches.
 # ============================================================================
 
-$iverilog = "D:\Tools\iverilog\bin\iverilog.exe"
-$vvp = "D:\Tools\iverilog\bin\vvp.exe"
-
-# Get project root (parent of scripts folder)
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$root = Split-Path -Parent $scriptDir
-
-$sources = @(
-    "$root\rtl\gpt2\embedding_lookup.v",
-    "$root\rtl\gpt2\transformer_block.v",
-    "$root\rtl\gpt2\gpt2_engine.v",
-    "$root\rtl\transformer\layer_norm.v",
-    "$root\rtl\transformer\attention_unit.v",
-    "$root\rtl\transformer\ffn_block.v",
-    "$root\rtl\transformer\linear_layer.v",
-    "$root\rtl\compute\gelu_activation.v",
-    "$root\rtl\compute\softmax_unit.v",
-    "$root\tb\demo\gpt2_demo_tb.v"
+[CmdletBinding()]
+param(
+    [ValidateSet("base", "imprint", "top", "compare", "all")]
+    [string]$Mode = "compare",
+    [int]$TokenId = 5,
+    [int]$Position = 2,
+    [ValidateSet("single", "matrix")]
+    [string]$WorkloadMode = "matrix",
+    [int]$WarmupRuns = 3,
+    [int]$MeasuredRuns = 10,
+    [int]$TokenSpace = 16,
+    [int]$PositionSpace = 8,
+    [int]$WorkloadCount = 3,
+    [int]$WorkloadSeed = 1337
 )
 
-$outBin = "$root\sim\gpt2_demo"
+$ErrorActionPreference = "Stop"
 
-Write-Host ""
-Write-Host "Compiling BitbyBit GPU..." -ForegroundColor Cyan
-
-& $iverilog -o $outBin @sources 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Compilation FAILED!" -ForegroundColor Red
-    exit 1
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$demoScript = Join-Path $scriptDir "demo_day.ps1"
+if (!(Test-Path $demoScript)) {
+    throw "Missing required script: $demoScript"
 }
 
-Write-Host "Running GPT-2 inference demo..." -ForegroundColor Green
-Write-Host ""
+Write-Host "run_demo.ps1 -> demo_day.ps1 (Mode=$Mode, TokenId=$TokenId, Position=$Position, Workload=$WorkloadMode, Warmup=$WarmupRuns, Measured=$MeasuredRuns, TokenSpace=$TokenSpace, PositionSpace=$PositionSpace, WorkloadCount=$WorkloadCount, Seed=$WorkloadSeed)" -ForegroundColor Cyan
 
-& $vvp $outBin 2>&1
+& powershell -ExecutionPolicy Bypass -File $demoScript `
+    -Mode $Mode `
+    -TokenId $TokenId `
+    -Position $Position `
+    -WorkloadMode $WorkloadMode `
+    -WarmupRuns $WarmupRuns `
+    -MeasuredRuns $MeasuredRuns `
+    -TokenSpace $TokenSpace `
+    -PositionSpace $PositionSpace `
+    -WorkloadCount $WorkloadCount `
+    -WorkloadSeed $WorkloadSeed
+exit $LASTEXITCODE

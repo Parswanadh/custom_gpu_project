@@ -4,18 +4,18 @@
   Config: EMBED=4, LAYERS=2, FFN=8, VOCAB=16
 
 [Test 1] Running inference: token=0, position=0
-[PASS] Test 1: token=0→3, logits=[46,-85,-154,191] (golden match)
+[PASS] Test 1: token=0â†’0, logits=[266,266,265,265] (golden match)
 
 [Test 2] Running inference: token=3, position=0
-[PASS] Test 2: token=3→3, logits=[-24,-94,-107,224] (golden match)
+[PASS] Test 2: token=3â†’0, logits=[266,266,265,265] (golden match)
 
 [Test 3] Running inference: token=7, position=0
-[PASS] Test 3: token=7→3, logits=[-24,-94,-107,224] (golden match)
+[PASS] Test 3: token=7â†’0, logits=[266,266,265,265] (golden match)
 
 [Test 4] Running inference: token=15, position=0
-[PASS] Test 4: token=15→3, logits=[-24,-94,-107,224] (golden match)
+[PASS] Test 4: token=15â†’0, logits=[266,266,265,265] (golden match)
 
 ============================================
   4 [PASS], 0 [FAIL]
 ============================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/gpt2/nanogpt_q4_tb.v:326: $finish called at 22186000 (1ps)
+D:\Projects\BitbyBit\custom_gpu_project\tb/gpt2/nanogpt_q4_tb.v:324: $finish called at 22906000 (1ps)

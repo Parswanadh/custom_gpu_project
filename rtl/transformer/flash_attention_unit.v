@@ -87,6 +87,8 @@ module flash_attention_unit #(
     // Online softmax accumulators (per row of Q tile)
     reg signed [DATA_WIDTH-1:0] running_max [0:TILE_SIZE-1];  // m_i per row
     reg        [15:0]           running_sum [0:TILE_SIZE-1];   // l_i per row
+    reg signed [DATA_WIDTH-1:0] prev_running_max [0:TILE_SIZE-1];
+    reg        [7:0]            correction_factor [0:TILE_SIZE-1];
     
     // Output accumulator [TILE_SIZE × HEAD_DIM] — this is what we build up
     reg signed [DATA_WIDTH+8-1:0] O_acc [0:TILE_SIZE-1][0:HEAD_DIM-1]; // Extra bits for accumulation
@@ -95,7 +97,6 @@ module flash_attention_unit #(
     reg signed [DATA_WIDTH-1:0] dot_product;
     reg [3:0] row_idx, col_idx, dim_idx;
     reg signed [DATA_WIDTH-1:0] row_max;
-    reg signed [DATA_WIDTH-1:0] old_max;
     
     // Exp approximation: exp(x) ≈ max(0, 256 + x) for small negative x (Q8.8)
     // This is a linear approximation that's fast and synthesizable
@@ -156,6 +157,8 @@ module flash_attention_unit #(
                     for (r = 0; r < TILE_SIZE; r = r + 1) begin
                         running_max[r] <= -16'sd32767;
                         running_sum[r] <= 16'd0;
+                        prev_running_max[r] <= -16'sd32767;
+                        correction_factor[r] <= 8'd255;
                         for (d = 0; d < HEAD_DIM; d = d + 1)
                             O_acc[r][d] <= 0;
                     end
@@ -210,14 +213,20 @@ module flash_attention_unit #(
                 // ============================================================
                 FIND_MAX: begin
                     for (r = 0; r < TILE_SIZE; r = r + 1) begin
-                        row_max = S_tile[r][0];
-                        for (c = 1; c < TILE_SIZE; c = c + 1) begin
-                            if ($signed(S_tile[r][c]) > $signed(row_max))
-                                row_max = S_tile[r][c];
+                        begin : find_max_row_block
+                            reg signed [DATA_WIDTH-1:0] new_max;
+                            row_max = S_tile[r][0];
+                            for (c = 1; c < TILE_SIZE; c = c + 1) begin
+                                if ($signed(S_tile[r][c]) > $signed(row_max))
+                                    row_max = S_tile[r][c];
+                            end
+                            prev_running_max[r] <= running_max[r];
+                            if ($signed(row_max) > $signed(running_max[r]))
+                                new_max = row_max;
+                            else
+                                new_max = running_max[r];
+                            running_max[r] <= new_max;
                         end
-                        // Update running max (online softmax!)
-                        if ($signed(row_max) > $signed(running_max[r]))
-                            running_max[r] <= row_max;
                     end
                     state <= COMPUTE_EXP;
                 end
@@ -237,43 +246,52 @@ module flash_attention_unit #(
                 // ============================================================
                 // Update running sum and correct O_acc for new max
                 // l_new = l_old * exp(m_old - m_new) + rowsum(P_tile)
-                // O_acc = O_acc * exp(m_old - m_new) * (l_old / l_new)
+                // O_acc correction is applied in ACCUMULATE_O state
                 // ============================================================
                 UPDATE_SUMS: begin
                     for (r = 0; r < TILE_SIZE; r = r + 1) begin
-                        // Compute rowsum of P_tile for this row
                         begin : update_sum_block
                             reg [15:0] p_rowsum;
                             reg [7:0]  correction;
+                            reg [23:0] scaled_old_sum;
+                            reg [16:0] sum_candidate;
                             p_rowsum = 0;
                             for (c = 0; c < TILE_SIZE; c = c + 1)
                                 p_rowsum = p_rowsum + {8'd0, P_tile[r][c]};
-                            
-                            // Correction factor for old sum (if max changed)
-                            // For simplicity, use direct accumulation (max was just updated)
-                            running_sum[r] <= running_sum[r] + p_rowsum;
+
+                            correction = fast_exp(prev_running_max[r] - running_max[r]);
+                            correction_factor[r] <= correction;
+
+                            // l_new = l_old * exp(m_old - m_new) + rowsum(P_tile)
+                            scaled_old_sum = ((running_sum[r] * {8'd0, correction}) + 24'd128) >> 8;
+                            sum_candidate = scaled_old_sum[15:0] + p_rowsum;
+                            if (sum_candidate > 17'd65535)
+                                running_sum[r] <= 16'd65535;
+                            else
+                                running_sum[r] <= sum_candidate[15:0];
                         end
-                        
-                        // Correct O_acc would need exp(m_old - m_new), simplified here
-                        // In a full implementation, we'd multiply O_acc by correction
                     end
                     state <= ACCUMULATE_O;
                 end
                 
                 // ============================================================
-                // O_acc[i] += P_tile[i] × V_tile — accumulate into output
+                // O_acc[i] = O_acc[i] * exp(m_old - m_new) + P_tile[i] × V_tile
                 // ============================================================
                 ACCUMULATE_O: begin
                     for (r = 0; r < TILE_SIZE; r = r + 1) begin
                         for (d = 0; d < HEAD_DIM; d = d + 1) begin
                             begin : acc_block
                                 reg signed [DATA_WIDTH+8-1:0] pv_sum;
+                                reg signed [DATA_WIDTH+16-1:0] scaled_old_o;
+                                reg signed [DATA_WIDTH+16-1:0] o_next;
                                 pv_sum = 0;
                                 for (c = 0; c < TILE_SIZE; c = c + 1) begin
                                     pv_sum = pv_sum + 
                                         ($signed({1'b0, P_tile[r][c]}) * V_tile[c][d]) >>> 8;
                                 end
-                                O_acc[r][d] <= O_acc[r][d] + pv_sum;
+                                scaled_old_o = ($signed(O_acc[r][d]) * $signed({1'b0, correction_factor[r]})) >>> 8;
+                                o_next = scaled_old_o + $signed(pv_sum);
+                                O_acc[r][d] <= o_next[DATA_WIDTH+8-1:0];
                             end
                         end
                     end
@@ -301,12 +319,27 @@ module flash_attention_unit #(
                 STORE_OUTPUT: begin
                     for (r = 0; r < TILE_SIZE; r = r + 1) begin
                         for (d = 0; d < HEAD_DIM; d = d + 1) begin
-                            // Simple normalization: divide by sum using shift
-                            // For a cleaner design, use recip_lut_256 here
-                            if (running_sum[r] > 0)
-                                O_out[((q_tile_idx * TILE_SIZE + r) * HEAD_DIM + d) * DATA_WIDTH +: DATA_WIDTH] 
-                                    <= O_acc[r][d][DATA_WIDTH+7:8]; // Take upper bits as normalized output
-                            else
+                            if (running_sum[r] > 0) begin
+                                begin : out_norm_block
+                                    reg signed [DATA_WIDTH+16-1:0] scaled_num;
+                                    reg signed [DATA_WIDTH+16-1:0] norm_q88;
+                                    reg signed [DATA_WIDTH-1:0] sat_max;
+                                    reg signed [DATA_WIDTH-1:0] sat_min;
+                                    sat_max = {1'b0, {(DATA_WIDTH-1){1'b1}}};
+                                    sat_min = {1'b1, {(DATA_WIDTH-1){1'b0}}};
+                                    scaled_num = $signed(O_acc[r][d]) * 16'sd256;
+                                    norm_q88 = scaled_num / $signed({1'b0, running_sum[r]});
+                                    if (norm_q88 > $signed(sat_max))
+                                        O_out[((q_tile_idx * TILE_SIZE + r) * HEAD_DIM + d) * DATA_WIDTH +: DATA_WIDTH]
+                                            <= sat_max;
+                                    else if (norm_q88 < $signed(sat_min))
+                                        O_out[((q_tile_idx * TILE_SIZE + r) * HEAD_DIM + d) * DATA_WIDTH +: DATA_WIDTH]
+                                            <= sat_min;
+                                    else
+                                        O_out[((q_tile_idx * TILE_SIZE + r) * HEAD_DIM + d) * DATA_WIDTH +: DATA_WIDTH]
+                                            <= norm_q88[DATA_WIDTH-1:0];
+                                end
+                            end else
                                 O_out[((q_tile_idx * TILE_SIZE + r) * HEAD_DIM + d) * DATA_WIDTH +: DATA_WIDTH] 
                                     <= 0;
                         end

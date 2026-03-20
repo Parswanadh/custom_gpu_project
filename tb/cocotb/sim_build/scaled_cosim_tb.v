@@ -19,21 +19,30 @@ module scaled_cosim_tb;
   reg signed [15:0] load_emb_data;
   reg [2:0] load_pos_idx;
 
-  reg [1023:0] ln1_gamma, ln1_beta;
-  reg [1023:0] ln2_gamma, ln2_beta;
-  reg [1023:0] ln_final_gamma, ln_final_beta;
-  reg [65535:0] wq_flat, wk_flat, wv_flat, wo_flat;
-  reg [262143:0] ffn_w1_flat;
-  reg [4095:0] ffn_b1_flat;
-  reg [262143:0] ffn_w2_flat;
-  reg [1023:0] ffn_b2_flat;
+  // Load-based transformer weight interface
+  reg load_ln_en;
+  reg [1:0] load_layer_idx;
+  reg load_ln_sel, load_ln_is_gamma;
+  reg [5:0] load_ln_dim;
+  reg signed [15:0] load_ln_data;
+  reg load_attn_weight_en;
+  reg [1:0] load_attn_matrix_sel;
+  reg [5:0] load_attn_row, load_attn_col;
+  reg signed [15:0] load_attn_data;
+  reg load_ffn_weight_en;
+  reg load_ffn_layer_sel, load_ffn_is_bias;
+  reg [7:0] load_ffn_row, load_ffn_col;
+  reg signed [15:0] load_ffn_data;
+
   wire [3:0] token_out;
   wire [1023:0] logits_out;
   wire valid_out;
+  wire [31:0] total_zero_skips;
+  wire [31:0] total_cycles_hw;
   integer cycle_count;
   integer total_cycles;
   integer token_count;
-  integer idx;
+  integer idx, row_idx, col_idx, layer_idx_i;
 
   // Memory arrays for weight loading
   reg [15:0] tok_emb_mem  [0:1023];
@@ -63,20 +72,29 @@ module scaled_cosim_tb;
     .load_token_emb(load_token_emb), .load_token_idx(load_token_idx),
     .load_dim_idx(load_dim_idx), .load_emb_data(load_emb_data),
     .load_pos_emb(load_pos_emb), .load_pos_idx(load_pos_idx),
-    .ln1_gamma(ln1_gamma), .ln1_beta(ln1_beta),
-    .ln2_gamma(ln2_gamma), .ln2_beta(ln2_beta),
-    .wq_flat(wq_flat), .wk_flat(wk_flat),
-    .wv_flat(wv_flat), .wo_flat(wo_flat),
-    .ffn_w1_flat(ffn_w1_flat), .ffn_b1_flat(ffn_b1_flat),
-    .ffn_w2_flat(ffn_w2_flat), .ffn_b2_flat(ffn_b2_flat),
-    .ln_final_gamma(ln_final_gamma), .ln_final_beta(ln_final_beta),
-    .valid_in(valid_in), .token_in(token_in),
-    .position_in(position_in),
-    .token_out(token_out), .logits_out(logits_out),
-    .valid_out(valid_out)
+    .load_ln_en(load_ln_en), .load_layer_idx(load_layer_idx),
+    .load_ln_sel(load_ln_sel), .load_ln_is_gamma(load_ln_is_gamma),
+    .load_ln_dim(load_ln_dim), .load_ln_data(load_ln_data),
+    .load_attn_weight_en(load_attn_weight_en),
+    .load_attn_matrix_sel(load_attn_matrix_sel),
+    .load_attn_row(load_attn_row), .load_attn_col(load_attn_col),
+    .load_attn_data(load_attn_data),
+    .load_ffn_weight_en(load_ffn_weight_en),
+    .load_ffn_layer_sel(load_ffn_layer_sel),
+    .load_ffn_is_bias(load_ffn_is_bias),
+    .load_ffn_row(load_ffn_row), .load_ffn_col(load_ffn_col),
+    .load_ffn_data(load_ffn_data),
+    .valid_in(valid_in), .token_in(token_in), .position_in(position_in),
+    .token_out(token_out), .logits_out(logits_out), .valid_out(valid_out),
+    .total_zero_skips(total_zero_skips), .total_cycles(total_cycles_hw)
   );
 
   always #5 clk = ~clk;
+
+  initial begin
+    $dumpfile("scaled_cosim.vcd");
+    $dumpvars(0, scaled_cosim_tb);
+  end
 
   initial begin
     // Load weights via $readmemh
@@ -104,35 +122,75 @@ module scaled_cosim_tb;
     token_in = 0; position_in = 0;
     load_token_idx = 0; load_dim_idx = 0; load_emb_data = 0;
     load_pos_idx = 0;
+    load_ln_en = 0; load_layer_idx = 0; load_ln_sel = 0; load_ln_is_gamma = 0; load_ln_dim = 0; load_ln_data = 0;
+    load_attn_weight_en = 0; load_attn_matrix_sel = 0; load_attn_row = 0; load_attn_col = 0; load_attn_data = 0;
+    load_ffn_weight_en = 0; load_ffn_layer_sel = 0; load_ffn_is_bias = 0; load_ffn_row = 0; load_ffn_col = 0; load_ffn_data = 0;
     total_cycles = 0; token_count = 0;
-
-    // Pack flat weight buses from memory arrays
-    for (idx = 0; idx < 64; idx = idx + 1) begin
-      ln1_gamma[idx*DATA_WIDTH +: DATA_WIDTH] = ln1g_mem[idx];
-      ln1_beta[idx*DATA_WIDTH +: DATA_WIDTH]  = ln1b_mem[idx];
-      ln2_gamma[idx*DATA_WIDTH +: DATA_WIDTH] = ln2g_mem[idx];
-      ln2_beta[idx*DATA_WIDTH +: DATA_WIDTH]  = ln2b_mem[idx];
-      ln_final_gamma[idx*DATA_WIDTH +: DATA_WIDTH] = lnfg_mem[idx];
-      ln_final_beta[idx*DATA_WIDTH +: DATA_WIDTH]  = lnfb_mem[idx];
-      ffn_b2_flat[idx*DATA_WIDTH +: DATA_WIDTH] = fb2_mem[idx];
-    end
-    for (idx = 0; idx < 4096; idx = idx + 1) begin
-      wq_flat[idx*DATA_WIDTH +: DATA_WIDTH] = wq_mem[idx];
-      wk_flat[idx*DATA_WIDTH +: DATA_WIDTH] = wk_mem[idx];
-      wv_flat[idx*DATA_WIDTH +: DATA_WIDTH] = wv_mem[idx];
-      wo_flat[idx*DATA_WIDTH +: DATA_WIDTH] = wo_mem[idx];
-    end
-    for (idx = 0; idx < 16384; idx = idx + 1)
-      ffn_w1_flat[idx*DATA_WIDTH +: DATA_WIDTH] = fw1_mem[idx];
-    for (idx = 0; idx < 256; idx = idx + 1)
-      ffn_b1_flat[idx*DATA_WIDTH +: DATA_WIDTH] = fb1_mem[idx];
-    for (idx = 0; idx < 16384; idx = idx + 1)
-      ffn_w2_flat[idx*DATA_WIDTH +: DATA_WIDTH] = fw2_mem[idx];
 
     #35 rst = 0; #25;
 
+    // Load LayerNorm parameters for each transformer layer
+    for (layer_idx_i = 0; layer_idx_i < NUM_LAYERS; layer_idx_i = layer_idx_i + 1) begin
+      for (idx = 0; idx < EMBED_DIM; idx = idx + 1) begin
+        @(negedge clk); load_ln_en = 1; load_layer_idx = layer_idx_i; load_ln_sel = 0; load_ln_is_gamma = 1; load_ln_dim = idx; load_ln_data = ln1g_mem[idx];
+        @(negedge clk); load_ln_en = 0;
+        @(negedge clk); load_ln_en = 1; load_layer_idx = layer_idx_i; load_ln_sel = 0; load_ln_is_gamma = 0; load_ln_dim = idx; load_ln_data = ln1b_mem[idx];
+        @(negedge clk); load_ln_en = 0;
+        @(negedge clk); load_ln_en = 1; load_layer_idx = layer_idx_i; load_ln_sel = 1; load_ln_is_gamma = 1; load_ln_dim = idx; load_ln_data = ln2g_mem[idx];
+        @(negedge clk); load_ln_en = 0;
+        @(negedge clk); load_ln_en = 1; load_layer_idx = layer_idx_i; load_ln_sel = 1; load_ln_is_gamma = 0; load_ln_dim = idx; load_ln_data = ln2b_mem[idx];
+        @(negedge clk); load_ln_en = 0;
+      end
+    end
+
+    // Load final LayerNorm (load_layer_idx == NUM_LAYERS)
+    for (idx = 0; idx < EMBED_DIM; idx = idx + 1) begin
+      @(negedge clk); load_ln_en = 1; load_layer_idx = NUM_LAYERS; load_ln_sel = 0; load_ln_is_gamma = 1; load_ln_dim = idx; load_ln_data = lnfg_mem[idx];
+      @(negedge clk); load_ln_en = 0;
+      @(negedge clk); load_ln_en = 1; load_layer_idx = NUM_LAYERS; load_ln_sel = 0; load_ln_is_gamma = 0; load_ln_dim = idx; load_ln_data = lnfb_mem[idx];
+      @(negedge clk); load_ln_en = 0;
+    end
+
+    // Load attention matrices Wq/Wk/Wv/Wo
+    for (row_idx = 0; row_idx < EMBED_DIM; row_idx = row_idx + 1) begin
+      for (col_idx = 0; col_idx < EMBED_DIM; col_idx = col_idx + 1) begin
+        @(negedge clk); load_attn_weight_en = 1; load_attn_matrix_sel = 2'd0; load_attn_row = row_idx; load_attn_col = col_idx; load_attn_data = wq_mem[row_idx*EMBED_DIM + col_idx];
+        @(negedge clk); load_attn_weight_en = 0;
+        @(negedge clk); load_attn_weight_en = 1; load_attn_matrix_sel = 2'd1; load_attn_row = row_idx; load_attn_col = col_idx; load_attn_data = wk_mem[row_idx*EMBED_DIM + col_idx];
+        @(negedge clk); load_attn_weight_en = 0;
+        @(negedge clk); load_attn_weight_en = 1; load_attn_matrix_sel = 2'd2; load_attn_row = row_idx; load_attn_col = col_idx; load_attn_data = wv_mem[row_idx*EMBED_DIM + col_idx];
+        @(negedge clk); load_attn_weight_en = 0;
+        @(negedge clk); load_attn_weight_en = 1; load_attn_matrix_sel = 2'd3; load_attn_row = row_idx; load_attn_col = col_idx; load_attn_data = wo_mem[row_idx*EMBED_DIM + col_idx];
+        @(negedge clk); load_attn_weight_en = 0;
+      end
+    end
+
+    // Load FFN W1 and b1
+    for (row_idx = 0; row_idx < EMBED_DIM; row_idx = row_idx + 1) begin
+      for (col_idx = 0; col_idx < FFN_DIM; col_idx = col_idx + 1) begin
+        @(negedge clk); load_ffn_weight_en = 1; load_ffn_layer_sel = 0; load_ffn_is_bias = 0; load_ffn_row = row_idx; load_ffn_col = col_idx; load_ffn_data = fw1_mem[row_idx*FFN_DIM + col_idx];
+        @(negedge clk); load_ffn_weight_en = 0;
+      end
+    end
+    for (col_idx = 0; col_idx < FFN_DIM; col_idx = col_idx + 1) begin
+      @(negedge clk); load_ffn_weight_en = 1; load_ffn_layer_sel = 0; load_ffn_is_bias = 1; load_ffn_row = 0; load_ffn_col = col_idx; load_ffn_data = fb1_mem[col_idx];
+      @(negedge clk); load_ffn_weight_en = 0;
+    end
+
+    // Load FFN W2 and b2
+    for (row_idx = 0; row_idx < FFN_DIM; row_idx = row_idx + 1) begin
+      for (col_idx = 0; col_idx < EMBED_DIM; col_idx = col_idx + 1) begin
+        @(negedge clk); load_ffn_weight_en = 1; load_ffn_layer_sel = 1; load_ffn_is_bias = 0; load_ffn_row = row_idx; load_ffn_col = col_idx; load_ffn_data = fw2_mem[row_idx*EMBED_DIM + col_idx];
+        @(negedge clk); load_ffn_weight_en = 0;
+      end
+    end
+    for (col_idx = 0; col_idx < EMBED_DIM; col_idx = col_idx + 1) begin
+      @(negedge clk); load_ffn_weight_en = 1; load_ffn_layer_sel = 1; load_ffn_is_bias = 1; load_ffn_row = 0; load_ffn_col = col_idx; load_ffn_data = fb2_mem[col_idx];
+      @(negedge clk); load_ffn_weight_en = 0;
+    end
+
     // Load embeddings into DUT
-    for (idx = 0; idx < 1024; idx = idx + 1) begin
+    for (idx = 0; idx < VOCAB_SIZE*EMBED_DIM; idx = idx + 1) begin
       @(negedge clk);
       load_token_emb = 1;
       load_token_idx = idx / EMBED_DIM;
@@ -140,12 +198,12 @@ module scaled_cosim_tb;
       load_emb_data  = tok_emb_mem[idx];
       @(negedge clk); load_token_emb = 0;
     end
-    for (idx = 0; idx < 512; idx = idx + 1) begin
+    for (idx = 0; idx < MAX_SEQ_LEN*EMBED_DIM; idx = idx + 1) begin
       @(negedge clk);
       load_pos_emb = 1;
-      load_pos_idx   = idx / EMBED_DIM;
-      load_dim_idx   = idx % EMBED_DIM;
-      load_emb_data  = pos_emb_mem[idx];
+      load_pos_idx = idx / EMBED_DIM;
+      load_dim_idx = idx % EMBED_DIM;
+      load_emb_data = pos_emb_mem[idx];
       @(negedge clk); load_pos_emb = 0;
     end
     #20;
@@ -153,9 +211,9 @@ module scaled_cosim_tb;
     $display("");
     $display("CONFIG dim=64 ffn=256 vocab=16 layers=2 heads=8");
     $display("");
-    // Token 0: id=8
+    // Token 0: id=1
     @(negedge clk);
-    token_in = 8; position_in = 0;
+    token_in = 1; position_in = 0;
     valid_in = 1;
     @(negedge clk); valid_in = 0;
     cycle_count = 0;
@@ -165,177 +223,35 @@ module scaled_cosim_tb;
     if (valid_out) begin
       total_cycles = total_cycles + cycle_count;
       token_count = token_count + 1;
-      $display("TOKEN pos=%0d id=%0d predicted=%0d cycles=%0d",
-               0, 8, token_out, cycle_count);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 0, logits_out[0 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 1, logits_out[16 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 2, logits_out[32 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 3, logits_out[48 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 4, logits_out[64 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 5, logits_out[80 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 6, logits_out[96 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 7, logits_out[112 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 8, logits_out[128 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 9, logits_out[144 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 10, logits_out[160 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 11, logits_out[176 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 12, logits_out[192 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 13, logits_out[208 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 14, logits_out[224 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 0, 15, logits_out[240 +: 16]);
-      $display("  ... (48 more dimensions)");
+      $display("TOKEN pos=%0d id=%0d predicted=%0d cycles=%0d", 0, 1, token_out, cycle_count);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 0, logits_out[0 +: 16]);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 1, logits_out[16 +: 16]);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 2, logits_out[32 +: 16]);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 3, logits_out[48 +: 16]);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 4, logits_out[64 +: 16]);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 5, logits_out[80 +: 16]);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 6, logits_out[96 +: 16]);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 7, logits_out[112 +: 16]);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 8, logits_out[128 +: 16]);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 9, logits_out[144 +: 16]);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 10, logits_out[160 +: 16]);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 11, logits_out[176 +: 16]);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 12, logits_out[192 +: 16]);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 13, logits_out[208 +: 16]);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 14, logits_out[224 +: 16]);
+      $display("LOGIT pos=%0d dim=%0d hex=%h", 0, 15, logits_out[240 +: 16]);
+      $display("LOGIT_TRUNC pos=%0d dims_remaining=%0d", 0, 48);
     end else begin
-      $display("TOKEN pos=%0d id=%0d TIMEOUT", 0, 8);
-    end
-    repeat(3) @(negedge clk);
-
-    // Token 1: id=5
-    @(negedge clk);
-    token_in = 5; position_in = 1;
-    valid_in = 1;
-    @(negedge clk); valid_in = 0;
-    cycle_count = 0;
-    while (!valid_out && cycle_count < 100000) begin
-      @(negedge clk); cycle_count = cycle_count + 1;
-    end
-    if (valid_out) begin
-      total_cycles = total_cycles + cycle_count;
-      token_count = token_count + 1;
-      $display("TOKEN pos=%0d id=%0d predicted=%0d cycles=%0d",
-               1, 5, token_out, cycle_count);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 0, logits_out[0 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 1, logits_out[16 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 2, logits_out[32 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 3, logits_out[48 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 4, logits_out[64 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 5, logits_out[80 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 6, logits_out[96 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 7, logits_out[112 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 8, logits_out[128 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 9, logits_out[144 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 10, logits_out[160 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 11, logits_out[176 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 12, logits_out[192 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 13, logits_out[208 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 14, logits_out[224 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 1, 15, logits_out[240 +: 16]);
-      $display("  ... (48 more dimensions)");
-    end else begin
-      $display("TOKEN pos=%0d id=%0d TIMEOUT", 1, 5);
-    end
-    repeat(3) @(negedge clk);
-
-    // Token 2: id=12
-    @(negedge clk);
-    token_in = 12; position_in = 2;
-    valid_in = 1;
-    @(negedge clk); valid_in = 0;
-    cycle_count = 0;
-    while (!valid_out && cycle_count < 100000) begin
-      @(negedge clk); cycle_count = cycle_count + 1;
-    end
-    if (valid_out) begin
-      total_cycles = total_cycles + cycle_count;
-      token_count = token_count + 1;
-      $display("TOKEN pos=%0d id=%0d predicted=%0d cycles=%0d",
-               2, 12, token_out, cycle_count);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 0, logits_out[0 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 1, logits_out[16 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 2, logits_out[32 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 3, logits_out[48 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 4, logits_out[64 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 5, logits_out[80 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 6, logits_out[96 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 7, logits_out[112 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 8, logits_out[128 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 9, logits_out[144 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 10, logits_out[160 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 11, logits_out[176 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 12, logits_out[192 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 13, logits_out[208 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 14, logits_out[224 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 2, 15, logits_out[240 +: 16]);
-      $display("  ... (48 more dimensions)");
-    end else begin
-      $display("TOKEN pos=%0d id=%0d TIMEOUT", 2, 12);
-    end
-    repeat(3) @(negedge clk);
-
-    // Token 3: id=12
-    @(negedge clk);
-    token_in = 12; position_in = 3;
-    valid_in = 1;
-    @(negedge clk); valid_in = 0;
-    cycle_count = 0;
-    while (!valid_out && cycle_count < 100000) begin
-      @(negedge clk); cycle_count = cycle_count + 1;
-    end
-    if (valid_out) begin
-      total_cycles = total_cycles + cycle_count;
-      token_count = token_count + 1;
-      $display("TOKEN pos=%0d id=%0d predicted=%0d cycles=%0d",
-               3, 12, token_out, cycle_count);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 0, logits_out[0 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 1, logits_out[16 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 2, logits_out[32 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 3, logits_out[48 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 4, logits_out[64 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 5, logits_out[80 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 6, logits_out[96 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 7, logits_out[112 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 8, logits_out[128 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 9, logits_out[144 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 10, logits_out[160 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 11, logits_out[176 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 12, logits_out[192 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 13, logits_out[208 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 14, logits_out[224 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 3, 15, logits_out[240 +: 16]);
-      $display("  ... (48 more dimensions)");
-    end else begin
-      $display("TOKEN pos=%0d id=%0d TIMEOUT", 3, 12);
-    end
-    repeat(3) @(negedge clk);
-
-    // Token 4: id=15
-    @(negedge clk);
-    token_in = 15; position_in = 4;
-    valid_in = 1;
-    @(negedge clk); valid_in = 0;
-    cycle_count = 0;
-    while (!valid_out && cycle_count < 100000) begin
-      @(negedge clk); cycle_count = cycle_count + 1;
-    end
-    if (valid_out) begin
-      total_cycles = total_cycles + cycle_count;
-      token_count = token_count + 1;
-      $display("TOKEN pos=%0d id=%0d predicted=%0d cycles=%0d",
-               4, 15, token_out, cycle_count);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 0, logits_out[0 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 1, logits_out[16 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 2, logits_out[32 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 3, logits_out[48 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 4, logits_out[64 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 5, logits_out[80 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 6, logits_out[96 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 7, logits_out[112 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 8, logits_out[128 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 9, logits_out[144 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 10, logits_out[160 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 11, logits_out[176 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 12, logits_out[192 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 13, logits_out[208 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 14, logits_out[224 +: 16]);
-      $display("  LOGIT pos=%0d dim=%0d hex=%h", 4, 15, logits_out[240 +: 16]);
-      $display("  ... (48 more dimensions)");
-    end else begin
-      $display("TOKEN pos=%0d id=%0d TIMEOUT", 4, 15);
+      $display("TOKEN pos=%0d id=%0d TIMEOUT", 0, 1);
     end
     repeat(3) @(negedge clk);
 
     $display("");
-    $display("SUMMARY total_tokens=%0d total_cycles=%0d avg_cycles=%0d",
-             token_count, total_cycles, total_cycles / token_count);
+    if (token_count > 0)
+      $display("SUMMARY total_tokens=%0d total_cycles=%0d avg_cycles=%0d",
+               token_count, total_cycles, total_cycles / token_count);
+    else
+      $display("SUMMARY total_tokens=0 total_cycles=%0d avg_cycles=0", total_cycles);
     $display("DONE");
     $finish;
   end

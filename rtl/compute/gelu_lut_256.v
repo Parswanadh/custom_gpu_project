@@ -20,9 +20,11 @@
 //         x = (k - 128) / 32.0
 //         lut[k] = max(-32768, min(32767, round(gelu(x) * 256)))
 // ============================================================================
+`timescale 1ns / 1ps
+
 module gelu_lut_256 (
     input  wire signed [15:0] x_in,      // Q8.8 input
-    output reg  signed [15:0] gelu_out   // Q8.8 output
+    output wire signed [15:0] gelu_out   // Q8.8 output
 );
 
     reg signed [15:0] lut [0:255];
@@ -109,9 +111,7 @@ module gelu_lut_256 (
     wire [7:0] idx = (shifted < 0) ? 8'd0 :
                      (shifted > 16'sd255) ? 8'd255 : shifted[7:0];
 
-    always @(*) begin
-        gelu_out = lut[idx];
-    end
+    assign gelu_out = lut[idx];
 
 endmodule
 

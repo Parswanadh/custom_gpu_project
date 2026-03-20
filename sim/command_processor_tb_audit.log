@@ -1,0 +1,20 @@
+============================================
+  Command Processor Testbench
+============================================
+[1] Testing CMD_NOP...
+[PASS] CMD_NOP executed, cmds_executed=1
+[2] Testing CMD_LOAD_WEIGHTS...
+[PASS] CMD_LOAD_WEIGHTS: DMA triggered, addr=0x00001000, len=64
+[3] Testing CMD_MATMUL...
+[PASS] CMD_MATMUL: compute triggered, opcode=0x02, flags=0xaa
+[4] Testing CMD_FENCE...
+[PASS] CMD_FENCE: interrupt generated, cmds_executed=4
+[5] Testing FIFO backpressure...
+[PASS] FIFO accepts commands when not full
+[6] Testing CMD_ACTIVATION...
+[PASS] CMD_ACTIVATION: compute triggered
+============================================
+  Results: 6 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb\\top\\command_processor_tb.v:222: $finish called at 495000 (1ps)
+

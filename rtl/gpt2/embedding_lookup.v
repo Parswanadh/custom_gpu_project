@@ -5,6 +5,8 @@
 //   embedding_out = token_embedding[token_id] + position_embedding[position]
 // Parameters: VOCAB_SIZE, MAX_SEQ_LEN, EMBED_DIM, DATA_WIDTH
 // ============================================================================
+`timescale 1ns / 1ps
+
 module embedding_lookup #(
     parameter VOCAB_SIZE   = 16,    // Vocabulary size (small for simulation)
     parameter MAX_SEQ_LEN  = 8,     // Max sequence length

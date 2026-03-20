@@ -1,0 +1,18 @@
+=================================================
+   Compute-In-SRAM Tests (Near-Memory Computing)
+   Paper: IBM PIM (2025) + BitNet 1.58 (Microsoft)
+   Config: 16 weights, 8-bit activations
+=================================================
+[PASS] Test 1: Near-memory dot product = 80 (8 x 10 = 80)
+[PASS] Test 2: Mixed ternary near-memory MAC = 20 (expected 20)
+[PASS] Test 3: 32 bits of weight data NEVER left SRAM
+[PASS] Test 4: Energy savings = 95% (weights stay in local SRAM)
+    Traditional: weights travel SRAM→wire→RegFile→ALU = ~100pJ per op
+    Near-memory: weights read + compute locally      = ~5pJ per op
+    Savings: ~95% energy reduction per MAC operation
+[PASS] Test 5: Total ops=16 — ALL are add/sub/skip, ZERO multipliers
+    Near-memory + BitNet = ultimate efficiency combination
+=================================================
+   Compute-In-SRAM Tests: 5 / 5 PASSED
+=================================================
+tb/memory/compute_in_sram_tb.v:132: $finish called at 430000 (1ps)

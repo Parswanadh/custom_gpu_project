@@ -1,0 +1,12 @@
+=================================================
+   Parallel Softmax Tests (4-wide SIMD)
+   All exp/normalize units run simultaneously
+=================================================
+[PASS] Test 1: Equal inputs -> equal probs [63,63,63,63], sum=252, 4 cycles
+[PASS] Test 2: Dominant input ordering OK -> probs=[13,13,13,214], sum=253, 4 cycles
+[PASS] Test 3: Negative input ordering OK -> probs=[1,124,97,31], sum=253
+[PASS] Test 4: Parallel softmax = 4 cycles (serial=25 -> 6.2x faster)
+=================================================
+   Parallel Softmax Tests: 4 / 4 PASSED
+=================================================
+tb\compute\parallel_softmax_tb.v:136: $finish called at 300000 (1ps)

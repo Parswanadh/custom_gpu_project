@@ -5,6 +5,34 @@
 
 ---
 
+## Demo-day one-command launcher (recommended)
+
+Use the new launcher to run measured base vs imprint model demos from simulation logs.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_demo.ps1 -Mode compare -TokenId 5 -Position 2
+```
+
+By default, this now runs paired compare with a small workload matrix (`WorkloadMode=matrix`, `WarmupRuns=1`, `MeasuredRuns=3`).
+For single-workload paired benchmarking with explicit knobs:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_demo.ps1 -Mode compare -WorkloadMode single -TokenId 5 -Position 2 -WarmupRuns 1 -MeasuredRuns 3
+```
+
+This writes a run bundle summary to:
+- `sim\bench_runs\<run_id>\compare_summary.json`
+- `sim\compare_summary_latest.json`
+
+Available modes:
+- `top`: top-level command-latency demo (`gpu_system_top_v2_tb`)
+- `base`: base full-model inference demo
+- `imprint`: MINI imprint full-model inference demo
+- `compare`: base + imprint + top summaries (default)
+- `all`: same as compare (explicit)
+
+---
+
 ## Phase 1: Core Compute Primitives
 
 ### 1. Zero-Detect Multiplier
@@ -220,6 +248,14 @@ D:\Tools\iverilog\bin\iverilog.exe -o sim/demo_test rtl/primitives/zero_detect_m
 D:\Tools\iverilog\bin\vvp.exe sim/demo_test
 ```
 
+### 24. Unified Top-Level GPU (`gpu_system_top_v2`) ⭐
+> Integrates Phase 7 command/DMA/control path with the optimized transformer-layer compute pipeline.
+**Expected Behavior:** All `gpu_system_top_v2_tb` checks PASS (currently `16/16`). MATMUL should route through optimized/hardwired paths with multi-cycle latency (not 1-cycle stub), including error-path rejection and recovery checks.
+```powershell
+D:\Tools\iverilog\bin\iverilog.exe -g2012 -o sim/sys_v2_test rtl/top/reset_synchronizer.v rtl/top/gpu_config_regs.v rtl/top/command_processor.v rtl/top/perf_counters.v rtl/memory/scratchpad.v rtl/memory/dma_engine.v rtl/memory/imprinted_embedding_rom.v rtl/integration/imprinted_mini_transformer_core.v rtl/transformer/rope_encoder.v rtl/transformer/grouped_query_attention.v rtl/compute/parallel_softmax.v rtl/compute/exp_lut_256.v rtl/compute/recip_lut_256.v rtl/compute/gelu_lut_256.v rtl/compute/gelu_activation.v rtl/memory/kv_cache_quantizer.v rtl/compute/activation_compressor.v rtl/integration/optimized_transformer_layer.v rtl/top/gpu_system_top_v2.v tb/top/gpu_system_top_v2_tb.v
+D:\Tools\iverilog\bin\vvp.exe sim/sys_v2_test
+```
+
 ---
 
 ## Run Everything At Once
@@ -227,4 +263,35 @@ D:\Tools\iverilog\bin\vvp.exe sim/demo_test
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\run_all_tests.ps1
 ```
-**Expected Behavior:** This will run through all individual modules in under 30 seconds. It counts every pass/fail marker and prints a giant terminal summary table. The final output will be: `15 Modules tested, 67 Total PASS, 0 Total FAIL. >>> ALL TESTS PASSED - GPU READY FOR DEPLOYMENT <<<`.
+**Expected Behavior:** The suite should finish with:
+- non-zero exit on any compile/sim/timeout/no-output failure;
+- `Total FAIL : 0` in summary;
+- no `COMPILE FAIL`, `SIM FAIL`, `SIM LAUNCH FAIL`, `TIMEOUT`, or `NO OUTPUT` statuses.
+
+## Canonical Production Demo Flow
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_production_demo.ps1
+```
+
+**Expected Behavior:** Runs top-level + full-model compare benchmark flow in one command (recommended default: `matrix`, `warmup=3`, `measured=10`) and regenerates:
+- `sim\compare_summary_latest.json`
+- `sim\phase3_benchmark_proof_pack.json`
+- `sim\phase3_benchmark_proof_pack.csv`
+
+For broader benchmark coverage with reproducible workload sampling, use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_production_demo.ps1 `
+  -WorkloadMode matrix -WarmupRuns 3 -MeasuredRuns 10 `
+  -WorkloadCount 8 -WorkloadSeed 20260317
+```
+
+## Synthesis-Readiness Check (Conda Yosys Tooling)
+
+```powershell
+D:\Anaconda\Scripts\conda.exe run -n yosys-tools yowasp-yosys -V
+D:\Anaconda\Scripts\conda.exe run -n yosys-tools yowasp-yosys -p "read_verilog rtl/compute/exp_lut_256.v; synth -top exp_lut_256; stat"
+```
+
+**Expected Behavior:** Yosys version prints successfully and synthesis/stat completes without frontend hierarchy errors.

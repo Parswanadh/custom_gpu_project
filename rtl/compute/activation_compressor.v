@@ -12,6 +12,8 @@
 //
 // Parameters: VECTOR_LEN, DATA_WIDTH
 // ============================================================================
+`timescale 1ns / 1ps
+
 module activation_compressor #(
     parameter VECTOR_LEN = 4,
     parameter DATA_WIDTH = 16

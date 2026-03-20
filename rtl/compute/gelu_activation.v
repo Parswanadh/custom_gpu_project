@@ -5,6 +5,8 @@
 //   All values in Q8.8 format (8 integer bits, 8 fractional bits, signed).
 //   Single-cycle pipelined output using combinational LUT.
 // ============================================================================
+`timescale 1ns / 1ps
+
 module gelu_activation #(
     parameter WIDTH = 16
 )(

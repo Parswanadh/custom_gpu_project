@@ -8,16 +8,16 @@ VCD info: dumpfile sim/waveforms/gpt2_engine.vcd opened for output.
 [4] Loading token embeddings...
 
 [5] Running GPT-2 inference: token=3, position=0
-[PASS] GPT-2 inference completed in 158 cycles!
+[PASS] GPT-2 inference completed in 176 cycles!
   Predicted next token: 3
   Logits:
-    logit[0] = -0.297
-    logit[1] = -0.332
-    logit[2] = -0.289
-    logit[3] = 0.910
-  Total zero-skips: 9
-  Total cycles: 370
+    logit[0] = 0.000
+    logit[1] = 0.000
+    logit[2] = 0.000
+    logit[3] = 11.371
+  Total zero-skips: 0
+  Total cycles: 388
 ============================================
   Results: 1 PASSED, 0 FAILED
 ============================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/gpt2/gpt2_engine_tb.v:283: $finish called at 3750000 (1ps)
+D:\Projects\BitbyBit\custom_gpu_project\tb/gpt2/gpt2_engine_tb.v:283: $finish called at 3930000 (1ps)

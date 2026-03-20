@@ -45,6 +45,8 @@ module grouped_query_attention #(
     
     // Score for the current token (simplified: just dot-product Q·K)
     output reg  [NUM_Q_HEADS*DATA_WIDTH-1:0] attention_scores,
+    // Per-query value projection (Q·V) used by downstream weighted reduction.
+    output reg  [NUM_Q_HEADS*DATA_WIDTH-1:0] attention_values,
     output reg                               valid_out,
     
     // Statistics
@@ -57,13 +59,17 @@ module grouped_query_attention #(
     localparam HEADS_PER_GROUP = NUM_Q_HEADS / NUM_KV_HEADS;  // Queries sharing each KV
 
     integer qh, kv_idx, d;
-    reg signed [2*DATA_WIDTH-1:0] dot_product;
-    reg signed [DATA_WIDTH-1:0] q_val, k_val;
+    reg signed [2*DATA_WIDTH+4:0] dot_qk;
+    reg signed [2*DATA_WIDTH+4:0] dot_qv;
+    reg signed [DATA_WIDTH-1:0] q_val, k_val, v_val;
+    localparam integer SCORE_SHIFT = (HEAD_DIM <= 4) ? 1 :
+                                     (HEAD_DIM <= 16) ? 2 : 3;
 
     always @(posedge clk) begin
         if (rst) begin
             valid_out        <= 1'b0;
             attention_scores <= 0;
+            attention_values <= 0;
             kv_memory_saved  <= 0;
         end else begin
             valid_out <= 1'b0;
@@ -74,16 +80,21 @@ module grouped_query_attention #(
                     // Which KV head does this query belong to?
                     kv_idx = qh / HEADS_PER_GROUP;
                     
-                    // Compute dot product: Q[qh] · K[kv_idx]
-                    dot_product = 0;
+                    // Compute dot products: Q[qh]·K[kv_idx] and Q[qh]·V[kv_idx]
+                    dot_qk = 0;
+                    dot_qv = 0;
                     for (d = 0; d < HEAD_DIM; d = d + 1) begin
                         q_val = $signed(q_heads[(qh*HEAD_DIM + d)*DATA_WIDTH +: DATA_WIDTH]);
                         k_val = $signed(k_heads[(kv_idx*HEAD_DIM + d)*DATA_WIDTH +: DATA_WIDTH]);
-                        dot_product = dot_product + q_val * k_val;
+                        v_val = $signed(v_heads[(kv_idx*HEAD_DIM + d)*DATA_WIDTH +: DATA_WIDTH]);
+                        dot_qk = dot_qk + q_val * k_val;
+                        dot_qv = dot_qv + q_val * v_val;
                     end
                     
-                    // Scale by 1/sqrt(HEAD_DIM) ≈ >> 1 for HEAD_DIM=4
-                    attention_scores[qh*DATA_WIDTH +: DATA_WIDTH] <= (dot_product >>> 8) >>> 1;
+                    // Scale attention score by 1/sqrt(HEAD_DIM) approximation.
+                    attention_scores[qh*DATA_WIDTH +: DATA_WIDTH] <= (dot_qk >>> 8) >>> SCORE_SHIFT;
+                    // Preserve value-dependent projection for downstream weighted sum.
+                    attention_values[qh*DATA_WIDTH +: DATA_WIDTH] <= (dot_qv >>> 8);
                 end
                 
                 // KV memory saved: (NUM_Q_HEADS - NUM_KV_HEADS) × HEAD_DIM × MAX_SEQ_LEN entries

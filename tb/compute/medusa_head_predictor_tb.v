@@ -73,25 +73,29 @@ module medusa_head_predictor_tb;
         tt = tt + 1;
         actual_tokens = predicted_tokens;  // Perfect match
         verify_en = 1; @(negedge clk); verify_en = 0; @(negedge clk);
-        if (accept_mask == {NUM_HEADS{1'b1}}) begin
+        if (accept_mask == {NUM_HEADS{1'b1}} && accepted_count == NUM_HEADS) begin
             $display("[PASS] Test 3: Verification — all %0d heads accepted (100%% accuracy)", NUM_HEADS);
             tp = tp + 1;
-        end else $display("[FAIL] Test 3: accept_mask=%b", accept_mask);
+        end else $display("[FAIL] Test 3: accept_mask=%b accepted_count=%0d", accept_mask, accepted_count);
 
         // TEST 4: Verification — partial match
         tt = tt + 1;
         actual_tokens = predicted_tokens;
         actual_tokens[7:0] = predicted_tokens[7:0] + 1;  // Force head 0 to mismatch
         verify_en = 1; @(negedge clk); verify_en = 0; @(negedge clk);
-        if (accept_mask[0] == 1'b0 && accept_mask[1] == 1'b1 && accept_mask[2] == 1'b1) begin
+        if (accept_mask[0] == 1'b0 && accept_mask[1] == 1'b1 && accept_mask[2] == 1'b1 &&
+            accepted_count == 2) begin
             $display("[PASS] Test 4: Partial verification — head0 rejected, heads 1,2 accepted");
             tp = tp + 1;
-        end else $display("[FAIL] Test 4: accept_mask=%b", accept_mask);
+        end else $display("[FAIL] Test 4: accept_mask=%b accepted_count=%0d", accept_mask, accepted_count);
 
         $display("=================================================");
         $display("   MEDUSA Tests: %0d / %0d PASSED", tp, tt);
         $display("=================================================");
+        if (tp != tt) begin
+            $fatal(1, "medusa_head_predictor_tb failed (%0d/%0d)", tp, tt);
+        end
         #10 $finish;
     end
-    initial begin #50000; $display("TIMEOUT"); $finish; end
+    initial begin #50000; $fatal(1, "TIMEOUT"); end
 endmodule

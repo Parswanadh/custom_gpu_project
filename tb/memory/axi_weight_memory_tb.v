@@ -74,6 +74,36 @@ module axi_weight_memory_tb;
         end
     endtask
 
+    // AXI write task for WSTRB coherency race
+    task axi_write_wstrb_race;
+        input [AXI_ADDR_W-1:0] addr;
+        input [AXI_DATA_W-1:0] data;
+        input [3:0] strb_handshake;
+        input [3:0] strb_after_handshake;
+        begin
+            @(posedge clk);
+            awaddr <= addr; awvalid <= 1;
+            wdata <= data; wstrb <= strb_handshake; wvalid <= 1;
+            bready <= 1;
+
+            fork
+                begin wait(awready); end
+                begin wait(wready);  end
+            join
+
+            @(negedge clk);
+            wstrb <= strb_after_handshake;
+
+            @(posedge clk);
+            awvalid <= 0;
+            wvalid <= 0;
+
+            wait(bvalid);
+            @(posedge clk);
+            bready <= 0;
+        end
+    endtask
+
     // AXI read task
     task axi_read;
         input  [AXI_ADDR_W-1:0] addr;
@@ -90,6 +120,8 @@ module axi_weight_memory_tb;
 
     reg [31:0] read_val;
     integer test_pass;
+    integer blocked_accept;
+    integer t;
 
     initial begin
         $display("");
@@ -129,8 +161,65 @@ module axi_weight_memory_tb;
             $display("    [FAIL] Mismatch!"); test_pass = 0;
         end else $display("    [PASS]");
 
+        // --- WSTRB coherency race ---
+        $display("[3] WSTRB coherency under post-handshake change...");
+        axi_write(16'h0010, 32'hA5A5A5A5, 4'hF);
+        axi_write_wstrb_race(16'h0010, 32'h11223344, 4'b0001, 4'b1110);
+        axi_read(16'h0010, read_val);
+        $display("    Read from 0x0010: 0x%08h  (expected 0xA5A5A544)", read_val);
+        if (read_val !== 32'hA5A5A544) begin
+            $display("    [FAIL] WSTRB latch mismatch!"); test_pass = 0;
+        end else $display("    [PASS]");
+
+        // --- Write response backpressure gating ---
+        $display("[4] Write response backpressure gating...");
+        @(posedge clk);
+        awaddr <= 16'h0020; awvalid <= 1;
+        wdata <= 32'hAAAABBBB; wstrb <= 4'hF; wvalid <= 1;
+        bready <= 0;
+        fork
+            begin wait(awready); end
+            begin wait(wready);  end
+        join
+        @(posedge clk);
+        awvalid <= 0;
+        wvalid <= 0;
+        wait(bvalid);
+
+        // Attempt a second write while response is still pending.
+        awaddr <= 16'h0024; awvalid <= 1;
+        wdata <= 32'hCCCCDDDD; wstrb <= 4'hF; wvalid <= 1;
+        blocked_accept = 0;
+        for (t = 0; t < 3; t = t + 1) begin
+            @(posedge clk);
+            if (awready || wready) blocked_accept = 1;
+        end
+        if (blocked_accept) begin
+            $display("    [FAIL] Accepted new write while BVALID pending!"); test_pass = 0;
+        end else $display("    [PASS]");
+        awvalid <= 0;
+        wvalid <= 0;
+
+        // Complete first write response, then second write should succeed.
+        bready <= 1;
+        @(posedge clk);
+        bready <= 0;
+        axi_write(16'h0024, 32'hCCCCDDDD, 4'hF);
+
+        axi_read(16'h0020, read_val);
+        $display("    Read from 0x0020: 0x%08h  (expected 0xAAAABBBB)", read_val);
+        if (read_val !== 32'hAAAABBBB) begin
+            $display("    [FAIL] First backpressure write mismatch!"); test_pass = 0;
+        end else $display("    [PASS]");
+
+        axi_read(16'h0024, read_val);
+        $display("    Read from 0x0024: 0x%08h  (expected 0xCCCCDDDD)", read_val);
+        if (read_val !== 32'hCCCCDDDD) begin
+            $display("    [FAIL] Second write-after-response mismatch!"); test_pass = 0;
+        end else $display("    [PASS]");
+
         // --- Read status registers ---
-        $display("[3] Reading control/status registers...");
+        $display("[5] Reading control/status registers...");
         axi_read(16'h1008, read_val);
         $display("    Weight count: %0d", read_val);
 
@@ -141,7 +230,7 @@ module axi_weight_memory_tb;
         end else $display("    [PASS]");
 
         // --- GPU-side read ---
-        $display("[4] GPU-side weight read...");
+        $display("[6] GPU-side weight read...");
         @(posedge clk);
         gpu_re <= 1; gpu_raddr <= 8'h00;
         @(posedge clk);
@@ -153,7 +242,7 @@ module axi_weight_memory_tb;
         end else $display("    [PASS]");
 
         // --- Start inference signal ---
-        $display("[5] Testing start inference control...");
+        $display("[7] Testing start inference control...");
         axi_write(16'h1000, 32'h00000001, 4'hF);
         @(posedge clk);
         $display("    start_inference = %b (expected 1)", start_inf);

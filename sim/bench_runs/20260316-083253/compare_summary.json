@@ -1,0 +1,29 @@
+﻿{
+    "run_id":  "20260316-083253",
+    "workload_mode":  "single",
+    "token_id":  5,
+    "position":  2,
+    "workloads":  [
+                      {
+                          "TokenId":  5,
+                          "Position":  2
+                      }
+                  ],
+    "warmup_runs":  1,
+    "measured_runs":  1,
+    "samples":  [
+                    {
+                        "workload_index":  1,
+                        "run_index":  2,
+                        "token_id":  5,
+                        "position":  2,
+                        "base_cycles":  358,
+                        "imprint_cycles":  112,
+                        "base_tokens_per_second":  279329,
+                        "imprint_tokens_per_second":  892857,
+                        "base_medusa_toks":  837988,
+                        "imprint_medusa_toks":  2678571,
+                        "speedup_x":  3.1964
+                    }
+                ]
+}

@@ -71,29 +71,29 @@ module systolic_array_q4_tb;
         clear_acc = 0;
         precision_mode = 2'd1;
         q4_block_scale = 8'd1;
-        q4_block_zero  = 4'd8;
+        q4_block_zero  = 4'd0;
         #25; rst = 0; #15;
 
         // ==================================================================
         // Test 1: Q4 diagonal matrix
-        //   INT4 weights: diagonal = [9,10,11,12], off-diagonal = 8 (zero pt)
-        //   scale=1, zero=8
-        //   Dequant diagonal: [(9-8)*1, (10-8)*1, (11-8)*1, (12-8)*1]
+        //   INT4 weights: diagonal = [1,2,3,4], off-diagonal = 0
+        //   scale=1, zero=0
+        //   Dequant diagonal: [(1-0)*1, (2-0)*1, (3-0)*1, (4-0)*1]
         //                   = [1, 2, 3, 4]
         //   Off-diagonal dequant: (8-8)*1 = 0
         //   act = [10, 20, 30, 40]
         //   Expected: [10*1, 20*2, 30*3, 40*4] = [10, 40, 90, 160]
         // ==================================================================
-        $display("\n--- Test 1: Q4 diagonal matrix (scale=1, zero=8) ---");
+        $display("\n--- Test 1: Q4 diagonal matrix (scale=1, zero=0) ---");
         precision_mode = 2'd1;
         q4_block_scale = 8'd1;
-        q4_block_zero  = 4'd8;
+        q4_block_zero  = 4'd0;
 
-        // Load all 16 weights: off-diagonal = zero_point (8) → dequant = 0
-        load_w(0, 0, 16'd9);  load_w(0, 1, 16'd8);  load_w(0, 2, 16'd8);  load_w(0, 3, 16'd8);
-        load_w(1, 0, 16'd8);  load_w(1, 1, 16'd10); load_w(1, 2, 16'd8);  load_w(1, 3, 16'd8);
-        load_w(2, 0, 16'd8);  load_w(2, 1, 16'd8);  load_w(2, 2, 16'd11); load_w(2, 3, 16'd8);
-        load_w(3, 0, 16'd8);  load_w(3, 1, 16'd8);  load_w(3, 2, 16'd8);  load_w(3, 3, 16'd12);
+        // Load all 16 weights: off-diagonal = 0 → dequant = 0
+        load_w(0, 0, 16'd1);  load_w(0, 1, 16'd0);  load_w(0, 2, 16'd0);  load_w(0, 3, 16'd0);
+        load_w(1, 0, 16'd0);  load_w(1, 1, 16'd2);  load_w(1, 2, 16'd0);  load_w(1, 3, 16'd0);
+        load_w(2, 0, 16'd0);  load_w(2, 1, 16'd0);  load_w(2, 2, 16'd3);  load_w(2, 3, 16'd0);
+        load_w(3, 0, 16'd0);  load_w(3, 1, 16'd0);  load_w(3, 2, 16'd0);  load_w(3, 3, 16'd4);
 
         #10;
 
@@ -130,26 +130,26 @@ module systolic_array_q4_tb;
 
         // ==================================================================
         // Test 2: Q4 full matrix with scale=2
-        //   INT4 weights:          Dequant (scale=2, zero=8):
-        //   Row 0:  9, 10,  8, 12    →  2,  4,  0,  8
-        //   Row 1:  8,  9, 10,  8    →  0,  2,  4,  0
-        //   Row 2: 11,  8,  9,  8    →  6,  0,  2,  0
-        //   Row 3: 10, 12,  8,  9    →  4,  8,  0,  2
+        //   INT4 weights:          Dequant (scale=2, zero=0):
+        //   Row 0:  1, 2, 0, 4     →  2,  4,  0,  8
+        //   Row 1:  0, 1, 2, 0     →  0,  2,  4,  0
+        //   Row 2:  3, 0, 1, 0     →  6,  0,  2,  0
+        //   Row 3:  2, 4, 0, 1     →  4,  8,  0,  2
         //   act = [1, 1, 1, 1]
         //   result[col] = column sum of dequant matrix
         //   Expected: [12, 14, 6, 10]
         // ==================================================================
         @(negedge clk); rst = 1; clear_acc = 1; @(negedge clk); rst = 0; clear_acc = 0; #10;
 
-        $display("\n--- Test 2: Q4 full matrix (scale=2, zero=8) ---");
+        $display("\n--- Test 2: Q4 full matrix (scale=2, zero=0) ---");
         precision_mode = 2'd1;
         q4_block_scale = 8'd2;
-        q4_block_zero  = 4'd8;
+        q4_block_zero  = 4'd0;
 
-        load_w(0, 0, 16'd9);  load_w(0, 1, 16'd10); load_w(0, 2, 16'd8);  load_w(0, 3, 16'd12);
-        load_w(1, 0, 16'd8);  load_w(1, 1, 16'd9);  load_w(1, 2, 16'd10); load_w(1, 3, 16'd8);
-        load_w(2, 0, 16'd11); load_w(2, 1, 16'd8);  load_w(2, 2, 16'd9);  load_w(2, 3, 16'd8);
-        load_w(3, 0, 16'd10); load_w(3, 1, 16'd12); load_w(3, 2, 16'd8);  load_w(3, 3, 16'd9);
+        load_w(0, 0, 16'd1);  load_w(0, 1, 16'd2);  load_w(0, 2, 16'd0);  load_w(0, 3, 16'd4);
+        load_w(1, 0, 16'd0);  load_w(1, 1, 16'd1);  load_w(1, 2, 16'd2);  load_w(1, 3, 16'd0);
+        load_w(2, 0, 16'd3);  load_w(2, 1, 16'd0);  load_w(2, 2, 16'd1);  load_w(2, 3, 16'd0);
+        load_w(3, 0, 16'd2);  load_w(3, 1, 16'd4);  load_w(3, 2, 16'd0);  load_w(3, 3, 16'd1);
 
         #10;
 
@@ -186,12 +186,12 @@ module systolic_array_q4_tb;
 
         // ==================================================================
         // Test 3: Q4 with non-standard zero-point offset
-        //   scale=3, zero=4
-        //   INT4 weights:          Dequant (scale=3, zero=4):
-        //   Row 0: 5, 6, 4, 7       →  3,  6,  0,  9
-        //   Row 1: 4, 5, 6, 4       →  0,  3,  6,  0
-        //   Row 2: 6, 4, 5, 8       →  6,  0,  3, 12
-        //   Row 3: 7, 5, 4, 5       →  9,  3,  0,  3
+        //   scale=3, zero=2
+        //   INT4 weights:          Dequant (scale=3, zero=2):
+        //   Row 0: 3, 4, 2, 5       →  3,  6,  0,  9
+        //   Row 1: 2, 3, 4, 2       →  0,  3,  6,  0
+        //   Row 2: 4, 2, 3, 6       →  6,  0,  3, 12
+        //   Row 3: 5, 3, 2, 3       →  9,  3,  0,  3
         //   act = [2, 1, 3, 1]
         //   result[0] = 2*3 + 1*0 + 3*6 + 1*9 = 33
         //   result[1] = 2*6 + 1*3 + 3*0 + 1*3 = 18
@@ -201,15 +201,15 @@ module systolic_array_q4_tb;
         // ==================================================================
         @(negedge clk); rst = 1; clear_acc = 1; @(negedge clk); rst = 0; clear_acc = 0; #10;
 
-        $display("\n--- Test 3: Q4 zero-point offset (scale=3, zero=4) ---");
+        $display("\n--- Test 3: Q4 zero-point offset (scale=3, zero=2) ---");
         precision_mode = 2'd1;
         q4_block_scale = 8'd3;
-        q4_block_zero  = 4'd4;
+        q4_block_zero  = 4'd2;
 
-        load_w(0, 0, 16'd5); load_w(0, 1, 16'd6); load_w(0, 2, 16'd4); load_w(0, 3, 16'd7);
-        load_w(1, 0, 16'd4); load_w(1, 1, 16'd5); load_w(1, 2, 16'd6); load_w(1, 3, 16'd4);
-        load_w(2, 0, 16'd6); load_w(2, 1, 16'd4); load_w(2, 2, 16'd5); load_w(2, 3, 16'd8);
-        load_w(3, 0, 16'd7); load_w(3, 1, 16'd5); load_w(3, 2, 16'd4); load_w(3, 3, 16'd5);
+        load_w(0, 0, 16'd3); load_w(0, 1, 16'd4); load_w(0, 2, 16'd2); load_w(0, 3, 16'd5);
+        load_w(1, 0, 16'd2); load_w(1, 1, 16'd3); load_w(1, 2, 16'd4); load_w(1, 3, 16'd2);
+        load_w(2, 0, 16'd4); load_w(2, 1, 16'd2); load_w(2, 2, 16'd3); load_w(2, 3, 16'd6);
+        load_w(3, 0, 16'd5); load_w(3, 1, 16'd3); load_w(3, 2, 16'd2); load_w(3, 3, 16'd3);
 
         #10;
 
@@ -303,6 +303,8 @@ module systolic_array_q4_tb;
         $display("\n============================================");
         $display("  Results: %0d PASSED, %0d FAILED", pass_count, fail_count);
         $display("============================================");
+        if (fail_count != 0)
+            $fatal(1, "systolic_array_q4_tb failed with %0d checks failing", fail_count);
         $finish;
     end
 

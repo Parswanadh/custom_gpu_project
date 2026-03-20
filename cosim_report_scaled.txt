@@ -1,0 +1,31 @@
+
+======================================================================
+  BitbyBit GPU -- Scaled Cosimulation (EMBED_DIM=64)
+======================================================================
+  Config: dim=64, ffn=256, vocab=16, seq=8, layers=2, heads=8
+  Parameters: 49,792 weight values
+
+  Loading cached Q8.8 weights (dim=64)...
+  Wrote hex files to D:\Projects\BitbyBit\custom_gpu_project\weights\gpt2_dim64\hex_sim
+  Input text:     "hello"
+  Token sequence: [8, 5, 12, 12, 15]
+
+  Generated testbench (5 tokens)
+  [1/3] Compiling Verilog...
+  COMPILE FAILED:
+D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\scaled_cosim_tb.v:61: error: port ``ln1_gamma'' is not a port of dut.
+D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\scaled_cosim_tb.v:61: error: port ``ln1_beta'' is not a port of dut.
+D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\scaled_cosim_tb.v:61: error: port ``ln2_gamma'' is not a port of dut.
+D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\scaled_cosim_tb.v:61: error: port ``ln2_beta'' is not a port of dut.
+D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\scaled_cosim_tb.v:61: error: port ``wq_flat'' is not a port of dut.
+D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\scaled_cosim_tb.v:61: error: port ``wk_flat'' is not a port of dut.
+D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\scaled_cosim_tb.v:61: error: port ``wv_flat'' is not a port of dut.
+D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\scaled_cosim_tb.v:61: error: port ``wo_flat'' is not a port of dut.
+D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\scaled_cosim_tb.v:61: error: port ``ffn_w1_flat'' is not a port of dut.
+D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\scaled_cosim_tb.v:61: error: port ``ffn_b1_flat'' is not a port of dut.
+D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\scaled_cosim_tb.v:61: error: port ``ffn_w2_flat'' is not a port of dut.
+D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\scaled_cosim_tb.v:61: error: port ``ffn_b2_flat'' is not a port of dut.
+D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\scaled_cosim_tb.v:61: error: port ``ln_final_gamma'' is not a port of dut.
+D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\scaled_cosim_tb.v:61: error: port ``ln_final_beta'' is not a port of dut.
+14 error(s) during elaboration.
+

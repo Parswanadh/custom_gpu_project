@@ -17,7 +17,9 @@
 [PASS] TOKEN_OUT = 0x002a
 [8] Reading invalid address...
 [PASS] Invalid addr returns 0xDEADBEEF
+[9] Testing IRQ_STATUS W1C + set merge...
+[PASS] IRQ merge keeps new pending bit set (0x02)
 ============================================
-  Results: 8 PASSED, 0 FAILED
+  Results: 9 PASSED, 0 FAILED
 ============================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/top/gpu_config_regs_tb.v:238: $finish called at 495000 (1ps)
+D:\Projects\BitbyBit\custom_gpu_project\tb/top/gpu_config_regs_tb.v:275: $finish called at 615000 (1ps)

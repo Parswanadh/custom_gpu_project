@@ -1,0 +1,217 @@
+================================================================
+  BitbyBit GPU Demo Launcher (Simulation)
+  Mode: compare | TokenId: 5 | Position: 2
+================================================================
+
+Compiling demo_gpu_system_top_v2 ...
+Running demo_gpu_system_top_v2 ...
+============================================
+  GPU System Top V2 Integration Testbench
+============================================
+[1] Testing reset...
+[PASS] System ready after reset
+[2] Reading GPU_ID via AXI...
+[PASS] GPU_ID = 0xb17b0001
+[3] Config register write/read...
+[PASS] EMBED_DIM = 768
+[4] Dispatching NOP command...
+[PASS] NOP completed, GPU idle
+[5] Dispatching MATMUL command via optimized pipeline...
+[PASS] MATMUL completed via optimized path in 41 cycles
+[6] Dispatching FENCE command...
+[PASS] FENCE generated interrupt
+[7] Checking performance counters...
+[PASS] Cycle counter running: 110
+[8] Multiple commands in sequence...
+[PASS] Multiple commands completed successfully
+[9] Verifying odd-byte DMA length is rejected...
+[PASS] Odd-byte DMA length rejected with status_error and no DMA side-effects
+[10] Dispatching MATMUL with MINI imprint profile...
+[PASS] MINI imprint profile engaged in 20 cycles (emb0=540 emb1=580)
+[11] Dispatching MATMUL with GEMMA exported imprint profile...
+[PASS] GEMMA exported profile engaged in 41 cycles (emb0=0 emb1=9)
+[12] Verifying unsupported imprint profile is rejected...
+[PASS] Unsupported imprint profile rejected with status_error and no writeback
+[13] Comparing baseline vs MINI imprint speed (interleaved 5-run average)...
+    run1 baseline=41 mini=20
+    run2 baseline=41 mini=20
+    run3 baseline=41 mini=20
+    run4 baseline=41 mini=20
+    run5 baseline=41 mini=20
+[PASS] MINI imprint faster/stable: baseline=41 cycles (spread=0), mini=20 cycles (spread=0), speedup=2.05x
+[14] Verifying odd-byte compute size is rejected...
+[PASS] Odd-byte compute size rejected with status_error and no writeback side-effects
+[15] Verifying recovery after odd-size rejection...
+[PASS] Recovery compute succeeded and status_error cleared
+============================================
+  Results: 15 PASSED, 0 FAILED
+============================================
+D:\Projects\BitbyBit\custom_gpu_project\tb\top\gpu_system_top_v2_tb.v:637: $finish called at 9245000 (1ps)
+
+Compiling demo_full_model_base ...
+Running demo_full_model_base ...
+
+================================================================
+  GPT-2 12-LAYER INFERENCE EMULATION
+  Architecture: 12 transformer layers, 8-dim, 4Q/2KV heads
+  Pipeline: Embedding ΓåÆ 12├ù reused [RoPEΓåÆGQAΓåÆSMΓåÆGELUΓåÆKVQΓåÆComp] ΓåÆ MEDUSA
+  Clock: 100 MHz | ALL numbers from simulation
+================================================================
+
+--- Loading Model Weights ---
+  Loaded: 16 token embeddings x 8 dims
+  Loaded: 8 position embeddings x 8 dims
+  Loaded: 3 MEDUSA head weights x 8 dims
+
+================================================================
+  INFERENCE: Token ID = 5, Position = 2
+================================================================
+
+  [Embedding]  Token 5 ΓåÆ embedding vector (2 cycle)
+    emb_out[0:3] = [300, 340, 380, 420]
+    emb_out[4:7] = [460, 500, 540, 580]
+
+  Layer  RoPE     GQA    SM     GELU   KVQ    Comp   Total   
+  -----  ------   ----   ----   ----   ----   ----   ------  
+  L1        8cy     3cy    8cy    3cy    3cy    3cy    29cy
+  L2        8cy     3cy    8cy    3cy    3cy    3cy    29cy
+  L3        8cy     3cy    8cy    3cy    3cy    3cy    29cy
+  L4        8cy     3cy    8cy    3cy    3cy    3cy    29cy
+  L5        8cy     3cy    8cy    3cy    3cy    3cy    29cy
+  L6        8cy     3cy    8cy    3cy    3cy    3cy    29cy
+  L7        8cy     3cy    8cy    3cy    3cy    3cy    29cy
+  L8        8cy     3cy    8cy    3cy    3cy    3cy    29cy
+  L9        8cy     3cy    8cy    3cy    3cy    3cy    29cy
+  L10       8cy     3cy    8cy    3cy    3cy    3cy    29cy
+  L11       8cy     3cy    8cy    3cy    3cy    3cy    29cy
+  L12       8cy     3cy    8cy    3cy    3cy    3cy    29cy
+
+  Total layer processing: 348 cycles across 12 sequential layer passes
+
+  [MEDUSA]     3 draft token predictions (3 cycles)
+    Predicted tokens: [64, 129, 194]
+
+================================================================
+  12-LAYER INFERENCE EMULATION RESULTS (ALL measured)
+================================================================
+
+  STAGE                    CYCLES    TIME @100MHz
+  -----                    ------    ------------
+  Embedding Lookup            2 cy      20 ns
+  12x Transformer Layers    348 cy    3480 ns
+    Per-layer average        29 cy     290 ns
+  MEDUSA Prediction           3 cy      30 ns
+  -----------------------------------------
+  TOTAL INFERENCE           430 cy    4300 ns
+
+  Throughput:
+    Single token:    430 cycles = 4300 ns = 4.300 us
+    Tokens/second:   ~232558 (100 MHz FPGA)
+    MEDUSA draft:    3 tokens predicted ΓåÆ effective 697674 tok/s
+
+  DATA TRANSFORMATION PROOF:
+    Input:  Token ID 5 ΓåÆ emb = [300, 340, 380, 420, ...]
+    After L1:  [227, 391, 189, 3780, ...]
+    After L6:  [-201, 402, -6066, 3780, ...]
+    After L12: [-448, -37, -10879, 3780, ...]
+    Output:    Token predictions = [64, 129, 194]
+
+  HARDWARE USED:
+    Multipliers:     0 (BitNet ternary)
+    KV heads:        2 shared (vs 4 in standard)
+    KV precision:    4-bit (INT4 quantized)
+    Activations:     8-bit compressed
+    Position enc:    Hardware RoPE
+    Draft decoding:  MEDUSA 3-head
+
+[PASS] Test 1: Embedding produced non-zero vector
+[PASS] Test 2: All 12 layers completed (348 total cycles)
+[PASS] Test 3: Data transforms across layers (L0 != L1 != L12)
+[PASS] Test 4: MEDUSA produced 3 draft token predictions
+[PASS] Test 5: Total inference = 430 cycles (reasonable for 12-layer model)
+
+================================================================
+  12-Layer Inference Emulation Tests: 5 / 5 PASSED
+================================================================
+D:\Projects\BitbyBit\custom_gpu_project\tb\integration\full_model_inference_tb.v:440: $finish called at 6580000 (1ps)
+
+Compiling demo_full_model_imprint ...
+Running demo_full_model_imprint ...
+
+================================================================
+  MINI IMPRINT 12-LAYER INFERENCE EMULATION
+  Architecture: hardwired embedding + 12x fixed-latency mini core
+  Pipeline: Imprint Embedding -> 12x Mini Core -> MEDUSA
+  Clock: 100 MHz | ALL numbers from simulation
+================================================================
+
+  [Embedding]  Token 5 -> imprint vector (1 cycle)
+    emb_out[0:3] = [300, 340, 380, 420]
+
+  Layer  Total   
+  -----  ------  
+  L1        8cy
+  L2        8cy
+  L3        8cy
+  L4        8cy
+  L5        8cy
+  L6        8cy
+  L7        8cy
+  L8        8cy
+  L9        8cy
+  L10       8cy
+  L11       8cy
+  L12       8cy
+
+  [MEDUSA]     3 draft token predictions (3 cycles)
+    Predicted tokens: [217, 179, 141]
+
+================================================================
+  MINI IMPRINT INFERENCE RESULTS (ALL measured)
+================================================================
+
+  STAGE                    CYCLES    TIME @100MHz
+  -----                    ------    ------------
+  Imprint Embedding           1 cy      10 ns
+  12x Mini Core Layers       96 cy     960 ns
+    Per-layer average         8 cy      80 ns
+  MEDUSA Prediction           3 cy      30 ns
+  -----------------------------------------
+  TOTAL INFERENCE           112 cy    1120 ns
+
+  Throughput:
+    Single token:    112 cycles = 1120 ns = 1.120 us
+    Tokens/second:   ~892857 (100 MHz FPGA)
+    MEDUSA draft:    3 tokens predicted -> effective 2678571 tok/s
+
+[PASS] Test 1: MINI imprint embedding active and non-zero
+[PASS] Test 2: 12 layers completed at fixed 8-cycle latency
+[PASS] Test 3: Data transformed across layers
+[PASS] Test 4: MEDUSA produced predictions
+[PASS] Test 5: Total inference cycles in expected range
+
+================================================================
+  MINI Imprint Inference Tests: 5 / 5 PASSED
+================================================================
+D:\Projects\BitbyBit\custom_gpu_project\tb\integration\full_model_inference_imprint_tb.v:347: $finish called at 1460000 (1ps)
+
+Measured throughput summary (@100MHz):
+
+Variant                 CyclesPerToken TokensPerSecond MedusaEffectiveTokS
+-------                 -------------- --------------- -------------------
+Base full-model                    430          232558              697674
+MINI imprint full-model            112          892857             2678571
+
+
+
+Top-level command latency summary:
+  Baseline MATMUL : 41 cycles
+  MINI imprint    : 20 cycles
+  Speedup         : 2.05x
+
+Measured full-model speedup (base/imprint): 3.8393x
+
+Logs written to:
+  D:\Projects\BitbyBit\custom_gpu_project\sim\demo_gpu_system_top_v2.log
+  D:\Projects\BitbyBit\custom_gpu_project\sim\demo_full_model_base.log
+  D:\Projects\BitbyBit\custom_gpu_project\sim\demo_full_model_imprint.log

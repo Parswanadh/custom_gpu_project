@@ -1,0 +1,17 @@
+=================================================
+   Layer Pipeline Controller Tests
+   Stages: RoPE(6) > Attn(2) > Softmax(5) > FFN(4) > Out(1)
+   Sequential: 18 cycles/token
+   Pipelined:  6 cycles/token (after fill)
+=================================================
+[PASS] Test 1: Token 0xAA entered pipeline stage 0
+[PASS] Test 2: First token output after 32 cycles (token=0xcc)
+[PASS] Test 3: 8 tokens in 232 cycles = 29.0 cy/token
+[PASS] Test 4: Pipeline speedup = 0.6x
+    Sequential: 8 tokens x 18 cy = 144 cycles
+    Pipelined:  8 tokens in 232 cycles (stalls: 0)
+[PASS] Test 5: Steady-state throughput = 1 token per 6 cycles (3.0x improvement)
+=================================================
+   Pipeline Controller Tests: 5 / 5 PASSED
+=================================================
+tb/control/layer_pipeline_controller_tb.v:128: $finish called at 2360000 (1ps)

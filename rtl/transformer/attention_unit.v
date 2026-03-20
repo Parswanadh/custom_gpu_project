@@ -167,15 +167,21 @@ module attention_unit #(
 
             // Issue #5: Real Q·K^T score computation with scaling
             S_SCORE: begin
-                max_score <= -16'sd32767;
-                for (t = 0; t <= cur_pos; t = t + 1) begin
-                    acc = 0;
-                    for (j = 0; j < EMBED_DIM; j = j + 1)
-                        acc = acc + q_reg[j] * k_cache[t][j];
-                    // Scale by 1/sqrt(HEAD_DIM) ≈ >> 1
-                    scores[t] <= (acc >>> 8) >>> 1;
-                    if ((acc >>> 9) > max_score)
-                        max_score <= acc >>> 9;
+                begin : score_reduce
+                    reg signed [DATA_WIDTH-1:0] score_val;
+                    reg signed [DATA_WIDTH-1:0] max_local;
+                    max_local = -16'sd32767;
+                    for (t = 0; t <= cur_pos; t = t + 1) begin
+                        acc = 0;
+                        for (j = 0; j < EMBED_DIM; j = j + 1)
+                            acc = acc + q_reg[j] * k_cache[t][j];
+                        // Scale by 1/sqrt(HEAD_DIM) ≈ >> 1
+                        score_val = (acc >>> 8) >>> 1;
+                        scores[t] <= score_val;
+                        if (score_val > max_local)
+                            max_local = score_val;
+                    end
+                    max_score <= max_local;
                 end
                 // Issue #24: Apply causal mask (mask future positions)
                 if (causal_mask_en) begin
@@ -186,7 +192,7 @@ module attention_unit #(
                 end
                 sm_idx   <= 0;
                 sm_phase <= 0;
-                exp_sum   = 16'd0;
+                exp_sum  <= 16'd0;
                 state <= S_SOFTMAX;
             end
 
@@ -247,7 +253,7 @@ module attention_unit #(
             // P2 FIX: LUT output is now valid — read and accumulate
             S_SM_READ: begin
                 probs[sm_idx] <= lut_output;
-                exp_sum = exp_sum + {8'd0, lut_output};
+                exp_sum <= exp_sum + {8'd0, lut_output};
                 sm_idx <= sm_idx + 1;
                 state <= S_SOFTMAX;
             end

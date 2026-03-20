@@ -3,8 +3,8 @@
 module q4_weight_pipeline_tb;
 
     reg clk, rst, start;
-    reg [7:0] activation_in;
-    wire [15:0] mac_result;
+    reg signed [7:0] activation_in;
+    wire signed [31:0] mac_result;
     wire done;
     wire [31:0] weights_processed;
 
@@ -39,6 +39,30 @@ module q4_weight_pipeline_tb;
         end
     endtask
 
+    task run_case_exact;
+        input signed [7:0] act_value;
+        input integer expected_mac;
+        input [255:0] test_name;
+        begin
+            tests_total = tests_total + 1;
+            activation_in = act_value;
+            start = 1;
+            @(negedge clk);
+            start = 0;
+
+            wait_for_done(500, test_done);
+
+            if (test_done && (weights_processed == 32) && ($signed(mac_result) == expected_mac)) begin
+                $display("[PASS] %0s: MAC=%0d (expected %0d), processed=%0d",
+                         test_name, $signed(mac_result), expected_mac, weights_processed);
+                tests_passed = tests_passed + 1;
+            end else begin
+                $display("[FAIL] %0s: done=%b processed=%0d MAC=%0d expected=%0d",
+                         test_name, done, weights_processed, $signed(mac_result), expected_mac);
+            end
+        end
+    endtask
+
     initial begin
         clk = 0; rst = 1; start = 0; activation_in = 0;
         @(negedge clk); @(negedge clk); rst = 0; @(negedge clk);
@@ -49,78 +73,71 @@ module q4_weight_pipeline_tb;
         $display("=================================================");
 
         // ================================================================
-        // TEST 1: Process all 32 INT4 weights with activation = 1
+        // TEST 1: Default quant params (zp=0, scale=1), activation=1
+        // Expected MAC = 61
         // ================================================================
-        tests_total = tests_total + 1;
-        activation_in = 8'd1;
-        start = 1;
+        run_case_exact(8'd1, 61, "Test 1 default");
+
+        // ================================================================
+        // TEST 2: Default quant params, activation=10
+        // Expected MAC = 610
+        // ================================================================
+        run_case_exact(8'd10, 610, "Test 2 default x10");
+
+        // ================================================================
+        // TEST 3: Per-group quant params applied before MAC
+        // g0: zp=1 sc=1 -> sum 9
+        // g1: zp=2 sc=2 -> sum 0
+        // g2: zp=0 sc=3 -> sum 12
+        // g3: zp=3 sc=1 -> sum 0
+        // Total = 21, activation=4 -> expected 84
+        // ================================================================
         @(negedge clk);
-        start = 0;
-        
-        wait_for_done(500, test_done);
-        
-        if (test_done && weights_processed == 32) begin
-            $display("[PASS] Test 1: All 32 INT4 weights processed, MAC result = %0d", $signed(mac_result));
-            tests_passed = tests_passed + 1;
-        end else
-            $display("[FAIL] Test 1: done=%b processed=%0d", done, weights_processed);
+        dut.group_zp[0] = 8'd1;  dut.group_scale[0] = 8'd1;
+        dut.group_zp[1] = 8'd2;  dut.group_scale[1] = 8'd2;
+        dut.group_zp[2] = 8'd0;  dut.group_scale[2] = 8'd3;
+        dut.group_zp[3] = 8'd3;  dut.group_scale[3] = 8'd1;
+        run_case_exact(8'd4, 84, "Test 3 per-group");
 
         // ================================================================
-        // TEST 2: Process with activation = 10 (scaling test)
+        // TEST 4: Distinct per-group params to verify group indexing
+        // g0: zp=0 sc=1 -> sum 17
+        // g1: zp=1 sc=2 -> sum 16
+        // g2: zp=0 sc=4 -> sum 16
+        // g3: zp=2 sc=1 -> sum 8
+        // Total = 57, activation=2 -> expected 114
         // ================================================================
-        tests_total = tests_total + 1;
-        @(negedge clk); @(negedge clk);
-        activation_in = 8'd10;
-        start = 1;
         @(negedge clk);
-        start = 0;
-        
-        wait_for_done(500, test_done);
-        
-        if (test_done && weights_processed == 32) begin
-            $display("[PASS] Test 2: MAC with activation=10, result = %0d", $signed(mac_result));
-            tests_passed = tests_passed + 1;
-        end else
-            $display("[FAIL] Test 2: done=%b processed=%0d", done, weights_processed);
+        dut.group_zp[0] = 8'd0;  dut.group_scale[0] = 8'd1;
+        dut.group_zp[1] = 8'd1;  dut.group_scale[1] = 8'd2;
+        dut.group_zp[2] = 8'd0;  dut.group_scale[2] = 8'd4;
+        dut.group_zp[3] = 8'd2;  dut.group_scale[3] = 8'd1;
+        run_case_exact(8'd2, 114, "Test 4 index check");
 
         // ================================================================
-        // TEST 3: Verify MAC result is non-trivial
-        // With our test weights, the sum of weights is:
-        // Group 0: 3+5-2+7+1-1+4+0 = 17
-        // Group 1: 2+6-3+1+4-4+3+7 = 16
-        // Group 2: 0+0+0+0+1+1+1+1 = 4
-        // Group 3: 7+7+7+7-1-1-1-1 = 24
-        // Total = 61, × activation = 10 → expected ~610
+        // TEST 5: Signed activation path (negative activation)
+        // default group params -> sum(weights)=61, activation=-1 -> expected -61
         // ================================================================
-        tests_total = tests_total + 1;
-        if ($signed(mac_result) != 0) begin
-            $display("[PASS] Test 3: Non-trivial MAC output (Q4 decompression working)");
-            $display("         This proves: INT4 weights → unpack → MAC → accumulate works!");
-            tests_passed = tests_passed + 1;
-        end else
-            $display("[FAIL] Test 3: MAC result is zero");
-
-        // ================================================================
-        // TEST 4: Pipeline processes correct number of words
-        // 32 weights / 8 per word = 4 words from memory
-        // ================================================================
-        tests_total = tests_total + 1;
-        if (weights_processed == 32) begin
-            $display("[PASS] Test 4: Processed 32 weights from 4 memory words (8 weights/word)");
-            $display("         Memory savings: 32 weights × 4 bits = 128 bits = 4 words");
-            $display("         vs INT8: 32 weights × 8 bits = 256 bits = 8 words");
-            $display("         → 2x memory bandwidth savings with Q4!");
-            tests_passed = tests_passed + 1;
-        end else
-            $display("[FAIL] Test 4: Wrong weight count = %0d", weights_processed);
+        @(negedge clk);
+        dut.group_zp[0] = 8'd0;  dut.group_scale[0] = 8'd1;
+        dut.group_zp[1] = 8'd0;  dut.group_scale[1] = 8'd1;
+        dut.group_zp[2] = 8'd0;  dut.group_scale[2] = 8'd1;
+        dut.group_zp[3] = 8'd0;  dut.group_scale[3] = 8'd1;
+        run_case_exact(-8'sd1, -61, "Test 5 signed activation");
 
         $display("=================================================");
         $display("   Q4 Pipeline Tests: %0d / %0d PASSED", tests_passed, tests_total);
         $display("=================================================");
+
+        if (tests_passed != tests_total)
+            $fatal(1, "Q4 pipeline exact-MAC tests failed");
         
         #10 $finish;
     end
     
-    initial begin #100000; $display("TIMEOUT"); $finish; end
+    initial begin
+        #100000;
+        $fatal(1, "TIMEOUT");
+    end
 
 endmodule

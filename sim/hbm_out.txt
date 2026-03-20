@@ -1,0 +1,22 @@
+=================================================
+   HBM Memory Controller Tests
+   Ref: AMD Versal HBM (800 GB/s), HBM3E (1.2 TB/s)
+   Config: 4 channels x 256-bit = 1024 bits/burst
+=================================================
+[PASS] Test 1: Parallel load — 4 channels x 4 addresses filled simultaneously
+[PASS] Test 2: Single-channel write — 32 bytes transferred
+[PASS] Test 3: Multi-channel burst read — 4 beats of 1024-bit data
+    Per beat: 1024 bits = 128 bytes from ALL channels simultaneously
+[PASS] Test 4: Bandwidth comparison
+    DDR4 (standard):  1 channel x  64-bit = 64 bits/cycle → ~50 GB/s
+    HBM2e (ours):     4 channels x 256-bit = 1024 bits/cycle → ~800 GB/s
+    Improvement:      16x bandwidth!
+    Total bytes transferred: 544 | Total bursts: 1
+[PASS] Test 5: Layer load time comparison (768x768 weights)
+    DDR4:  ~36,000 cycles to load one layer
+    HBM:   ~2,250 cycles to load one layer → 16x faster!
+    With prefetch engine: compute overlaps load → ~0 idle cycles
+=================================================
+   HBM Controller Tests: 5 / 5 PASSED
+=================================================
+tb/memory/hbm_controller_tb.v:143: $finish called at 180000 (1ps)

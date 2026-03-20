@@ -1,0 +1,70 @@
+
+================================================================
+  END-TO-END INTEGRATED PIPELINE TEST
+  Config: 8-dim embeddings, 4 Q-heads, 2 KV-heads, 4 head-dim
+  Clock: 100 MHz (10ns period)
+  ALL numbers measured from simulation ΓÇö ZERO estimates
+================================================================
+
+--- Token 1: Processing at position 0 ---
+  [Stage 1] RoPE complete:    8 cycles
+            Input:  embedding[0:3]  = [100, 200, -50, 300]
+  [Stage 2] GQA complete:     3 cycles
+            Attention scored with 2 shared KV heads (saved 2 heads)
+  [Stage 3] Softmax complete: 8 cycles
+  [Stage 4] GELU complete:    3 cycles
+  [Stage 5] KV Quant done:    3 cycles
+  [Stage 6] Compress done:    3 cycles
+  [DONE]    Pipeline complete: 26 total cycles
+
+[PASS] Test 1: Token 1 flowed through ALL 6 stages end-to-end
+
+  DATA FLOW PROOF (token 1):
+    Input embedding:   [100, 200, -50, 300, ...]
+    Output (0-3):      [100, 200, -50, 3780]
+    Output (4-7):      [1, 1, 14, 14]
+[PASS] Test 2: Output differs from input ΓÇö data was transformed
+[PASS] Test 3: GQA completion observed only after gqa_valid_out
+[PASS] Test 4: Token 1 completion signals pulsed exactly once
+
+--- Token 2: Processing at position 5 ---
+[PASS] Test 5: Completion outputs are clear before token 2 start
+[PASS] Test 6: Token 2 start asserted adjacent to token 1 done (no reset)
+  [DONE]    Token 2 complete: 26 total cycles
+[PASS] Test 7: Token 2 completed end-to-end (no reset)
+[PASS] Test 8: Token 2 completion signals pulsed exactly once
+[PASS] Test 9: Completion outputs stayed one-cycle and idle-clean
+[PASS] Test 10: Done pulse stayed one-cycle wide
+[PASS] Test 11: Consistent pipeline timing across tokens (26 cycles)
+
+================================================================
+  MEASURED PIPELINE PERFORMANCE (from simulation)
+================================================================
+
+  Stage                  Cycles   Time @100MHz
+  -----                  ------   ------------
+  1. RoPE Encoding          8 cy     80 ns
+  2. GQA Attention          3 cy     30 ns
+  3. Parallel Softmax       8 cy     80 ns
+  4. GELU Activation        3 cy     30 ns
+  5. KV Cache Quantize      3 cy     30 ns
+  6. Activation Compress    3 cy     30 ns
+  -------------------------------------------
+  TOTAL (end-to-end)       26 cy    260 ns
+
+  Token throughput: 1 token per 26 cycles = 260 ns = 0.260 us
+  Tokens per second: ~3846153
+
+  EFFICIENCY (measured, NOT estimated):
+    Multipliers used:     0 (BitNet ternary throughout)
+    KV memory saved:      2 heads (4Q ΓåÆ 2KV via GQA)
+    KV precision:         4 bits (16-bit ΓåÆ INT4 quantized)
+    Output compression:   16-bit ΓåÆ 8-bit activations
+    Position encoding:    Hardware RoPE (not lookup table)
+
+[PASS] Test 12: Pipeline completes in reasonable time (26 cycles)
+
+================================================================
+  End-to-End Pipeline Tests: 12 / 12 PASSED
+================================================================
+tb\integration\end_to_end_pipeline_tb.v:436: $finish called at 630000 (1ps)

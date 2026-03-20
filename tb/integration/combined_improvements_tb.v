@@ -462,6 +462,9 @@ module combined_improvements_tb;
             $display("  >>> %0d FAILURES — REVIEW REQUIRED <<<", fail_count);
 
         $display("");
+        $display("TB_RESULT pass=%0d fail=%0d", pass_count, fail_count);
+        if (fail_count != 0)
+            $fatal(1, "combined_improvements_tb failed (%0d/%0d)", pass_count, total_tests);
         $finish;
     end
 

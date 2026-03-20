@@ -2,20 +2,20 @@ VCD info: dumpfile sim/waveforms/ffn_block.vcd opened for output.
 ============================================
   FFN Block Testbench (Q8.8, SRAM)
 ============================================
-[1] Loading W1 (ED×FD identity basis)...
-[2] Loading W2 (FD×ED identity basis)...
+[1] Loading W1 (EDÃ—FD identity basis)...
+[2] Loading W2 (FDÃ—ED identity basis)...
     Done loading weights.
 
 [3] Test: Positive input, identity weights
-    Output after 12 cycles:
-    y[0] = 0 (0.000)
-    y[1] = 1764 (6.891)
+    Output after 20 cycles:
+    y[0] = 1764 (6.891)
+    y[1] = 3780 (14.766)
     y[2] = 3780 (14.766)
     y[3] = 3780 (14.766)
-    Zero-skips: 2
+    Zero-skips: 0
 [PASS] FFN positive input with identity weights
 
 ============================================
   Results: 1 passed, 0 failed
 ============================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/transformer/ffn_block_tb.v:144: $finish called at 980000 (1ps)
+D:\Projects\BitbyBit\custom_gpu_project\tb/transformer/ffn_block_tb.v:144: $finish called at 1060000 (1ps)

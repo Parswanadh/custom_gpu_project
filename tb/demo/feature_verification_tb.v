@@ -344,6 +344,9 @@ module feature_verification_tb;
             $display("  >>> %0d FAILURES DETECTED <<<", fail_count);
 
         $display("");
+        $display("TB_RESULT pass=%0d fail=%0d", pass_count, fail_count);
+        if (fail_count != 0)
+            $fatal(1, "feature_verification_tb failed (%0d/%0d)", pass_count, pass_count + fail_count);
         $finish;
     end
 

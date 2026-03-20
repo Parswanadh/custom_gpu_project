@@ -1,0 +1,13 @@
+=================================================
+   SIMD Ternary Engine Tests (4-wide SIMD)
+   16 weights, 4 lanes = 4 chunks
+=================================================
+[PASS] Test 1: All +1 → result=160 (expected 160), 4 cycles
+[PASS] Test 2: Mixed weights → result=80 (expected 80), 4 cycles
+[PASS] Test 3: SIMD speed = 4 cycles (original=19 → 4.8x faster)
+[PASS] Test 4: Stats — adds=3, subs=1, skips=1, ZERO multipliers
+[PASS] Test 5: SIMD throughput = 4 weights/cycle (original=1/cycle → 4x)
+=================================================
+   SIMD Ternary Tests: 5 / 5 PASSED
+=================================================
+tb/compute/simd_ternary_engine_tb.v:114: $finish called at 200000 (1ps)

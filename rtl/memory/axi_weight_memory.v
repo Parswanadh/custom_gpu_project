@@ -88,6 +88,7 @@ module axi_weight_memory #(
     reg                   wr_addr_valid;
     reg                   wr_data_valid;
     reg [AXI_DATA_W-1:0]  wr_data;
+    reg [3:0]             wr_strb;
 
     integer i;
 
@@ -101,6 +102,7 @@ module axi_weight_memory #(
             s_axi_rdata      <= 0;
             wr_addr_valid    <= 1'b0;
             wr_data_valid    <= 1'b0;
+            wr_strb          <= 4'b0;
             start_inference  <= 1'b0;
             weight_count     <= 0;
             weight_load_valid <= 1'b0;
@@ -119,7 +121,9 @@ module axi_weight_memory #(
             start_inference   <= 1'b0;
 
             // ---- AXI Write Address ----
-            if (s_axi_awvalid && !wr_addr_valid) begin
+            // AXI-Lite allows only one outstanding write response. Do not
+            // accept a new write transaction while BVALID is pending.
+            if (s_axi_awvalid && !wr_addr_valid && !s_axi_bvalid) begin
                 wr_addr       <= s_axi_awaddr;
                 wr_addr_valid <= 1'b1;
                 s_axi_awready <= 1'b1;
@@ -128,8 +132,9 @@ module axi_weight_memory #(
             end
 
             // ---- AXI Write Data ----
-            if (s_axi_wvalid && !wr_data_valid) begin
+            if (s_axi_wvalid && !wr_data_valid && !s_axi_bvalid) begin
                 wr_data       <= s_axi_wdata;
+                wr_strb       <= s_axi_wstrb;
                 wr_data_valid <= 1'b1;
                 s_axi_wready  <= 1'b1;
             end else begin
@@ -140,19 +145,19 @@ module axi_weight_memory #(
             if (wr_addr_valid && wr_data_valid) begin
                 if (wr_addr < MEM_DEPTH) begin
                     // Weight memory write with parity (Issue #16)
-                    if (s_axi_wstrb[0]) begin
+                    if (wr_strb[0]) begin
                         weight_mem[wr_addr]   <= wr_data[7:0];
                         weight_par[wr_addr]   <= ^wr_data[7:0];
                     end
-                    if (s_axi_wstrb[1] && wr_addr+1 < MEM_DEPTH) begin
+                    if (wr_strb[1] && wr_addr+1 < MEM_DEPTH) begin
                         weight_mem[wr_addr+1] <= wr_data[15:8];
                         weight_par[wr_addr+1] <= ^wr_data[15:8];
                     end
-                    if (s_axi_wstrb[2] && wr_addr+2 < MEM_DEPTH) begin
+                    if (wr_strb[2] && wr_addr+2 < MEM_DEPTH) begin
                         weight_mem[wr_addr+2] <= wr_data[23:16];
                         weight_par[wr_addr+2] <= ^wr_data[23:16];
                     end
-                    if (s_axi_wstrb[3] && wr_addr+3 < MEM_DEPTH) begin
+                    if (wr_strb[3] && wr_addr+3 < MEM_DEPTH) begin
                         weight_mem[wr_addr+3] <= wr_data[31:24];
                         weight_par[wr_addr+3] <= ^wr_data[31:24];
                     end

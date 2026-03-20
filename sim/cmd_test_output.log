@@ -13,7 +13,9 @@
 [PASS] FIFO accepts commands when not full
 [6] Testing CMD_ACTIVATION...
 [PASS] CMD_ACTIVATION: compute triggered
+[7] Testing compute wait watchdog timeout...
+[PASS] Watchdog timeout returned to IDLE and asserted error_out
 ============================================
-  Results: 6 PASSED, 0 FAILED
+  Results: 7 PASSED, 0 FAILED
 ============================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/top/command_processor_tb.v:222: $finish called at 495000 (1ps)
+D:\Projects\BitbyBit\custom_gpu_project\tb/top/command_processor_tb.v:248: $finish called at 10795000 (1ps)

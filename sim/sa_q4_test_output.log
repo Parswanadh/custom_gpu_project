@@ -3,13 +3,13 @@ VCD info: dumpfile sim/waveforms/systolic_array_q4.vcd opened for output.
   Systolic Array Q4 Mode Testbench
 ============================================
 
---- Test 1: Q4 diagonal matrix (scale=1, zero=8) ---
+--- Test 1: Q4 diagonal matrix (scale=1, zero=0) ---
 [PASS] Q4 diagonal: [10, 40, 90, 160]
 
---- Test 2: Q4 full matrix (scale=2, zero=8) ---
+--- Test 2: Q4 full matrix (scale=2, zero=0) ---
 [PASS] Q4 full matrix: [12, 14, 6, 10]
 
---- Test 3: Q4 zero-point offset (scale=3, zero=4) ---
+--- Test 3: Q4 zero-point offset (scale=3, zero=2) ---
 [PASS] Q4 zero-point offset: [33, 18, 15, 57]
 
 --- Test 4: Q8.8 regression (precision_mode=0) ---
@@ -18,4 +18,4 @@ VCD info: dumpfile sim/waveforms/systolic_array_q4.vcd opened for output.
 ============================================
   Results: 4 PASSED, 0 FAILED
 ============================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/compute/systolic_array_q4_tb.v:306: $finish called at 1516000 (1ps)
+D:\Projects\BitbyBit\custom_gpu_project\tb/compute/systolic_array_q4_tb.v:308: $finish called at 1516000 (1ps)

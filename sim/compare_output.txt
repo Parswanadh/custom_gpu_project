@@ -1,0 +1,81 @@
+
+================================================================
+    BITBYBIT GPU: BASE vs OPTIMIZED COMPARISON BENCHMARK
+    Clock: 100 MHz | All measurements cycle-accurate
+================================================================
+
+  OPERATION                               BASE      OPT  SPEEDUP
+  ----------------------------------- -------- -------- --------
+  Dot Product (64 elements)              66 cy    70 cy     0.9x
+    BASE: 64 multipliers | OPT: 0 multipliers (adds=33, subs=10, skips=21)
+  Softmax (4 elements)                   16 cy    25 cy     0.6x
+    BASE: 2-pass (max+normalize) | OPT: single-pass online streaming
+  4-Head Attention Scores                22 cy     2 cy   11.0x
+    BASE: MHA (4K+4V=32 entries) | OPT: GQA (2K+2V=16, saved 128)
+  Position Encoding (8-dim)               8 cy     6 cy     1.3x
+    BASE: learned embed lookup+add | OPT: RoPE sin/cos hardware rotation
+  KV Cache Store (4 values)               1 cy     2 cy     0.5x
+    BASE: 64 bits stored | OPT: 16 bits stored (4x memory savings!)
+  Inter-Layer Activation Transfer         1 cy     2 cy     0.5x
+    BASE: 64 bits xfer | OPT: 32 bits xfer (2x bandwidth savings!)
+  Generate 3 Tokens                       3 cy     3 cy     1.0x
+    BASE: 3 sequential steps | OPT: 3 parallel MEDUSA heads
+  GELU Activation                         4 cy     2 cy     2.0x
+    BASE: polynomial approx | OPT: 256-entry LUT (single-cycle)
+
+================================================================
+    TRANSFORMER LAYER PIPELINE SUMMARY
+================================================================
+
+  TOTAL (all stages)                    121 cy   112 cy    1.1x OVERALL
+
+================================================================
+    EFFICIENCY COMPARISON
+================================================================
+
+  METRIC                                BASE GPU    OPT GPU
+  ----------------------------------- ---------- ----------
+  Hardware Multipliers                   64 DSPs     0 DSPs
+  KV Cache Memory per Token              64 bits    16 bits
+  KV Heads per 4Q Heads                  4 heads    2 heads
+  KV Memory (combined savings)                1x         8x
+  Activation Bandwidth                   64 bits    32 bits
+  Softmax Passes                        2 passes     1 pass
+  Tokens per Step                        1 token   3 tokens
+  Position Encoding                   lookup+add    HW RoPE
+  GELU Method                         polynomial        LUT
+
+================================================================
+    THROUGHPUT AT 100 MHz
+================================================================
+
+  METRIC                                  BASE GPU      OPT GPU
+  ----------------------------------- ------------ ------------
+  MAC ops/sec                               100M      100M*
+    (* BitNet: 0 multiplers)                               
+  Softmax vectors/sec                      6.25M         4M
+  Attention scores/sec                      4.5M        50M
+  Tokens generated/sec                     33.3M       100M
+  GELU activations/sec                       25M        50M
+  KV cache writes/sec                       100M       100M
+    (memory per write)                 (64 bits)  (16 bits)
+
+================================================================
+    ENERGY EFFICIENCY (RELATIVE)
+================================================================
+
+  METRIC                                  BASE GPU      OPT GPU
+  ----------------------------------- ------------ ------------
+  Energy per MAC op                           1x     ~0.01x
+    (BitNet eliminates multipliers → 10-100x savings)                      
+  Energy per KV store                         1x      0.25x
+  Energy per activation xfer                  1x       0.5x
+  Memory bandwidth demand                     1x    ~0.125x
+    (GQA 2x + INT4 4x + Compress 2x = 16x less)                      
+
+================================================================
+    CONCLUSION: Optimized GPU is  1.1x faster pipeline,      
+    with ~100x better energy efficiency (BitNet) and           
+    8-16x less memory bandwidth required.                     
+================================================================
+tb/integration/base_vs_optimized_benchmark_tb.v:515: $finish called at 2340000 (1ps)

@@ -24,6 +24,9 @@ module kv_cache_quantizer_tb;
 
     always #5 clk = ~clk;
     integer tp=0, tt=0;
+    integer deq0, deq1, deq2, deq3;
+    integer err0, err1, err2, err3;
+    integer max_err;
 
     initial begin
         clk=0; rst=1; quant_valid=0; dequant_valid=0; kv_in=0;
@@ -63,6 +66,25 @@ module kv_cache_quantizer_tb;
         end else $display("[FAIL] Test 2");
         dequant_valid = 0; @(negedge clk);
 
+        // TEST 2b: Roundtrip error should stay bounded for this vector
+        tt = tt + 1;
+        deq0 = $signed(kv_dequantized[15:0]);
+        deq1 = $signed(kv_dequantized[31:16]);
+        deq2 = $signed(kv_dequantized[47:32]);
+        deq3 = $signed(kv_dequantized[63:48]);
+        err0 = (deq0 >= 100) ? (deq0 - 100) : (100 - deq0);
+        err1 = (deq1 >= 200) ? (deq1 - 200) : (200 - deq1);
+        err2 = (deq2 >= 300) ? (deq2 - 300) : (300 - deq2);
+        err3 = (deq3 >= 400) ? (deq3 - 400) : (400 - deq3);
+        max_err = err0;
+        if (err1 > max_err) max_err = err1;
+        if (err2 > max_err) max_err = err2;
+        if (err3 > max_err) max_err = err3;
+        if (max_err <= 32) begin
+            $display("[PASS] Test 2b: Roundtrip max error bounded (max_err=%0d)", max_err);
+            tp = tp + 1;
+        end else $display("[FAIL] Test 2b: Roundtrip max error too high (max_err=%0d)", max_err);
+
         // TEST 3: Memory savings tracking
         tt = tt + 1;
         if (bytes_saved == VEC_LEN) begin
@@ -80,10 +102,26 @@ module kv_cache_quantizer_tb;
             tp = tp + 1;
         end else $display("[FAIL] Test 4");
 
+        // TEST 5: Monotonic source should map to monotonic quantized bins
+        tt = tt + 1;
+        kv_in = {16'sd400, 16'sd300, 16'sd200, 16'sd100};
+        quant_valid = 1; @(negedge clk);
+        quant_valid = 0;
+        if (quant_done &&
+            kv_quantized[3:0]  <= kv_quantized[7:4]  &&
+            kv_quantized[7:4]  <= kv_quantized[11:8] &&
+            kv_quantized[11:8] <= kv_quantized[15:12]) begin
+            $display("[PASS] Test 5: Quantized bins preserve monotonic ordering");
+            tp = tp + 1;
+        end else $display("[FAIL] Test 5: Monotonic ordering violated");
+
         $display("=================================================");
         $display("   KV Quantizer Tests: %0d / %0d PASSED", tp, tt);
         $display("=================================================");
+        if (tp != tt) begin
+            $fatal(1, "kv_cache_quantizer_tb failed (%0d/%0d)", tp, tt);
+        end
         #10 $finish;
     end
-    initial begin #10000; $display("TIMEOUT"); $finish; end
+    initial begin #10000; $display("[FATAL] TIMEOUT"); $fatal(1); end
 endmodule

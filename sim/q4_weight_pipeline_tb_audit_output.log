@@ -1,0 +1,13 @@
+=================================================
+   Q4 Weight Pipeline Tests
+   (End-to-End INT4 ΓåÆ MAC Inference Pipeline)
+=================================================
+[PASS] Test 1 default: MAC=61 (expected 61), processed=32
+[PASS] Test 2 default x10: MAC=610 (expected 610), processed=32
+[PASS] Test 3 per-group: MAC=84 (expected 84), processed=32
+[PASS] Test 4 index check: MAC=114 (expected 114), processed=32
+[PASS] Test 5 signed activation: MAC=-61 (expected -61), processed=32
+=================================================
+   Q4 Pipeline Tests: 5 / 5 PASSED
+=================================================
+tb\compute\q4_weight_pipeline_tb.v:135: $finish called at 3570000 (1ps)

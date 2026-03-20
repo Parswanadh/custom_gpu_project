@@ -1,0 +1,9 @@
+Synthesis Readiness Snapshot
+run_utc=2026-03-18T00:20:51.4673922+05:30
+yosys_provider=yowasp-yosys
+conda_env=yosys-tools
+yosys_version=Yosys 0.63 (git sha1 70a11c6bf, ccache clang++ 18.1.3 -O3 -flto -flto) [yowasp/yosys at release-0.63]
+compile_check.exp_lut_256=True
+compile_check.parallel_softmax=True
+compile_check.gpu_system_top_v2=True
+note=Using yowasp-yosys in conda env as Windows-native yosys package was unavailable in winget/choco catalogs.

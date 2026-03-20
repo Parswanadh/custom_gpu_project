@@ -31,7 +31,8 @@
 module prefetch_engine #(
     parameter BUFFER_DEPTH = 64,     // Words per buffer
     parameter DATA_WIDTH   = 32,     // Width per word
-    parameter ADDR_WIDTH   = 6       // log2(BUFFER_DEPTH)
+    parameter ADDR_WIDTH   = 6,      // log2(BUFFER_DEPTH)
+    parameter WAIT_TIMEOUT_CYCLES = 16'd4096
 )(
     input  wire                    clk,
     input  wire                    rst,
@@ -50,7 +51,7 @@ module prefetch_engine #(
     // Buffer read interface (for compute units)
     input  wire                    buf_read_en,
     input  wire [ADDR_WIDTH-1:0]   buf_read_addr,
-    output reg  [DATA_WIDTH-1:0]   buf_read_data,
+    output wire [DATA_WIDTH-1:0]   buf_read_data,
     
     // Buffer write interface (from DMA)
     input  wire                    buf_write_en,
@@ -62,7 +63,8 @@ module prefetch_engine #(
     output reg                     prefetch_active,  // Prefetch in progress
     output reg  [7:0]              current_layer,
     output reg  [7:0]              prefetch_layer,
-    output reg                     all_done
+    output reg                     all_done,
+    output reg                     error
 );
 
     // Dual buffers (ping-pong)
@@ -71,6 +73,7 @@ module prefetch_engine #(
     
     reg active_buffer;  // 0 = A is compute, B is prefetch
                         // 1 = B is compute, A is prefetch
+    reg dma_done_seen;  // Latch dma_done pulses until state machine consumes them
     
     // FSM
     reg [2:0] state;
@@ -80,6 +83,7 @@ module prefetch_engine #(
     localparam WAIT_PREFETCH  = 3'd3;  // Wait for prefetch to finish before swap
     localparam SWAP           = 3'd4;  // Swap buffers
     localparam DONE_STATE     = 3'd5;
+    reg [15:0] wait_counter;
     
     // Layer base address calculation (each layer at layer_num * BUFFER_DEPTH * 4)
     wire [31:0] layer_base_addr = prefetch_layer * (BUFFER_DEPTH * 4);
@@ -94,12 +98,17 @@ module prefetch_engine #(
             prefetch_layer  <= 0;
             dma_request     <= 1'b0;
             all_done        <= 1'b0;
+            dma_done_seen   <= 1'b0;
+            wait_counter    <= 16'd0;
+            error           <= 1'b0;
         end else begin
             dma_request <= 1'b0;  // Single-cycle pulse
+            error <= 1'b0;
             
             case (state)
                 IDLE: begin
                     all_done <= 1'b0;
+                    wait_counter <= 16'd0;
                     if (start) begin
                         current_layer  <= 0;
                         prefetch_layer <= 0;
@@ -110,6 +119,7 @@ module prefetch_engine #(
                         dma_src_addr   <= 0;
                         dma_length     <= BUFFER_DEPTH * 4;
                         prefetch_active <= 1'b1;
+                        dma_done_seen  <= 1'b0;
                         state <= PREFETCH_FIRST;
                     end
                 end
@@ -117,6 +127,7 @@ module prefetch_engine #(
                 // Wait for first layer to load
                 PREFETCH_FIRST: begin
                     if (dma_done) begin
+                        wait_counter <= 16'd0;
                         compute_ready   <= 1'b1;  // Buffer ready for compute
                         prefetch_active <= 1'b0;
                         
@@ -127,15 +138,26 @@ module prefetch_engine #(
                             dma_src_addr    <= BUFFER_DEPTH * 4;
                             dma_length      <= BUFFER_DEPTH * 4;
                             prefetch_active <= 1'b1;
+                            dma_done_seen   <= 1'b0;
                         end
                         
                         state <= COMPUTING;
+                    end else if (wait_counter >= WAIT_TIMEOUT_CYCLES) begin
+                        error <= 1'b1;
+                        compute_ready <= 1'b0;
+                        prefetch_active <= 1'b0;
+                        all_done <= 1'b1;
+                        wait_counter <= 16'd0;
+                        state <= IDLE;
+                    end else begin
+                        wait_counter <= wait_counter + 1'b1;
                     end
                 end
                 
                 // Main operational state: compute + prefetch overlap
                 COMPUTING: begin
                     if (layer_done) begin
+                        wait_counter <= 16'd0;
                         current_layer <= current_layer + 1;
                         
                         if (current_layer + 1 >= total_layers) begin
@@ -153,13 +175,26 @@ module prefetch_engine #(
                     // Mark prefetch complete when DMA finishes
                     if (dma_done) begin
                         prefetch_active <= 1'b0;
+                        dma_done_seen   <= 1'b1;
+                        wait_counter    <= 16'd0;
                     end
                 end
                 
                 WAIT_PREFETCH: begin
-                    if (dma_done || !prefetch_active) begin
+                    if (dma_done || dma_done_seen || !prefetch_active) begin
                         prefetch_active <= 1'b0;
+                        dma_done_seen   <= 1'b0;
+                        wait_counter    <= 16'd0;
                         state <= SWAP;
+                    end else if (wait_counter >= WAIT_TIMEOUT_CYCLES) begin
+                        error <= 1'b1;
+                        prefetch_active <= 1'b0;
+                        compute_ready <= 1'b0;
+                        all_done <= 1'b1;
+                        wait_counter <= 16'd0;
+                        state <= IDLE;
+                    end else begin
+                        wait_counter <= wait_counter + 1'b1;
                     end
                 end
                 
@@ -167,6 +202,7 @@ module prefetch_engine #(
                 SWAP: begin
                     active_buffer <= ~active_buffer;
                     compute_ready <= 1'b1;
+                    wait_counter <= 16'd0;
                     
                     // Start prefetching next-next layer
                     if (current_layer + 1 < total_layers) begin
@@ -175,6 +211,9 @@ module prefetch_engine #(
                         dma_src_addr    <= (current_layer + 1) * (BUFFER_DEPTH * 4);
                         dma_length      <= BUFFER_DEPTH * 4;
                         prefetch_active <= 1'b1;
+                        dma_done_seen   <= 1'b0;
+                    end else begin
+                        dma_done_seen   <= 1'b0;
                     end
                     
                     state <= COMPUTING;
@@ -183,6 +222,8 @@ module prefetch_engine #(
                 DONE_STATE: begin
                     compute_ready <= 1'b0;
                     all_done      <= 1'b1;
+                    dma_done_seen <= 1'b0;
+                    wait_counter  <= 16'd0;
                     state         <= IDLE;
                 end
             endcase
@@ -208,11 +249,6 @@ module prefetch_engine #(
     end
     
     // Buffer read (always from the active buffer = compute buffer)
-    always @(*) begin
-        if (active_buffer == 1'b0)
-            buf_read_data = buffer_a[buf_read_addr];
-        else
-            buf_read_data = buffer_b[buf_read_addr];
-    end
+    assign buf_read_data = (active_buffer == 1'b0) ? buffer_a[buf_read_addr] : buffer_b[buf_read_addr];
 
 endmodule

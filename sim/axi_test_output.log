@@ -10,17 +10,26 @@
     [PASS]
     Read from 0x0004: 0x12345678  (expected 0x12345678)
     [PASS]
-[3] Reading control/status registers...
-    Weight count: 2
+[3] WSTRB coherency under post-handshake change...
+    Read from 0x0010: 0xa5a5a544  (expected 0xA5A5A544)
+    [PASS]
+[4] Write response backpressure gating...
+    [PASS]
+    Read from 0x0020: 0xaaaabbbb  (expected 0xAAAABBBB)
+    [PASS]
+    Read from 0x0024: 0xccccdddd  (expected 0xCCCCDDDD)
+    [PASS]
+[5] Reading control/status registers...
+    Weight count: 6
     Zero-skip count: 42  (expected 42)
     [PASS]
-[4] GPU-side weight read...
+[6] GPU-side weight read...
     GPU read addr 0x00: 0xef (expected 0xEF)
     [PASS]
-[5] Testing start inference control...
+[7] Testing start inference control...
     start_inference = 0 (expected 1)
 
 ================================================================
   === ALL AXI TESTS PASSED ===
 ================================================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/memory/axi_weight_memory_tb.v:169: $finish called at 365000 (1ps)
+D:\Projects\BitbyBit\custom_gpu_project\tb/memory/axi_weight_memory_tb.v:258: $finish called at 675000 (1ps)

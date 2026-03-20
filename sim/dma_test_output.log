@@ -8,7 +8,17 @@
 [3] Testing busy signal...
 [PASS] DMA busy during transfer
 [PASS] DMA idle after transfer complete
+[5] Testing zero-length transfer guard...
+[PASS] Zero-length transfer completes with no AXI traffic
+[6] Testing tail-byte write WSTRB policy...
+[PASS] Tail write uses masked data + WSTRB=0x7
+[7] Testing tail-byte read local write mask...
+[PASS] Tail read masks upper byte on local write
+[8] Testing AXI read error response handling...
+[PASS] AXI read error surfaces via dma error pulse
+[9] Testing address-channel watchdog timeout...
+[PASS] DMA watchdog timed out stalled transfer safely
 ============================================
-  Results: 4 PASSED, 0 FAILED
+  Results: 9 PASSED, 0 FAILED
 ============================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/memory/dma_engine_tb.v:230: $finish called at 315000 (1ps)
+D:\Projects\BitbyBit\custom_gpu_project\tb/memory/dma_engine_tb.v:483: $finish called at 43755000 (1ps)

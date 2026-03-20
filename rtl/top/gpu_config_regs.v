@@ -23,6 +23,8 @@
 //     0x0040: IRQ_ENABLE     (RW) — Interrupt enable mask
 //     0x0044: IRQ_STATUS     (RW1C) — Interrupt status (write 1 to clear)
 // ============================================================================
+`timescale 1ns / 1ps
+
 module gpu_config_regs #(
     parameter AXI_ADDR_W = 16,
     parameter AXI_DATA_W = 32
@@ -89,6 +91,17 @@ module gpu_config_regs #(
     reg                   wr_addr_valid;
     reg [AXI_DATA_W-1:0] wr_data;
     reg                   wr_data_valid;
+    wire                  wr_commit;
+    wire                  irq_clear_we;
+    wire [7:0]            irq_clear_mask;
+    wire [7:0]            irq_status_merged;
+
+    assign wr_commit       = wr_addr_valid && wr_data_valid;
+    assign irq_clear_we    = wr_commit && (wr_addr[7:0] == 8'h44);
+    assign irq_clear_mask  = irq_clear_we ? wr_data[7:0] : 8'd0;
+    // Deterministic IRQ merge: W1C clears previously latched bits, new hardware
+    // events in irq_pending are applied in the same cycle and win on collisions.
+    assign irq_status_merged = (irq_status & ~irq_clear_mask) | irq_pending;
 
     always @(posedge aclk) begin
         if (!aresetn) begin
@@ -117,24 +130,24 @@ module gpu_config_regs #(
             irq_status       <= 8'd0;
         end else begin
             cfg_infer_start <= 1'b0;  // Auto-clear
-            irq_status <= irq_status | irq_pending;  // Latch new interrupts
+            irq_status <= irq_status_merged;
 
-            // Write address
-            if (s_axi_awvalid && !wr_addr_valid) begin
+            // Write address (AXI4-Lite permits one outstanding write response)
+            if (s_axi_awvalid && !wr_addr_valid && !s_axi_bvalid) begin
                 wr_addr <= s_axi_awaddr;
                 wr_addr_valid <= 1'b1;
                 s_axi_awready <= 1'b1;
             end else s_axi_awready <= 1'b0;
 
             // Write data
-            if (s_axi_wvalid && !wr_data_valid) begin
+            if (s_axi_wvalid && !wr_data_valid && !s_axi_bvalid) begin
                 wr_data <= s_axi_wdata;
                 wr_data_valid <= 1'b1;
                 s_axi_wready <= 1'b1;
             end else s_axi_wready <= 1'b0;
 
             // Complete write
-            if (wr_addr_valid && wr_data_valid) begin
+            if (wr_commit) begin
                 case (wr_addr[7:0])
                     8'h08: cfg_embed_dim      <= wr_data[15:0];
                     8'h0C: cfg_num_heads      <= wr_data[7:0];
@@ -150,7 +163,7 @@ module gpu_config_regs #(
                     8'h34: cfg_token_in       <= wr_data[15:0];
                     8'h38: cfg_position_in    <= wr_data[15:0];
                     8'h40: cfg_irq_enable     <= wr_data[7:0];
-                    8'h44: irq_status         <= irq_status & ~wr_data[7:0];  // W1C
+                    8'h44: ;  // W1C handled by irq_status_merged
                 endcase
                 wr_addr_valid <= 1'b0;
                 wr_data_valid <= 1'b0;

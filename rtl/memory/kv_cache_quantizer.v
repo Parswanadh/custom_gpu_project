@@ -57,6 +57,8 @@ module kv_cache_quantizer #(
     reg [DATA_WIDTH-1:0] range;
     reg [DATA_WIDTH-1:0] scale_factor;
     reg signed [2*DATA_WIDTH-1:0] shifted;
+    reg [2*DATA_WIDTH-1:0] shifted_u;
+    reg [2*DATA_WIDTH-1:0] q_raw;
     reg [3:0] quantized_val;
 
     always @(posedge clk) begin
@@ -96,27 +98,19 @@ module kv_cache_quantizer #(
                 for (i = 0; i < VEC_LEN; i = i + 1) begin
                     val = $signed(kv_in[i*DATA_WIDTH +: DATA_WIDTH]);
                     shifted = val - vmin;
-                    // q = (val - min) / scale ≈ shifted >> log2(scale)
-                    // Use shift-based approximation
-                    if (scale_factor >= 16'd128)
-                        quantized_val = shifted[DATA_WIDTH-1:DATA_WIDTH-4];
-                    else if (scale_factor >= 16'd64)
-                        quantized_val = shifted[DATA_WIDTH-2:DATA_WIDTH-5];
-                    else if (scale_factor >= 16'd32)
-                        quantized_val = shifted[DATA_WIDTH-3:DATA_WIDTH-6];
-                    else if (scale_factor >= 16'd16)
-                        quantized_val = shifted[DATA_WIDTH-4:DATA_WIDTH-7];
-                    else if (scale_factor >= 16'd8)
-                        quantized_val = shifted[DATA_WIDTH-5:DATA_WIDTH-8];
-                    else if (scale_factor >= 16'd4)
-                        quantized_val = shifted[3:0];
-                    else if (scale_factor >= 16'd2)
-                        quantized_val = shifted[3:0];
-                    else
-                        quantized_val = shifted[3:0];
-                    
-                    // Clamp to [0, 15]
-                    if (quantized_val > 4'd15) quantized_val = 4'd15;
+
+                    // q = round((val - min) / scale), clamped to [0, 15]
+                    if (shifted <= 0) begin
+                        quantized_val = 4'd0;
+                    end else begin
+                        shifted_u = shifted[2*DATA_WIDTH-1:0];
+                        q_raw = (shifted_u + (scale_factor >> 1)) / scale_factor;
+                        if (q_raw > 16'd15)
+                            quantized_val = 4'd15;
+                        else
+                            quantized_val = q_raw[3:0];
+                    end
+
                     kv_quantized[i*4 +: 4] <= quantized_val;
                 end
                 

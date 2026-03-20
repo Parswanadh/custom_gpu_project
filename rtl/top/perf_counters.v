@@ -19,6 +19,8 @@
 //
 //   Access: Read via index (0-7) for AXI register exposure
 // ============================================================================
+`timescale 1ns / 1ps
+
 module perf_counters #(
     parameter NUM_COUNTERS = 8,
     parameter COUNTER_W    = 32
@@ -49,53 +51,74 @@ module perf_counters #(
     output wire [COUNTER_W-1:0]    mac_total
 );
 
-    reg [COUNTER_W-1:0] counters [0:NUM_COUNTERS-1];
+    reg [COUNTER_W-1:0] counter_cycle;
+    reg [COUNTER_W-1:0] counter_active;
+    reg [COUNTER_W-1:0] counter_stall;
+    reg [COUNTER_W-1:0] counter_macs;
+    reg [COUNTER_W-1:0] counter_zero_skips;
+    reg [COUNTER_W-1:0] counter_mem_reads;
+    reg [COUNTER_W-1:0] counter_mem_writes;
+    reg [COUNTER_W-1:0] counter_parity_errors;
 
-    integer i;
-
-    assign cycle_count    = counters[0];
-    assign zero_skip_total = counters[4];
-    assign mac_total      = counters[3];
+    assign cycle_count     = counter_cycle;
+    assign zero_skip_total = counter_zero_skips;
+    assign mac_total       = counter_macs;
 
     always @(posedge clk) begin
         if (rst || counter_clear) begin
-            for (i = 0; i < NUM_COUNTERS; i = i + 1)
-                counters[i] <= {COUNTER_W{1'b0}};
+            counter_cycle         <= {COUNTER_W{1'b0}};
+            counter_active        <= {COUNTER_W{1'b0}};
+            counter_stall         <= {COUNTER_W{1'b0}};
+            counter_macs          <= {COUNTER_W{1'b0}};
+            counter_zero_skips    <= {COUNTER_W{1'b0}};
+            counter_mem_reads     <= {COUNTER_W{1'b0}};
+            counter_mem_writes    <= {COUNTER_W{1'b0}};
+            counter_parity_errors <= {COUNTER_W{1'b0}};
         end else if (counter_enable) begin
             // [0] Cycle count — always increments
-            counters[0] <= counters[0] + 1;
+            counter_cycle <= counter_cycle + 1'b1;
 
             // [1] Active cycles
             if (evt_active)
-                counters[1] <= counters[1] + 1;
+                counter_active <= counter_active + 1'b1;
 
             // [2] Stall cycles
             if (evt_stall)
-                counters[2] <= counters[2] + 1;
+                counter_stall <= counter_stall + 1'b1;
 
             // [3] Total MACs
-            counters[3] <= counters[3] + {{(COUNTER_W-16){1'b0}}, evt_macs};
+            counter_macs <= counter_macs + {{(COUNTER_W-16){1'b0}}, evt_macs};
 
             // [4] Zero-skip count
-            counters[4] <= counters[4] + {{(COUNTER_W-16){1'b0}}, evt_zero_skips};
+            counter_zero_skips <= counter_zero_skips + {{(COUNTER_W-16){1'b0}}, evt_zero_skips};
 
             // [5] Memory reads
             if (evt_mem_read)
-                counters[5] <= counters[5] + 1;
+                counter_mem_reads <= counter_mem_reads + 1'b1;
 
             // [6] Memory writes
             if (evt_mem_write)
-                counters[6] <= counters[6] + 1;
+                counter_mem_writes <= counter_mem_writes + 1'b1;
 
             // [7] Parity errors
             if (evt_parity_error)
-                counters[7] <= counters[7] + 1;
+                counter_parity_errors <= counter_parity_errors + 1'b1;
         end
     end
 
     // Read multiplexer
     always @(*) begin
-        read_data = counters[read_idx];
+        case (read_idx)
+            3'd0: read_data = counter_cycle;
+            3'd1: read_data = counter_active;
+            3'd2: read_data = counter_stall;
+            3'd3: read_data = counter_macs;
+            3'd4: read_data = counter_zero_skips;
+            3'd5: read_data = counter_mem_reads;
+            3'd6: read_data = counter_mem_writes;
+            3'd7: read_data = counter_parity_errors;
+            default: read_data = {COUNTER_W{1'b0}};
+        endcase
     end
 
 endmodule

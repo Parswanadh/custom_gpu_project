@@ -1,0 +1,97 @@
+
+================================================================
+  BitbyBit GPU -- End-to-End Sentence Processing Cosimulation
+================================================================
+
+  Loading cached Q8.8 weights...
+  Input text:     "a"
+  Token sequence: [1]
+  Token mapping:  a->1
+
+  ---- VERILOG GPU (Custom BitbyBit) ----
+  Generated testbench: 1 tokens
+  [1/3] Compiling Verilog...
+  [2/3] Running Verilog simulation...
+  [3/3] Simulation completed!
+
+  ---- CPU REFERENCE (Float32 Python) ----
+  Float32 and Q8.8 reference inference complete!
+
+================================================================
+                    COMPARISON REPORT
+================================================================
+
+  PER-TOKEN RESULTS:
+  Pos | Input | Verilog | CPU f32 | CPU Q88 | Cycles |        MSE
+  --- | ----- | ------- | ------- | ------- | ------ | ----------
+    0 | 'a' = 1 |   9 ('i') |   0     |   0     |    176 | 213.777339
+
+  AGGREGATE METRICS:
+  +-------------------------------+----------------+
+  | Metric                        | Value          |
+  +-------------------------------+----------------+
+  | Total tokens processed        |              1 |
+  | Total GPU clock cycles        |            176 |
+  | Avg cycles per token          |          176.0 |
+  | Est. latency @ 100MHz        |         1.8 us |
+  | Verilog vs Float32 match      | 0/          1 |
+  | Verilog vs Q8.8 ref match     | 0/          1 |
+  | Avg MSE (vs Float32)          |     213.777339 |
+  | Avg MSE (vs Q8.8 ref)         |     214.057274 |
+  | Zero-skip rate (activations)  |          5.0% |
+  | Est. cycles saved by 0-skip   |              8 |
+  | Effective throughput boost     |          1.05x |
+  +-------------------------------+----------------+
+
+  DETAILED LOGIT COMPARISON (per token):
+
+  Token 0 ('a', id=1):
+    Dim | Verilog Q88 | CPU Float32 |     CPU Q88 | Err (f32)
+    [0] |     -3.5859 |     +2.3939 |     +2.3918 |    5.9798
+    [1] |     -4.4023 |     -0.9606 |     -0.9694 |    3.4417
+    [2] |     +3.9922 |     -1.3017 |     -1.3162 |    5.2939
+    [3] |    -28.3086 |     -0.3894 |     -0.3706 |   27.9192
+
+  ACTIVATION SPARSITY ANALYSIS:
+  (Shows how many values are near-zero at each pipeline stage)
+
+  Token 0 (id=1):
+       embedding: [#####...............] 1/4 (25% sparse)
+          ln1_L0: [#####...............] 1/4 (25% sparse)
+         attn_L0: [###############.....] 3/4 (75% sparse)
+         gelu_L0: [##########..........] 4/8 (50% sparse)
+          ffn_L0: [###############.....] 3/4 (75% sparse)
+          ln1_L1: [#####...............] 1/4 (25% sparse)
+         attn_L1: [###############.....] 3/4 (75% sparse)
+         gelu_L1: [#######.............] 3/8 (38% sparse)
+          ffn_L1: [###############.....] 3/4 (75% sparse)
+        final_ln: [....................] 0/4 (0% sparse)
+
+  GPU vs CPU EXECUTION COMPARISON:
+
+  Custom GPU (BitbyBit):
+    Total cycles:      176
+    Clock frequency:   100 MHz (target)
+    Latency:           1.8 us
+    Optimizations:     Zero-skip (5%), INT8 parallel (2x), pipelined
+
+  CPU Reference (Python float32):
+    Wall-clock time:   711 us
+    (Note: Python is ~100-1000x slower than C/CUDA)
+
+  Estimated comparison vs CPU baseline:
+    GPU @ 100MHz:             1.8 us / 1 tokens
+    ARM Cortex-M4 est:       50 us / 1 tokens (est. 50us/token)
+    Speedup vs MCU:        28.4x
+
+================================================================
+  RAW VERILOG OUTPUT:
+================================================================
+  +=========================================================+
+  |  BitbyBit GPU -- Sentence Processing Cosimulation        |
+  +=========================================================+
+  TOKEN pos=0 id=1 predicted=9 cycles=176 logits=e3b103fefb99fc6a
+  SUMMARY total_tokens=1 total_cycles=176
+  DONE
+  D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\sentence_cosim_tb.v:689: $finish called at 7410000 (1ps)
+

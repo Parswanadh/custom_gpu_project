@@ -1,0 +1,63 @@
+ΓòöΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòù
+Γòæ     BITBYBIT CUSTOM GPU ΓÇö INTEGRATION SPEED BENCHMARK      Γòæ
+Γòæ     Clock: 100 MHz (10 ns) ΓÇö FPGA Target                   Γòæ
+Γòæ     44 Modules, 220 Tests, All Integrations Active          Γòæ
+ΓòÜΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓò¥
+
+ΓöüΓöüΓöü BENCH 1: Standard MAC (16 ops) ΓöüΓöüΓöü
+    Cycles: 18 | Throughput: 0 MAC/cycle | Result: 1048576
+    [PASS] Standard MAC: 18 cycles for 16 ops
+
+ΓöüΓöüΓöü BENCH 2: BitNet 1.58 Ternary (16 weights, ZERO multipliers) ΓöüΓöüΓöü
+    Cycles: 19 | Adds: 16 | Subs: 0 | Skips: 0
+    Result: 160 | Multipliers used: ZERO
+    [PASS] Ternary: 19 cycles for 16 weights
+
+ΓöüΓöüΓöü BENCH 3: RoPE Encoding (8-dim Q+K rotation) ΓöüΓöüΓöü
+    Cycles: 6 | Dim pairs processed: 4 | Throughput: 1.3 dims/cycle
+    [PASS] RoPE: 6 cycles for 8 dimensions
+
+ΓöüΓöüΓöü BENCH 4: Grouped Query Attention (4Q/2KV heads) ΓöüΓöüΓöü
+    Cycles: 1 | KV memory saved: 128 entries | Savings ratio: 2x
+    [PASS] GQA: 1 cycles for 4-head attention
+
+ΓöüΓöüΓöü BENCH 5: GELU Activation (LUT-based) ΓöüΓöüΓöü
+    Cycles: 2 | Input: 256 (Q8.8=1.0) | Output: 1764
+    [PASS] GELU: 2 cycles (single-cycle LUT!)
+
+ΓöüΓöüΓöü BENCH 6: KV Cache INT4 Quantize+Dequantize (4 values) ΓöüΓöüΓöü
+    Cycles: 2 | Compression: 16-bit -> 4-bit = 4x savings
+    Bytes saved so far: 4
+    [PASS] KV Q+DQ roundtrip: 2 cycles
+
+ΓöüΓöüΓöü BENCH 7: MEDUSA 3-Head Draft Prediction ΓöüΓöüΓöü
+    Cycles: 3 | Tokens predicted: 3 (t+1, t+2, t+3)
+    Predictions: [36, 72, 108]
+    [PASS] MEDUSA: 3 cycles for 3 draft tokens
+
+ΓöüΓöüΓöü BENCH 8: Activation Compression (4 elements, 16ΓåÆ8 bit) ΓöüΓöüΓöü
+    Cycles: 1 | Compression: 2x (16-bit -> 8-bit)
+    [PASS] Compression: 1 cycles for 4 elements
+
+ΓöüΓöüΓöü BENCH 9: Online Softmax (4 elements, single-pass) ΓöüΓöüΓöü
+    Cycles: 25 | Elements: 4 | Mode: single-pass streaming
+    [PASS] Softmax: 25 cycles for 4 elements
+
+ΓòöΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòù
+Γòæ              INTEGRATION BENCHMARK SUMMARY                 Γòæ
+ΓòáΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòú
+Γòæ  Tests Passed: 9 / 9                                      Γòæ
+Γòæ  Clock: 100 MHz (10 ns period)                             Γòæ
+Γòæ                                                            Γòæ
+Γòæ  KEY METRICS:                                              Γòæ
+Γòæ  ΓÇó MAC: 16 ops/pass ΓÇö standard multiply-accumulate         Γòæ
+Γòæ  ΓÇó BitNet 1.58: ZERO multipliers ΓÇö add/sub/skip only       Γòæ
+Γòæ  ΓÇó RoPE: Position encoding for ALL modern LLMs             Γòæ
+Γòæ  ΓÇó GQA: 2x KV cache reduction (4Q/2KV heads)              Γòæ
+Γòæ  ΓÇó KV INT4: 4x memory compression on cache                Γòæ
+Γòæ  ΓÇó Combined KV savings: GQA(2x) ├ù INT4(4x) = 8x total     Γòæ
+Γòæ  ΓÇó MEDUSA: 3 parallel draft tokens per step                Γòæ
+Γòæ  ΓÇó GELU: Single-cycle LUT activation                       Γòæ
+Γòæ  ΓÇó Softmax: Single-pass online streaming                   Γòæ
+ΓòÜΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓò¥
+tb\integration\integration_speed_benchmark_tb.v:481: $finish called at 1090000 (1ps)

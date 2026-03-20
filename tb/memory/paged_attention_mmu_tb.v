@@ -183,15 +183,85 @@ module paged_attention_mmu_tb;
         @(negedge clk);
 
         // ================================================================
-        // TEST 6: Stats tracking
+        // TEST 6: Remap existing virtual page
         // ================================================================
         tests_total = tests_total + 1;
-        if (total_translations == 2 && total_page_faults == 1 &&
-            pages_allocated == 2 && pages_free == 62) begin
-            $display("[PASS] Test 6: Stats correct (2 xlat, 1 fault, 2 alloc, 62 free)");
+        alloc_valid = 1;
+        alloc_virtual_page = 5'd10; // Currently mapped to ppage 1
+        @(negedge clk);
+        if (alloc_done && !alloc_fail && alloc_physical_page == 6'd2) begin
+            $display("[PASS] Test 6: Remapped vpage 10 -> ppage 2");
             tests_passed = tests_passed + 1;
         end else begin
-            $display("[FAIL] Test 6: xlat=%0d faults=%0d alloc=%0d free=%0d",
+            $display("[FAIL] Test 6: alloc_done=%b fail=%b phys=%d", alloc_done, alloc_fail, alloc_physical_page);
+        end
+        alloc_valid = 0;
+        @(negedge clk);
+
+        // ================================================================
+        // TEST 7: Translation sees remapped page
+        // ================================================================
+        tests_total = tests_total + 1;
+        translate_valid = 1;
+        virtual_page = 5'd10;
+        page_offset = 8'h34;
+        @(negedge clk);
+        if (translate_done && !page_fault && physical_addr == {6'd2, 8'h34}) begin
+            $display("[PASS] Test 7: Translation reflects remap to ppage 2");
+            tests_passed = tests_passed + 1;
+        end else begin
+            $display("[FAIL] Test 7: done=%b fault=%b addr=0x%04h (expected 0x%04h)",
+                     translate_done, page_fault, physical_addr, {6'd2, 8'h34});
+        end
+        translate_valid = 0;
+        @(negedge clk);
+
+        // ================================================================
+        // TEST 8: Old remap target page is released back to free pool
+        // ================================================================
+        tests_total = tests_total + 1;
+        alloc_valid = 1;
+        alloc_virtual_page = 5'd21;
+        @(negedge clk);
+        if (alloc_done && !alloc_fail && alloc_physical_page == 6'd1) begin
+            $display("[PASS] Test 8: Old remap page ppage 1 was safely recycled");
+            tests_passed = tests_passed + 1;
+        end else begin
+            $display("[FAIL] Test 8: alloc_done=%b fail=%b phys=%d", alloc_done, alloc_fail, alloc_physical_page);
+        end
+        alloc_valid = 0;
+        @(negedge clk);
+
+        // ================================================================
+        // TEST 9: Concurrent alloc+free is fail-closed (race hardening)
+        // ================================================================
+        tests_total = tests_total + 1;
+        alloc_valid = 1;
+        alloc_virtual_page = 5'd22;
+        free_valid = 1;
+        free_virtual_page = 5'd31; // unmapped page; should be a no-op free
+        @(negedge clk);
+        if (alloc_done && alloc_fail && free_done) begin
+            $display("[PASS] Test 9: Concurrent alloc/free rejected deterministically");
+            tests_passed = tests_passed + 1;
+        end else begin
+            $display("[FAIL] Test 9: alloc_done=%b alloc_fail=%b free_done=%b",
+                     alloc_done, alloc_fail, free_done);
+        end
+        alloc_valid = 0;
+        free_valid = 0;
+        @(negedge clk);
+
+        // ================================================================
+        // TEST 10: Stats tracking
+        // ================================================================
+        tests_total = tests_total + 1;
+        if (total_translations == 3 && total_page_faults == 1 &&
+            pages_allocated == 3 && pages_free == 61) begin
+            $display("[PASS] Test 10: Stats correct (3 xlat, 1 fault, 3 alloc, 61 free)");
+            tests_passed = tests_passed + 1;
+        end else begin
+            $display("[FAIL] Test 10: xlat=%0d faults=%0d alloc=%0d free=%0d",
                      total_translations, total_page_faults, pages_allocated, pages_free);
         end
 

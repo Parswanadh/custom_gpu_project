@@ -1,0 +1,13 @@
+=================================================
+   Layer Pipeline Controller Tests
+   Ready/Valid + Skid Backpressure Validation
+=================================================
+[PASS] Test 1: Backpressure asserted (accepted=4, ready_low=9)
+[PASS] Test 2: No loss/reorder/duplication under sustained valid (accepted=48, output=48)
+[PASS] Test 3: Bubble-free ordered stream (outputs=40, max_gap=1)
+[PASS] Test 4: stage_cycles=0 clamp is deterministic (outputs=32, max_gap=1)
+[PASS] Test 5: Varied-pattern randomized stress preserved exact IO count/order (accepted=96, output=96)
+=================================================
+   Pipeline Controller Tests: 5 / 5 PASSED
+=================================================
+D:\Projects\BitbyBit\custom_gpu_project\tb/control/layer_pipeline_controller_tb.v:400: $finish called at 7460000 (1ps)

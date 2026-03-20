@@ -5,6 +5,7 @@ module grouped_query_attention_tb;
     reg [NUM_Q_HEADS*HEAD_DIM*DATA_WIDTH-1:0] q_heads;
     reg [NUM_KV_HEADS*HEAD_DIM*DATA_WIDTH-1:0] k_heads, v_heads;
     wire [NUM_Q_HEADS*DATA_WIDTH-1:0] attention_scores;
+    wire [NUM_Q_HEADS*DATA_WIDTH-1:0] attention_values;
     wire valid_out;
     wire [15:0] kv_memory_saved;
 
@@ -12,7 +13,8 @@ module grouped_query_attention_tb;
         .NUM_KV_HEADS(NUM_KV_HEADS), .HEAD_DIM(HEAD_DIM), .MAX_SEQ_LEN(MAX_SEQ_LEN)
     ) dut (.clk(clk), .rst(rst), .valid_in(valid_in),
         .q_heads(q_heads), .k_heads(k_heads), .v_heads(v_heads),
-        .attention_scores(attention_scores), .valid_out(valid_out),
+        .attention_scores(attention_scores), .attention_values(attention_values),
+        .valid_out(valid_out),
         .kv_memory_saved(kv_memory_saved));
 
     always #5 clk = ~clk;
@@ -35,6 +37,8 @@ module grouped_query_attention_tb;
             q_heads[i*DATA_WIDTH +: DATA_WIDTH] = 16'sd256;
         for (i = 0; i < NUM_KV_HEADS*HEAD_DIM; i = i + 1)
             k_heads[i*DATA_WIDTH +: DATA_WIDTH] = 16'sd256;
+        for (i = 0; i < NUM_KV_HEADS*HEAD_DIM; i = i + 1)
+            v_heads[i*DATA_WIDTH +: DATA_WIDTH] = 16'sd64;
         valid_in = 1; @(negedge clk);  // Output registered here
         if (valid_out) begin
             $display("[PASS] Test 1: GQA scores computed — S[0]=%0d, S[1]=%0d, S[2]=%0d, S[3]=%0d",
@@ -76,6 +80,17 @@ module grouped_query_attention_tb;
             tp = tp + 1;
         end else $display("[FAIL] Test 4");
         valid_in = 0;
+
+        // TEST 5: V-head changes should affect value projections, not just scores
+        tt = tt + 1;
+        for (i = 0; i < NUM_KV_HEADS*HEAD_DIM; i = i + 1)
+            v_heads[i*DATA_WIDTH +: DATA_WIDTH] = 16'sd8;
+        valid_in = 1; @(negedge clk); valid_in = 0;
+        if (valid_out && ($signed(attention_values[15:0]) != 0 || $signed(attention_values[47:32]) != 0)) begin
+            $display("[PASS] Test 5: V-head path active (V projections non-zero: %0d, %0d)",
+                $signed(attention_values[15:0]), $signed(attention_values[47:32]));
+            tp = tp + 1;
+        end else $display("[FAIL] Test 5: V-head contribution missing");
 
         $display("=================================================");
         $display("   GQA Tests: %0d / %0d PASSED", tp, tt);

@@ -1,0 +1,76 @@
+﻿{
+    "benchmark_version":  "phase3-v2",
+    "benchmark_frequency_hz":  100000000,
+    "script":  "scripts/demo_day.ps1",
+    "generated_utc":  "2026-03-16T14:04:12.4962901Z",
+    "tools":  {
+                  "iverilog":  "D:\\Tools\\iverilog\\bin\\iverilog.exe",
+                  "vvp":  "D:\\Tools\\iverilog\\bin\\vvp.exe"
+              },
+    "run_id":  "20260316-193409",
+    "workload_mode":  "matrix",
+    "token_space":  16,
+    "position_space":  8,
+    "token_id":  null,
+    "position":  null,
+    "workloads":  [
+                      {
+                          "TokenId":  5,
+                          "Position":  2
+                      },
+                      {
+                          "TokenId":  12,
+                          "Position":  5
+                      },
+                      {
+                          "TokenId":  6,
+                          "Position":  7
+                      }
+                  ],
+    "warmup_runs":  1,
+    "measured_runs":  1,
+    "samples":  [
+                    {
+                        "workload_index":  1,
+                        "run_index":  2,
+                        "phase":  "measured",
+                        "token_id":  5,
+                        "position":  2,
+                        "base_cycles":  358,
+                        "imprint_cycles":  112,
+                        "base_tokens_per_second":  279329,
+                        "imprint_tokens_per_second":  892857,
+                        "base_medusa_toks":  837988,
+                        "imprint_medusa_toks":  2678571,
+                        "speedup_x":  3.1964
+                    },
+                    {
+                        "workload_index":  2,
+                        "run_index":  2,
+                        "phase":  "measured",
+                        "token_id":  12,
+                        "position":  5,
+                        "base_cycles":  358,
+                        "imprint_cycles":  112,
+                        "base_tokens_per_second":  279329,
+                        "imprint_tokens_per_second":  892857,
+                        "base_medusa_toks":  837988,
+                        "imprint_medusa_toks":  2678571,
+                        "speedup_x":  3.1964
+                    },
+                    {
+                        "workload_index":  3,
+                        "run_index":  2,
+                        "phase":  "measured",
+                        "token_id":  6,
+                        "position":  7,
+                        "base_cycles":  358,
+                        "imprint_cycles":  112,
+                        "base_tokens_per_second":  279329,
+                        "imprint_tokens_per_second":  892857,
+                        "base_medusa_toks":  837988,
+                        "imprint_medusa_toks":  2678571,
+                        "speedup_x":  3.1964
+                    }
+                ]
+}

@@ -10,7 +10,7 @@ module prefetch_engine_tb;
     reg [ADDR_WIDTH-1:0] buf_read_addr, buf_write_addr;
     wire [DATA_WIDTH-1:0] buf_read_data;
     reg [DATA_WIDTH-1:0] buf_write_data;
-    wire compute_ready, prefetch_active, all_done;
+    wire compute_ready, prefetch_active, all_done, error;
     wire [7:0] current_layer, prefetch_layer;
 
     prefetch_engine #(.BUFFER_DEPTH(BUFFER_DEPTH), .DATA_WIDTH(DATA_WIDTH)
@@ -22,10 +22,10 @@ module prefetch_engine_tb;
         .buf_write_addr(buf_write_addr), .buf_write_data(buf_write_data),
         .compute_ready(compute_ready), .prefetch_active(prefetch_active),
         .current_layer(current_layer), .prefetch_layer(prefetch_layer),
-        .all_done(all_done));
+        .all_done(all_done), .error(error));
 
     always #5 clk = ~clk;
-    integer tp=0, tt=0, i;
+    integer tp=0, tt=0, i, wait_guard;
 
     initial begin
         clk=0; rst=1; start=0; layer_done=0; dma_done_sig=0;
@@ -87,10 +87,49 @@ module prefetch_engine_tb;
             tp = tp + 1;
         end else $display("[FAIL] Test 4: current_layer=%0d", current_layer);
 
+        // TEST 5: Race case — layer_done and dma_done same cycle must not deadlock
+        tt = tt + 1;
+        wait_guard = 0;
+        while (!prefetch_active && wait_guard < 20) begin
+            @(negedge clk);
+            wait_guard = wait_guard + 1;
+        end
+        @(negedge clk); layer_done = 1; dma_done_sig = 1;
+        @(negedge clk); layer_done = 0; dma_done_sig = 0;
+        repeat(6) @(negedge clk);
+        if (current_layer >= 2 && dut.state != 3) begin
+            $display("[PASS] Test 5: layer_done + dma_done race handled (layer=%0d, state=%0d)", current_layer, dut.state);
+            tp = tp + 1;
+        end else begin
+            $display("[FAIL] Test 5: Race handling failed (layer=%0d, state=%0d, prefetch_active=%0d)",
+                     current_layer, dut.state, prefetch_active);
+        end
+
+        // TEST 6: DMA timeout in PREFETCH_FIRST should fail-closed with error pulse
+        tt = tt + 1;
+        rst = 1; @(negedge clk); rst = 0; @(negedge clk);
+        total_layers = 2;
+        start = 1; @(negedge clk); start = 0;
+        wait_guard = 0;
+        while (wait_guard < 4200 && !error) begin
+            @(negedge clk);
+            wait_guard = wait_guard + 1;
+        end
+        if (error && all_done) begin
+            $display("[PASS] Test 6: Prefetch watchdog raised error and terminated cleanly");
+            tp = tp + 1;
+        end else begin
+            $display("[FAIL] Test 6: watchdog failed (error=%0d all_done=%0d wait=%0d)",
+                     error, all_done, wait_guard);
+        end
+
         $display("=================================================");
         $display("   Prefetch Tests: %0d / %0d PASSED", tp, tt);
         $display("=================================================");
+        if (tp != tt) begin
+            $fatal(1, "prefetch_engine_tb failed (%0d/%0d)", tp, tt);
+        end
         #10 $finish;
     end
-    initial begin #50000; $display("TIMEOUT"); $finish; end
+    initial begin #50000; $display("[FATAL] TIMEOUT"); $fatal(1); end
 endmodule

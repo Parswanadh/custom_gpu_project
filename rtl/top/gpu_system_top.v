@@ -19,6 +19,8 @@
 //
 // Parameters: Configurable embedding dimension, heads, etc.
 // ============================================================================
+`timescale 1ns / 1ps
+
 module gpu_system_top #(
     parameter AXI_ADDR_W    = 16,
     parameter AXI_DATA_W    = 32,
@@ -129,13 +131,17 @@ module gpu_system_top #(
     wire        cp_busy, cp_idle;
     wire [31:0] cp_cmds_executed;
     wire        cp_interrupt;
+    wire        cp_error;
 
     // DMA signals
     wire        dma_done, dma_busy, dma_interrupt;
+    wire        dma_error;
     wire        dma_local_write_en, dma_local_read_en;
     wire [LOCAL_ADDR_W-1:0] dma_local_write_addr, dma_local_read_addr;
-    wire [7:0]  dma_local_write_data;
-    wire [7:0]  dma_local_read_data_wire;
+    wire [AXI_DATA_W-1:0] dma_local_write_data;
+    wire [AXI_DATA_W-1:0] dma_local_read_data_wire;
+    wire                  dma_split_write_ok;
+    wire                  dma_split_write_drop;
 
     // Scratchpad port B read data
     wire [SP_DATA_W-1:0] sp_b_read_data;
@@ -147,7 +153,7 @@ module gpu_system_top #(
     wire [15:0] evt_macs = 16'd0;      // Connected when compute pipeline is integrated
     wire [15:0] evt_zero_skips = 16'd0; // Connected when compute pipeline is integrated
     wire        evt_mem_read  = cp_sp_read_en || dma_local_read_en;
-    wire        evt_mem_write = cp_sp_write_en || dma_local_write_en;
+    wire        evt_mem_write = cp_sp_write_en || dma_split_write_ok;
     wire        evt_parity_error = 1'b0;
 
     // Perf counter read interface
@@ -155,21 +161,49 @@ module gpu_system_top #(
     wire [31:0] perf_read_data;
 
     // IRQ aggregation
-    wire [7:0] irq_pending = {6'd0, dma_interrupt, cp_interrupt};
+    wire [7:0] irq_pending = {5'd0, internal_error, dma_interrupt, cp_interrupt};
 
     // Compute done stub (connect to actual compute units when integrated)
     // For now, auto-ack compute immediately so command processor doesn't hang
     reg compute_done_reg;
+    reg err_compute_stub;
+    reg err_dma_adapt;
+    wire internal_error = err_compute_stub | err_dma_adapt;
     always @(posedge clk) begin
-        if (rst_sync)
+        if (rst_sync) begin
             compute_done_reg <= 1'b0;
-        else
+            err_compute_stub <= 1'b0;
+            err_dma_adapt <= 1'b0;
+        end else begin
             compute_done_reg <= cp_compute_start;
+            if (cp_compute_start)
+                err_compute_stub <= 1'b1;
+            if (dma_split_write_drop)
+                err_dma_adapt <= 1'b1;
+        end
     end
     assign cp_compute_done = compute_done_reg;
 
-    // DMA local read data: extract low byte from scratchpad 16-bit read
-    assign dma_local_read_data_wire = sp_b_read_data[7:0];
+    // DMA local read data: scratchpad is narrower than AXI read width.
+    assign dma_local_read_data_wire = {{(AXI_DATA_W-SP_DATA_W){1'b0}}, sp_b_read_data};
+
+    // DMA 32-bit to scratchpad 16-bit adaptation for ext->local transfers.
+    wire [LOCAL_ADDR_W-1:0] dma_word_addr_lo = dma_local_write_addr >> 1;
+    wire [LOCAL_ADDR_W-1:0] dma_word_addr_hi = (dma_local_write_addr >> 1) + {{(LOCAL_ADDR_W-1){1'b0}}, 1'b1};
+    wire dma_split_addr_in_range = (dma_word_addr_lo < SP_DEPTH) && (dma_word_addr_hi < SP_DEPTH);
+    wire dma_split_addr_aligned  = (dma_local_write_addr[1:0] == 2'b00);
+    assign dma_split_write_ok = dma_local_write_en && dma_split_addr_aligned && dma_split_addr_in_range;
+    assign dma_split_write_drop = dma_local_write_en && !dma_split_write_ok;
+
+    wire sp_a_write_en = cp_sp_write_en || dma_split_write_ok;
+    wire [LOCAL_ADDR_W-1:0] sp_a_write_addr = dma_split_write_ok ? dma_word_addr_hi : cp_sp_write_addr;
+    wire [SP_DATA_W-1:0] sp_a_write_data = dma_split_write_ok ?
+        dma_local_write_data[(SP_DATA_W*2)-1:SP_DATA_W] :
+        cp_sp_write_data;
+
+    wire dma_b_write_en = dma_split_write_ok;
+    wire [LOCAL_ADDR_W-1:0] dma_b_write_addr = dma_word_addr_lo;
+    wire [SP_DATA_W-1:0] dma_b_write_data = dma_local_write_data[SP_DATA_W-1:0];
 
     // ================================================================
     // Module instantiations
@@ -206,7 +240,7 @@ module gpu_system_top #(
         .cfg_dq_scale(cfg_dq_scale), .cfg_dq_offset(cfg_dq_offset),
         .cfg_infer_start(cfg_infer_start), .cfg_token_in(cfg_token_in),
         .cfg_position_in(cfg_position_in), .cfg_irq_enable(cfg_irq_enable),
-        .status_busy(cp_busy), .status_idle(cp_idle), .status_error(1'b0),
+        .status_busy(cp_busy), .status_idle(cp_idle), .status_error(cp_error | dma_error | internal_error),
         .status_token_out(16'd0),
         .irq_pending(irq_pending),
         .irq_out(irq_out)
@@ -232,6 +266,7 @@ module gpu_system_top #(
         .compute_size(cp_compute_size), .compute_flags(cp_compute_flags),
         .compute_done(cp_compute_done),
         .busy(cp_busy), .idle(cp_idle), .cmds_executed(cp_cmds_executed),
+        .error_out(cp_error),
         .interrupt_out(cp_interrupt)
     );
 
@@ -265,17 +300,17 @@ module gpu_system_top #(
         .a_read_addr(cp_sp_read_addr[$clog2(SP_DEPTH)-1:0]),
         .a_read_data(cp_sp_read_data),
         .a_read_valid(),
-        .a_write_en(cp_sp_write_en),
-        .a_write_addr(cp_sp_write_addr[$clog2(SP_DEPTH)-1:0]),
-        .a_write_data(cp_sp_write_data),
+        .a_write_en(sp_a_write_en),
+        .a_write_addr(sp_a_write_addr[$clog2(SP_DEPTH)-1:0]),
+        .a_write_data(sp_a_write_data),
         // Port B: DMA engine
         .b_read_en(dma_local_read_en),
         .b_read_addr(dma_local_read_addr[$clog2(SP_DEPTH)-1:0]),
         .b_read_data(sp_b_read_data),
         .b_read_valid(sp_b_read_valid),
-        .b_write_en(dma_local_write_en),
-        .b_write_addr(dma_local_write_addr[$clog2(SP_DEPTH)-1:0]),
-        .b_write_data({8'd0, dma_local_write_data}),
+        .b_write_en(dma_b_write_en),
+        .b_write_addr(dma_b_write_addr[$clog2(SP_DEPTH)-1:0]),
+        .b_write_data(dma_b_write_data),
         .usage_count()
     );
 
@@ -292,7 +327,7 @@ module gpu_system_top #(
         .local_addr(cp_dma_local_addr),
         .transfer_len(cp_dma_length),
         .direction(1'b0),  // Default: ext→local
-        .done(dma_done), .busy(dma_busy),
+        .done(dma_done), .busy(dma_busy), .error(dma_error),
         // AXI4 Master
         .m_axi_arvalid(m_axi_arvalid), .m_axi_arready(m_axi_arready),
         .m_axi_araddr(m_axi_araddr), .m_axi_arlen(m_axi_arlen),

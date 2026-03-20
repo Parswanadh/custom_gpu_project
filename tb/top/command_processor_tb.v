@@ -39,6 +39,7 @@ module command_processor_tb;
     // Status
     wire                    busy, idle;
     wire [31:0]             cmds_executed;
+    wire                    error_out;
     wire                    interrupt_out;
 
     command_processor #(
@@ -54,6 +55,7 @@ module command_processor_tb;
         .compute_src_addr(compute_src_addr), .compute_dst_addr(compute_dst_addr),
         .compute_size(compute_size), .compute_flags(compute_flags), .compute_done(compute_done),
         .busy(busy), .idle(idle), .cmds_executed(cmds_executed),
+        .error_out(error_out),
         .interrupt_out(interrupt_out)
     );
 
@@ -213,6 +215,30 @@ module command_processor_tb;
         end else begin
             $display("[FAIL] CMD_ACTIVATION: compute not triggered");
             fail_count = fail_count + 1;
+        end
+
+        // Test 7: WAIT_COMP timeout should fail-closed and surface error_out
+        $display("[7] Testing compute wait watchdog timeout...");
+        begin : test_watchdog
+            integer t;
+            reg saw_error;
+            reg saw_busy;
+            saw_error = 1'b0;
+            saw_busy = 1'b0;
+            push_cmd(make_cmd(8'h02, 8'h00, 16'h0000, 16'h0000, 16'h0002));
+            for (t = 0; t < 1200; t = t + 1) begin
+                @(posedge clk);
+                if (error_out) saw_error = 1'b1;
+                if (busy) saw_busy = 1'b1;
+                if (saw_busy && idle) t = 1200;
+            end
+            if (saw_busy && idle && saw_error) begin
+                $display("[PASS] Watchdog timeout returned to IDLE and asserted error_out");
+                pass_count = pass_count + 1;
+            end else begin
+                $display("[FAIL] Watchdog timeout missing: saw_busy=%b idle=%b saw_error=%b", saw_busy, idle, saw_error);
+                fail_count = fail_count + 1;
+            end
         end
 
         #20;

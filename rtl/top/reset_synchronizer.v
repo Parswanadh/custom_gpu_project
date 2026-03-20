@@ -7,6 +7,8 @@
 //
 // Usage: One instance per clock domain, placed at the top level.
 // ============================================================================
+`timescale 1ns / 1ps
+
 module reset_synchronizer (
     input  wire clk,
     input  wire rst_async_n,    // Active-low asynchronous reset

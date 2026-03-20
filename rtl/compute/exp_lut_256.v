@@ -12,9 +12,11 @@
 //   Index = clamp(-x_in >> 2, 0, 255)
 //   This maps Q8.8 range [-4.0, 0] → LUT index [0, 255]
 // ============================================================================
+`timescale 1ns / 1ps
+
 module exp_lut_256 (
     input  wire signed [15:0] x_in,    // Q8.8 input (expected <= 0)
-    output reg         [7:0]  exp_out  // Q0.8 output [1,255]
+    output wire        [7:0]  exp_out  // Q0.8 output [1,255]
 );
 
     reg [7:0] lut [0:255];
@@ -96,8 +98,6 @@ module exp_lut_256 (
     wire [7:0]  idx = (shifted > 16'd255) ? 8'd255 :
                       (neg_x < 0) ? 8'd0 : shifted[7:0];
 
-    always @(*) begin
-        exp_out = lut[idx];
-    end
+    assign exp_out = lut[idx];
 
 endmodule

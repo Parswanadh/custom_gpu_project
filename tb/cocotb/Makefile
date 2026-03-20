@@ -9,6 +9,9 @@ VERILOG_SOURCES = $(shell pwd)/../../rtl/gpt2/embedding_lookup.v \
                   $(shell pwd)/../../rtl/transformer/attention_unit.v \
                   $(shell pwd)/../../rtl/transformer/ffn_block.v \
                   $(shell pwd)/../../rtl/transformer/linear_layer.v \
+                  $(shell pwd)/../../rtl/compute/gelu_lut_256.v \
+                  $(shell pwd)/../../rtl/compute/exp_lut_256.v \
+                  $(shell pwd)/../../rtl/compute/inv_sqrt_lut_256.v \
                   $(shell pwd)/../../rtl/compute/gelu_activation.v \
                   $(shell pwd)/../../rtl/compute/softmax_unit.v
 

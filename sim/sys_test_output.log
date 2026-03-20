@@ -10,14 +10,15 @@
 [4] Dispatching NOP command...
 [PASS] NOP completed, GPU idle
 [5] Dispatching MATMUL command...
-[PASS] MATMUL completed (auto-ack), GPU idle
+[PASS] MATMUL completed with expected compute-stub error latch
 [6] Dispatching FENCE command...
 [PASS] FENCE generated interrupt
 [7] Checking performance counters...
 [PASS] Cycle counter running: 71
 [8] Multiple commands in sequence...
-[PASS] Multiple commands completed successfully
+[PASS] Multiple commands completed and stub error remained visible
 ============================================
   Results: 8 PASSED, 0 FAILED
 ============================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/top/gpu_system_top_tb.v:279: $finish called at 1275000 (1ps)
+TB_RESULT pass=8 fail=0
+D:\Projects\BitbyBit\custom_gpu_project\tb/top/gpu_system_top_tb.v:318: $finish called at 1275000 (1ps)

@@ -140,35 +140,67 @@ module paged_attention_mmu #(
                 end
             end
             
-            // ---- Page Allocation ----
-            if (alloc_valid) begin
-                if (has_free_page) begin
-                    // Map virtual page to first free physical page
-                    page_table[alloc_virtual_page] <= first_free_page;
-                    page_valid[alloc_virtual_page] <= 1'b1;
-                    free_bitmap[first_free_page]   <= 1'b0;  // Mark as allocated
-                    alloc_physical_page <= first_free_page;
-                    alloc_done <= 1'b1;
-                    alloc_fail <= 1'b0;
-                    pages_allocated <= pages_allocated + 1;
-                    pages_free      <= pages_free - 1;
-                end else begin
-                    // No free pages — Out of Memory
-                    alloc_done <= 1'b1;
-                    alloc_fail <= 1'b1;
-                end
-            end
-            
-            // ---- Page Deallocation ----
-            if (free_valid) begin
+            // ---- Allocation/Deallocation arbitration ----
+            // Hard fail on concurrent alloc+free to avoid same-cycle alias races.
+            if (alloc_valid && free_valid) begin
                 if (page_valid[free_virtual_page]) begin
-                    // Return the physical page to the free pool
                     free_bitmap[page_table[free_virtual_page]] <= 1'b1;
                     page_valid[free_virtual_page] <= 1'b0;
+                    page_table[free_virtual_page] <= {PHYS_ADDR_BITS{1'b0}};
                     pages_allocated <= pages_allocated - 1;
                     pages_free      <= pages_free + 1;
                 end
-                free_done <= 1'b1;
+                free_done  <= 1'b1;
+                alloc_done <= 1'b1;
+                alloc_fail <= 1'b1;
+            end else begin
+                // ---- Page Allocation ----
+                if (alloc_valid) begin
+                    if (page_valid[alloc_virtual_page]) begin
+                        // Remap policy: if already mapped, move to a fresh page and
+                        // release the previous one in the same transaction.
+                        if (has_free_page) begin
+                            free_bitmap[page_table[alloc_virtual_page]] <= 1'b1;
+                            free_bitmap[first_free_page] <= 1'b0;
+                            page_table[alloc_virtual_page] <= first_free_page;
+                            alloc_physical_page <= first_free_page;
+                            alloc_done <= 1'b1;
+                            alloc_fail <= 1'b0;
+                        end else begin
+                            // Preserve existing mapping if remap cannot be satisfied.
+                            alloc_physical_page <= page_table[alloc_virtual_page];
+                            alloc_done <= 1'b1;
+                            alloc_fail <= 1'b1;
+                        end
+                    end else if (has_free_page) begin
+                        // Map new virtual page to first free physical page.
+                        page_table[alloc_virtual_page] <= first_free_page;
+                        page_valid[alloc_virtual_page] <= 1'b1;
+                        free_bitmap[first_free_page]   <= 1'b0;  // Mark as allocated
+                        alloc_physical_page <= first_free_page;
+                        alloc_done <= 1'b1;
+                        alloc_fail <= 1'b0;
+                        pages_allocated <= pages_allocated + 1;
+                        pages_free      <= pages_free - 1;
+                    end else begin
+                        // No free pages — Out of Memory
+                        alloc_done <= 1'b1;
+                        alloc_fail <= 1'b1;
+                    end
+                end
+                
+                // ---- Page Deallocation ----
+                if (free_valid) begin
+                    if (page_valid[free_virtual_page]) begin
+                        // Return the physical page to the free pool
+                        free_bitmap[page_table[free_virtual_page]] <= 1'b1;
+                        page_valid[free_virtual_page] <= 1'b0;
+                        page_table[free_virtual_page] <= {PHYS_ADDR_BITS{1'b0}};
+                        pages_allocated <= pages_allocated - 1;
+                        pages_free      <= pages_free + 1;
+                    end
+                    free_done <= 1'b1;
+                end
             end
         end
     end

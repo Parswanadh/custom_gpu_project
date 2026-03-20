@@ -1,0 +1,13 @@
+=================================================
+   MEDUSA Multi-Head Draft Predictor Tests
+   Paper: 'MEDUSA' (Cai et al., 2024)
+   Config: 3 draft heads, 8 hidden dim
+=================================================
+[PASS] Test 1: 3 heads predicted tokens: T[t+1]=36, T[t+2]=72, T[t+3]=108
+[PASS] Test 2: Different heads ΓåÆ different predictions (head diversity)
+[PASS] Test 3: Verification ΓÇö all 3 heads accepted (100% accuracy)
+[PASS] Test 4: Partial verification ΓÇö head0 rejected, heads 1,2 accepted
+=================================================
+   MEDUSA Tests: 4 / 4 PASSED
+=================================================
+tb\compute\medusa_head_predictor_tb.v:94: $finish called at 360000 (1ps)

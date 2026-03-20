@@ -1,0 +1,63 @@
+╔══════════════════════════════════════════════════════════════╗
+║     BITBYBIT CUSTOM GPU — INTEGRATION SPEED BENCHMARK      ║
+║     Clock: 100 MHz (10 ns) — FPGA Target                   ║
+║     44 Modules, 220 Tests, All Integrations Active          ║
+╚══════════════════════════════════════════════════════════════╝
+
+━━━ BENCH 1: Standard MAC (16 ops) ━━━
+    Cycles: 18 | Throughput: 0 MAC/cycle | Result: 1048576
+    [PASS] Standard MAC: 18 cycles for 16 ops
+
+━━━ BENCH 2: BitNet 1.58 Ternary (16 weights, ZERO multipliers) ━━━
+    Cycles: 19 | Adds: 16 | Subs: 0 | Skips: 0
+    Result: 160 | Multipliers used: ZERO
+    [PASS] Ternary: 19 cycles for 16 weights
+
+━━━ BENCH 3: RoPE Encoding (8-dim Q+K rotation) ━━━
+    Cycles: 6 | Dim pairs processed: 4 | Throughput: 1.3 dims/cycle
+    [PASS] RoPE: 6 cycles for 8 dimensions
+
+━━━ BENCH 4: Grouped Query Attention (4Q/2KV heads) ━━━
+    Cycles: 2 | KV memory saved: 128 entries | Savings ratio: 2x
+    [PASS] GQA: 2 cycles for 4-head attention
+
+━━━ BENCH 5: GELU Activation (LUT-based) ━━━
+    Cycles: 2 | Input: 256 (Q8.8=1.0) | Output: 1764
+    [PASS] GELU: 2 cycles (single-cycle LUT!)
+
+━━━ BENCH 6: KV Cache INT4 Quantize+Dequantize (4 values) ━━━
+    Cycles: 4 | Compression: 16-bit -> 4-bit = 4x savings
+    Bytes saved so far: 4
+    [PASS] KV Q+DQ roundtrip: 4 cycles
+
+━━━ BENCH 7: MEDUSA 3-Head Draft Prediction ━━━
+    Cycles: 3 | Tokens predicted: 3 (t+1, t+2, t+3)
+    Predictions: [36, 72, 108]
+    [PASS] MEDUSA: 3 cycles for 3 draft tokens
+
+━━━ BENCH 8: Activation Compression (4 elements, 16→8 bit) ━━━
+    Cycles: 2 | Compression: 2x (16-bit -> 8-bit)
+    [PASS] Compression: 2 cycles for 4 elements
+
+━━━ BENCH 9: Online Softmax (4 elements, single-pass) ━━━
+    Cycles: 25 | Elements: 4 | Mode: single-pass streaming
+    [PASS] Softmax: 25 cycles for 4 elements
+
+╔══════════════════════════════════════════════════════════════╗
+║              INTEGRATION BENCHMARK SUMMARY                 ║
+╠══════════════════════════════════════════════════════════════╣
+║  Tests Passed: 9 / 9                                      ║
+║  Clock: 100 MHz (10 ns period)                             ║
+║                                                            ║
+║  KEY METRICS:                                              ║
+║  • MAC: 16 ops/pass — standard multiply-accumulate         ║
+║  • BitNet 1.58: ZERO multipliers — add/sub/skip only       ║
+║  • RoPE: Position encoding for ALL modern LLMs             ║
+║  • GQA: 2x KV cache reduction (4Q/2KV heads)              ║
+║  • KV INT4: 4x memory compression on cache                ║
+║  • Combined KV savings: GQA(2x) × INT4(4x) = 8x total     ║
+║  • MEDUSA: 3 parallel draft tokens per step                ║
+║  • GELU: Single-cycle LUT activation                       ║
+║  • Softmax: Single-pass online streaming                   ║
+╚══════════════════════════════════════════════════════════════╝
+tb/integration/integration_speed_benchmark_tb.v:433: $finish called at 1130000 (1ps)

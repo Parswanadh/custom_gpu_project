@@ -65,6 +65,7 @@ module accelerated_attention #(
     localparam S_CACHE    = 3;
     localparam S_SCORE    = 4;
     localparam S_SOFTMAX  = 5;
+    localparam S_SM_READ  = 9;
     localparam S_WGTV     = 6;
     localparam S_OUTPROJ  = 7;
     localparam S_DONE     = 8;
@@ -154,20 +155,26 @@ module accelerated_attention #(
 
             // --- SCORE: score[t] = Q dot K_cache[t] / sqrt(d) ---
             S_SCORE: begin
-                max_score <= -16'sd32767;
-                for (t = 0; t <= cur_pos; t = t + 1) begin
-                    acc = 0;
-                    for (j = 0; j < EMBED_DIM; j = j + 1) begin
-                        acc = acc + q_reg[j] * k_cache[t][j];
+                begin : score_reduce
+                    reg signed [DATA_WIDTH-1:0] score_val;
+                    reg signed [DATA_WIDTH-1:0] max_local;
+                    max_local = -16'sd32767;
+                    for (t = 0; t <= cur_pos; t = t + 1) begin
+                        acc = 0;
+                        for (j = 0; j < EMBED_DIM; j = j + 1) begin
+                            acc = acc + q_reg[j] * k_cache[t][j];
+                        end
+                        // Divide by sqrt(HEAD_DIM), approx >> 1
+                        score_val = (acc >>> 8) >>> 1;
+                        scores[t] <= score_val;
+                        if (score_val > max_local)
+                            max_local = score_val;
                     end
-                    // Divide by sqrt(HEAD_DIM), approx >> 1
-                    scores[t] <= (acc >>> 8) >>> 1;
-                    if ((acc >>> 9) > max_score)
-                        max_score <= acc >>> 9;
+                    max_score <= max_local;
                 end
                 sm_idx    <= 0;
                 sm_phase  <= 0;
-                exp_sum   = 16'd0;
+                exp_sum   <= 16'd0;
                 state <= S_SOFTMAX;
             end
 
@@ -179,10 +186,7 @@ module accelerated_attention #(
                     // Phase 0: compute exp values
                     if (sm_idx <= cur_pos) begin
                         lut_input <= scores[sm_idx] - max_score;
-                        // LUT output available combinationally
-                        probs[sm_idx] <= lut_output;
-                        exp_sum = exp_sum + {8'd0, lut_output};
-                        sm_idx <= sm_idx + 1;
+                        state <= S_SM_READ;
                     end else begin
                         // Done with exp, start normalize
                         sm_phase <= 1;
@@ -193,7 +197,10 @@ module accelerated_attention #(
                     if (sm_idx <= cur_pos) begin
                         begin : norm_block
                             reg [15:0] norm_val;
-                            norm_val = ({8'd0, probs[sm_idx]} * 16'd255) / exp_sum;
+                            if (exp_sum == 16'd0)
+                                norm_val = 16'd0;
+                            else
+                                norm_val = ({8'd0, probs[sm_idx]} * 16'd255) / exp_sum;
                             probs[sm_idx] <= (norm_val > 255) ? 8'd255 : norm_val[7:0];
                         end
                         sm_idx <= sm_idx + 1;
@@ -201,6 +208,14 @@ module accelerated_attention #(
                         state <= S_WGTV;
                     end
                 end
+            end
+
+            // LUT data is consumed in a dedicated state to avoid stale-read hazards
+            S_SM_READ: begin
+                probs[sm_idx] <= lut_output;
+                exp_sum <= exp_sum + {8'd0, lut_output};
+                sm_idx <= sm_idx + 1;
+                state <= S_SOFTMAX;
             end
 
             // --- WEIGHTED V: attn = sum(prob[t] * V[t]) ---

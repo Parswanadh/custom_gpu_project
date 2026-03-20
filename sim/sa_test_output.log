@@ -8,4 +8,4 @@ VCD info: dumpfile sim/waveforms/systolic_array.vcd opened for output.
 ============================================
   Results: 3 PASSED, 0 FAILED
 ============================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/compute/systolic_array_tb.v:186: $finish called at 766000 (1ps)
+D:\Projects\BitbyBit\custom_gpu_project\tb/compute/systolic_array_tb.v:188: $finish called at 766000 (1ps)

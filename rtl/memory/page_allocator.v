@@ -36,6 +36,22 @@ module page_allocator #(
     // Free page stack
     reg [PAGE_ID_WIDTH-1:0] free_stack [0:NUM_PAGES-1];
     reg [PAGE_ID_WIDTH:0]   stack_ptr;   // Points to top of stack (next free slot)
+    reg                     page_is_free [0:NUM_PAGES-1];
+
+    localparam [PAGE_ID_WIDTH:0] COUNT_ZERO = {(PAGE_ID_WIDTH+1){1'b0}};
+    localparam [PAGE_ID_WIDTH:0] COUNT_ONE  = {{PAGE_ID_WIDTH{1'b0}}, 1'b1};
+
+    wire alloc_can;
+    wire [PAGE_ID_WIDTH-1:0] alloc_candidate;
+    wire [PAGE_ID_WIDTH:0] stack_ptr_after_alloc;
+    wire free_can;
+
+    assign alloc_can = alloc_req && (stack_ptr > 0);
+    assign alloc_candidate = (stack_ptr > 0) ? free_stack[stack_ptr - 1] : {PAGE_ID_WIDTH{1'b0}};
+    assign stack_ptr_after_alloc = alloc_can ? (stack_ptr - COUNT_ONE) : stack_ptr;
+    assign free_can = free_req &&
+                      !page_is_free[free_page_id] &&
+                      (stack_ptr_after_alloc < NUM_PAGES);
 
     integer i;
 
@@ -46,25 +62,31 @@ module page_allocator #(
             free_count  <= NUM_PAGES;
             alloc_valid <= 1'b0;
             alloc_page_id <= 0;
-            for (i = 0; i < NUM_PAGES; i = i + 1)
+            for (i = 0; i < NUM_PAGES; i = i + 1) begin
                 free_stack[i] <= i[PAGE_ID_WIDTH-1:0];  // Page 0, 1, 2, ...
+                page_is_free[i] <= 1'b1;
+            end
         end else begin
             alloc_valid <= 1'b0;
 
-            // Allocate: pop from stack
-            if (alloc_req && stack_ptr > 0) begin
-                stack_ptr     <= stack_ptr - 1;
-                alloc_page_id <= free_stack[stack_ptr - 1];
+            // Deterministic ordering for same-cycle alloc/free:
+            // alloc is evaluated first, then free pushes to the post-alloc top.
+            if (alloc_can) begin
+                alloc_page_id <= alloc_candidate;
                 alloc_valid   <= 1'b1;
-                free_count    <= free_count - 1;
+                page_is_free[alloc_candidate] <= 1'b0;
             end
 
-            // Free: push back to stack
-            if (free_req && stack_ptr < NUM_PAGES) begin
-                free_stack[stack_ptr] <= free_page_id;
-                stack_ptr  <= stack_ptr + 1;
-                free_count <= free_count + 1;
+            // Drop invalid/double-free requests by requiring page_is_free=0.
+            if (free_can) begin
+                free_stack[stack_ptr_after_alloc] <= free_page_id;
+                page_is_free[free_page_id] <= 1'b1;
             end
+
+            stack_ptr  <= stack_ptr_after_alloc + (free_can ? COUNT_ONE : COUNT_ZERO);
+            free_count <= free_count
+                        + (free_can ? COUNT_ONE : COUNT_ZERO)
+                        - (alloc_can ? COUNT_ONE : COUNT_ZERO);
         end
     end
 

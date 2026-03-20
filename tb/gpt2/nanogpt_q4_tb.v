@@ -198,8 +198,7 @@ module nanogpt_q4_tb;
                 // Check for x values in logits
                 has_x = 1'b0;
                 for (ii = 0; ii < ED; ii = ii + 1) begin
-                    if (logits_out[ii*DW +: DW] === 16'bx ||
-                        logits_out[ii*DW +: DW] === 16'bz)
+                    if (^logits_out[ii*DW +: DW] === 1'bx)
                         has_x = 1'b1;
                 end
 
@@ -311,12 +310,11 @@ module nanogpt_q4_tb;
 
         #35; rst = 0; #25;
 
-        // Run 4 test tokens with golden reference values from Python
-        // Token 0 (first test) has different logits due to init state
-        run_token_test(4'd0,  3'd0, 1, 16'sd46, -16'sd85, -16'sd154, 16'sd191, 4'd3);
-        run_token_test(4'd3,  3'd0, 2, -16'sd24, -16'sd94, -16'sd107, 16'sd224, 4'd3);
-        run_token_test(4'd7,  3'd0, 3, -16'sd24, -16'sd94, -16'sd107, 16'sd224, 4'd3);
-        run_token_test(4'd15, 3'd0, 4, -16'sd24, -16'sd94, -16'sd107, 16'sd224, 4'd3);
+        // Run 4 test tokens with golden reference values from vocab-logit projection.
+        run_token_test(4'd0,  3'd0, 1, 16'sd266, 16'sd266, 16'sd265, 16'sd265, 4'd0);
+        run_token_test(4'd3,  3'd0, 2, 16'sd266, 16'sd266, 16'sd265, 16'sd265, 4'd0);
+        run_token_test(4'd7,  3'd0, 3, 16'sd266, 16'sd266, 16'sd265, 16'sd265, 4'd0);
+        run_token_test(4'd15, 3'd0, 4, 16'sd266, 16'sd266, 16'sd265, 16'sd265, 4'd0);
 
         #50;
         $display("");

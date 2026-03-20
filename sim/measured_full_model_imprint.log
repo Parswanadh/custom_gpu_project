@@ -1,0 +1,58 @@
+﻿
+================================================================
+  MINI IMPRINT 12-LAYER INFERENCE EMULATION
+  Architecture: hardwired embedding + 12x fixed-latency mini core
+  Pipeline: Imprint Embedding -> 12x Mini Core -> MEDUSA
+  Clock: 100 MHz | ALL numbers from simulation
+================================================================
+
+  [Embedding]  Token 5 -> imprint vector (1 cycle)
+    emb_out[0:3] = [300, 340, 380, 420]
+
+  Layer  Total   
+  -----  ------  
+  L1        8cy
+  L2        8cy
+  L3        8cy
+  L4        8cy
+  L5        8cy
+  L6        8cy
+  L7        8cy
+  L8        8cy
+  L9        8cy
+  L10       8cy
+  L11       8cy
+  L12       8cy
+
+  [MEDUSA]     3 draft token predictions (3 cycles)
+    Predicted tokens: [217, 179, 141]
+
+================================================================
+  MINI IMPRINT INFERENCE RESULTS (ALL measured)
+================================================================
+
+  STAGE                    CYCLES    TIME @100MHz
+  -----                    ------    ------------
+  Imprint Embedding           1 cy      10 ns
+  12x Mini Core Layers       96 cy     960 ns
+    Per-layer average         8 cy      80 ns
+  MEDUSA Prediction           3 cy      30 ns
+  -----------------------------------------
+  TOTAL INFERENCE           112 cy    1120 ns
+
+  Throughput:
+    Single token:    112 cycles = 1120 ns = 1.120 us
+    Tokens/second:   ~892857 (100 MHz FPGA)
+    MEDUSA draft:    3 tokens predicted -> effective 2678571 tok/s
+
+[PASS] Test 1: MINI imprint embedding active and non-zero
+[PASS] Test 2: 12 layers completed at fixed 8-cycle latency
+[PASS] Test 3: Data transformed across layers
+[PASS] Test 4: MEDUSA produced predictions
+[PASS] Test 5: Total inference cycles in expected range
+
+================================================================
+  MINI Imprint Inference Tests: 5 / 5 PASSED
+================================================================
+D:\Projects\BitbyBit\custom_gpu_project\tb\integration\full_model_inference_imprint_tb.v:349: $finish called at 1460000 (1ps)
+

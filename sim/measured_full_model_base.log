@@ -1,0 +1,86 @@
+﻿
+================================================================
+  GPT-2 12-LAYER INFERENCE EMULATION
+  Architecture: 12 transformer layers, 8-dim, 4Q/2KV heads
+  Pipeline: Embedding ΓåÆ 12├ù reused [RoPEΓåÆGQAΓåÆSMΓåÆGELUΓåÆKVQΓåÆComp] ΓåÆ MEDUSA
+  Clock: 100 MHz | ALL numbers from simulation
+================================================================
+
+--- Loading Model Weights ---
+  Loaded: 16 token embeddings x 8 dims
+  Loaded: 8 position embeddings x 8 dims
+  Loaded: 3 MEDUSA head weights x 8 dims
+
+================================================================
+  INFERENCE: Token ID = 5, Position = 2
+================================================================
+
+  [Embedding]  Token 5 ΓåÆ embedding vector (2 cycle)
+    emb_out[0:3] = [300, 340, 380, 420]
+    emb_out[4:7] = [460, 500, 540, 580]
+
+  Layer  RoPE     GQA    SM     GELU   KVQ    Comp   Total   
+  -----  ------   ----   ----   ----   ----   ----   ------  
+  L1        8cy     3cy    9cy    3cy    3cy    3cy    23cy
+  L2        8cy     3cy    9cy    3cy    3cy    3cy    23cy
+  L3        8cy     3cy    9cy    3cy    3cy    3cy    23cy
+  L4        8cy     3cy    9cy    3cy    3cy    3cy    23cy
+  L5        8cy     3cy    9cy    3cy    3cy    3cy    23cy
+  L6        8cy     3cy    9cy    3cy    3cy    3cy    23cy
+  L7        8cy     3cy    9cy    3cy    3cy    3cy    23cy
+  L8        8cy     3cy    9cy    3cy    3cy    3cy    23cy
+  L9        8cy     3cy    9cy    3cy    3cy    3cy    23cy
+  L10       8cy     3cy    9cy    3cy    3cy    3cy    23cy
+  L11       8cy     3cy    9cy    3cy    3cy    3cy    23cy
+  L12       8cy     3cy    9cy    3cy    3cy    3cy    23cy
+
+  Total layer processing: 276 cycles across 12 sequential layer passes
+
+  [MEDUSA]     3 draft token predictions (3 cycles)
+    Predicted tokens: [115, 231, 91]
+
+================================================================
+  12-LAYER INFERENCE EMULATION RESULTS (ALL measured)
+================================================================
+
+  STAGE                    CYCLES    TIME @100MHz
+  -----                    ------    ------------
+  Embedding Lookup            2 cy      20 ns
+  12x Transformer Layers    276 cy    2760 ns
+    Per-layer average        23 cy     230 ns
+  MEDUSA Prediction           3 cy      30 ns
+  -----------------------------------------
+  TOTAL INFERENCE           358 cy    3580 ns
+
+  Throughput:
+    Single token:    358 cycles = 3580 ns = 3.580 us
+    Tokens/second:   ~279329 (100 MHz FPGA)
+    MEDUSA draft:    3 tokens predicted ΓåÆ effective 837988 tok/s
+
+  DATA TRANSFORMATION PROOF:
+    Input:  Token ID 5 ΓåÆ emb = [300, 340, 380, 420, ...]
+    After L1:  [227, 391, 189, 1891, ...]
+    After L6:  [-201, 402, -2868, 0, ...]
+    After L12: [-448, -37, -5275, 0, ...]
+    Output:    Token predictions = [115, 231, 91]
+
+  HARDWARE USED:
+    Multipliers:     0 (BitNet ternary)
+    KV heads:        2 shared (vs 4 in standard)
+    KV precision:    4-bit (INT4 quantized)
+    Activations:     8-bit compressed
+    Position enc:    Hardware RoPE
+    Draft decoding:  MEDUSA 3-head
+
+[PASS] Test 1: Embedding produced non-zero vector
+[PASS] Test 2: All 12 layers completed (276 total cycles)
+[PASS] Test 3: Data transforms across layers (L0 != L1 != L12)
+[PASS] Test 4: MEDUSA produced 3 draft token predictions
+[PASS] Test 5: Total inference = 358 cycles (reasonable for 12-layer model)
+
+================================================================
+  12-Layer Inference Emulation Tests: 5 / 5 PASSED
+================================================================
+TB_RESULT pass=5 fail=0
+D:\Projects\BitbyBit\custom_gpu_project\tb\integration\full_model_inference_tb.v:445: $finish called at 5860000 (1ps)
+

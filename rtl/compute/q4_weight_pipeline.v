@@ -30,9 +30,9 @@ module q4_weight_pipeline #(
     input  wire         clk,
     input  wire         rst,
     input  wire         start,
-    input  wire [7:0]   activation_in,    // 8-bit activation to multiply
+    input  wire signed [7:0]   activation_in,    // signed 8-bit activation to multiply
     
-    output reg  [15:0]  mac_result,       // Accumulated result
+    output reg  signed [31:0]  mac_result,       // Accumulated result
     output reg          done,
     output reg  [31:0]  weights_processed
 );
@@ -52,12 +52,19 @@ module q4_weight_pipeline #(
     localparam DECOMPRESS      = 3'd2;
     localparam MAC_ACCUMULATE  = 3'd3;
     localparam DONE_STATE      = 3'd4;
+    localparam WEIGHTS_PER_WORD = 8;
     
     reg [3:0] word_idx;
     reg [2:0] weight_in_word;
     reg signed [7:0] current_weight;
-    reg signed [15:0] accumulator;
+    reg signed [31:0] accumulator;
     reg [31:0] current_word;
+    reg [31:0] weight_idx_global;
+    reg [31:0] group_idx;
+    reg signed [9:0] shifted_weight;
+    reg signed [18:0] scaled_weight;
+    reg signed [7:0] quantized_weight;
+    reg signed [31:0] mac_term;
     
     integer i;
 
@@ -65,9 +72,9 @@ module q4_weight_pipeline #(
         if (rst) begin
             state <= IDLE;
             done  <= 1'b0;
-            mac_result <= 16'd0;
+            mac_result <= 32'sd0;
             weights_processed <= 32'd0;
-            accumulator <= 16'sd0;
+            accumulator <= 32'sd0;
             word_idx <= 0;
             weight_in_word <= 0;
             
@@ -83,10 +90,10 @@ module q4_weight_pipeline #(
             weight_mem[3] <= {4'hF, 4'hF, 4'hF, 4'hF, 4'h7, 4'h7, 4'h7, 4'h7};
             
             // Per-group quantization parameters
-            group_zp[0]    <= 8'd0;   group_scale[0] <= 8'd200;
-            group_zp[1]    <= 8'd0;   group_scale[1] <= 8'd200;
-            group_zp[2]    <= 8'd0;   group_scale[2] <= 8'd200;
-            group_zp[3]    <= 8'd0;   group_scale[3] <= 8'd200;
+            for (i = 0; i < NUM_WEIGHTS/GROUP_SIZE; i = i + 1) begin
+                group_zp[i]    <= 8'd0;
+                group_scale[i] <= 8'd1;
+            end
         end else begin
             case (state)
                 IDLE: begin
@@ -94,7 +101,7 @@ module q4_weight_pipeline #(
                     if (start) begin
                         word_idx <= 0;
                         weight_in_word <= 0;
-                        accumulator <= 16'sd0;
+                        accumulator <= 32'sd0;
                         weights_processed <= 0;
                         state <= LOAD_WORD;
                     end
@@ -125,15 +132,32 @@ module q4_weight_pipeline #(
                 
                 // Multiply weight × activation, accumulate
                 MAC_ACCUMULATE: begin
-                    // MAC: accumulator += weight * activation
-                    accumulator <= accumulator + (current_weight * $signed({1'b0, activation_in}));
+                    // Apply per-group quantization params before MAC:
+                    // dequant_weight = (weight - group_zp[group]) * group_scale[group]
+                    weight_idx_global = (word_idx * WEIGHTS_PER_WORD) + weight_in_word;
+                    group_idx = weight_idx_global / GROUP_SIZE;
+                    shifted_weight = $signed({{2{current_weight[7]}}, current_weight})
+                                   - $signed({2'b00, group_zp[group_idx]});
+                    scaled_weight = shifted_weight * $signed({1'b0, group_scale[group_idx]});
+
+                    if (scaled_weight > 127)
+                        quantized_weight = 8'sd127;
+                    else if (scaled_weight < -128)
+                        quantized_weight = -8'sd128;
+                    else
+                        quantized_weight = scaled_weight[7:0];
+
+                    mac_term = quantized_weight * activation_in;
+
+                    // MAC: accumulator += dequantized_weight * activation
+                    accumulator <= accumulator + mac_term;
                     weights_processed <= weights_processed + 1;
                     
-                    if (weight_in_word == 7) begin
+                    if (weight_in_word == WEIGHTS_PER_WORD - 1) begin
                         // Finished all 8 weights in this word
                         if (word_idx == NUM_WEIGHTS/8 - 1) begin
                             // All words processed
-                            mac_result <= accumulator + (current_weight * $signed({1'b0, activation_in}));
+                            mac_result <= accumulator + mac_term;
                             state <= DONE_STATE;
                         end else begin
                             word_idx <= word_idx + 1;

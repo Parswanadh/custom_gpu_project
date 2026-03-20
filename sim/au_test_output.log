@@ -6,23 +6,23 @@ VCD info: dumpfile sim/waveforms/attention_unit.vcd opened for output.
     Done loading weights.
 
 [2] Test: Single token, identity weights
-    Output received after 10 cycles
-    y[0] = 0 (0.000)
-    y[1] = 0 (0.000)
-    y[2] = 0 (0.000)
-    y[3] = 0 (0.000)
-    Zero-skips: 1
+    Output received after 11 cycles
+    y[0] = 255 (0.996)
+    y[1] = 510 (1.992)
+    y[2] = 765 (2.988)
+    y[3] = 1020 (3.984)
+    Zero-skips: 0
 [PASS] Single token with identity weights
 
 [3] Test: Second token (KV cache)
-    Output received after 12 cycles
-    y[0] = 381 (1.488)
-    y[1] = 508 (1.984)
-    y[2] = 635 (2.480)
-    y[3] = 762 (2.977)
+    Output received after 14 cycles
+    y[0] = 161 (0.629)
+    y[1] = 288 (1.125)
+    y[2] = 415 (1.621)
+    y[3] = 542 (2.117)
 [PASS] Second token with KV cache
 
 ============================================
   Results: 2 passed, 0 failed
 ============================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/transformer/attention_unit_tb.v:165: $finish called at 1050000 (1ps)
+D:\Projects\BitbyBit\custom_gpu_project\tb/transformer/attention_unit_tb.v:165: $finish called at 1080000 (1ps)

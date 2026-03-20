@@ -9,9 +9,11 @@
 [PASS] Port A: read 0xdead from addr 30 (cross-port)
 [4] Simultaneous write from Port A and Port B...
 [PASS] Simultaneous writes: addr40=0x1111, addr50=0x2222
-[5] Burst write/read pattern...
+[5] Same-address simultaneous write (Port B priority)...
+[PASS] Collision policy enforced: addr60=0xbbbb (Port B wins)
+[6] Burst write/read pattern...
 [PASS] Burst write/read: 8 values verified
 ============================================
-  Results: 5 PASSED, 0 FAILED
+  Results: 6 PASSED, 0 FAILED
 ============================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/memory/scratchpad_tb.v:215: $finish called at 605000 (1ps)
+D:\Projects\BitbyBit\custom_gpu_project\tb/memory/scratchpad_tb.v:244: $finish called at 655000 (1ps)

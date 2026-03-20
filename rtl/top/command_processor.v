@@ -21,10 +21,13 @@
 //
 //   Connects to: scratchpad, gpu_core, DMA engine, activation units
 // ============================================================================
+`timescale 1ns / 1ps
+
 module command_processor #(
     parameter CMD_WIDTH   = 64,
     parameter FIFO_DEPTH  = 16,
-    parameter ADDR_WIDTH  = 16
+    parameter ADDR_WIDTH  = 16,
+    parameter WAIT_TIMEOUT_CYCLES = 16'd1024
 )(
     input  wire                    clk,
     input  wire                    rst,
@@ -62,6 +65,7 @@ module command_processor #(
     output reg                     busy,
     output reg                     idle,
     output reg  [31:0]             cmds_executed,
+    output reg                     error_out,
 
     // Interrupt
     output reg                     interrupt_out       // Pulse when FENCE completes
@@ -111,6 +115,7 @@ module command_processor #(
     localparam WAIT_DMA   = 4'd2;
     localparam WAIT_COMP  = 4'd3;
     localparam FENCE_WAIT = 4'd4;
+    reg [15:0] wait_counter;
 
     // Current command decode
     reg [CMD_WIDTH-1:0] cur_cmd;
@@ -127,13 +132,16 @@ module command_processor #(
             idle           <= 1'b1;
             cmds_executed  <= 32'd0;
             interrupt_out  <= 1'b0;
+            error_out      <= 1'b0;
             dma_start      <= 1'b0;
             compute_start  <= 1'b0;
             sp_read_en     <= 1'b0;
             sp_write_en    <= 1'b0;
             fifo_rd_ptr    <= 0;
+            wait_counter   <= 16'd0;
         end else begin
             interrupt_out  <= 1'b0;
+            error_out      <= 1'b0;
             dma_start      <= 1'b0;
             compute_start  <= 1'b0;
             sp_read_en     <= 1'b0;
@@ -164,6 +172,7 @@ module command_processor #(
                             dma_ext_addr   <= {16'd0, cur_src};
                             dma_local_addr <= cur_dst;
                             dma_length     <= cur_size;
+                            wait_counter   <= 16'd0;
                             state <= WAIT_DMA;
                         end
 
@@ -175,6 +184,7 @@ module command_processor #(
                             compute_dst_addr <= cur_dst;
                             compute_size     <= cur_size;
                             compute_flags    <= cur_flags;
+                            wait_counter     <= 16'd0;
                             state <= WAIT_COMP;
                         end
 
@@ -183,6 +193,7 @@ module command_processor #(
                         end
 
                         default: begin
+                            error_out <= 1'b1;
                             cmds_executed <= cmds_executed + 1;
                             state <= IDLE_ST;
                         end
@@ -190,14 +201,28 @@ module command_processor #(
                 end
 
                 WAIT_DMA: begin
+                    wait_counter <= wait_counter + 1'b1;
                     if (dma_done) begin
+                        wait_counter <= 16'd0;
+                        cmds_executed <= cmds_executed + 1;
+                        state <= IDLE_ST;
+                    end else if (wait_counter >= WAIT_TIMEOUT_CYCLES) begin
+                        wait_counter <= 16'd0;
+                        error_out <= 1'b1;
                         cmds_executed <= cmds_executed + 1;
                         state <= IDLE_ST;
                     end
                 end
 
                 WAIT_COMP: begin
+                    wait_counter <= wait_counter + 1'b1;
                     if (compute_done) begin
+                        wait_counter <= 16'd0;
+                        cmds_executed <= cmds_executed + 1;
+                        state <= IDLE_ST;
+                    end else if (wait_counter >= WAIT_TIMEOUT_CYCLES) begin
+                        wait_counter <= 16'd0;
+                        error_out <= 1'b1;
                         cmds_executed <= cmds_executed + 1;
                         state <= IDLE_ST;
                     end

@@ -16,6 +16,7 @@ import os
 import sys
 import time
 import argparse
+import shutil
 
 sys.path.insert(0, os.path.dirname(__file__))
 from extract_gpt2_weights import (
@@ -24,8 +25,27 @@ from extract_gpt2_weights import (
     run_float32_reference, layer_norm_f32, gelu_f32, extract_ln
 )
 
-IVERILOG = r"D:\Tools\iverilog\bin\iverilog.exe"
-VVP      = r"D:\Tools\iverilog\bin\vvp.exe"
+def resolve_executable(env_var, default_path, fallback_command):
+    """Resolve tool path via env var, fixed default path, or PATH fallback."""
+    explicit = os.environ.get(env_var, "").strip()
+    if explicit:
+        if os.path.isfile(explicit):
+            return explicit
+        raise RuntimeError(f"{env_var} is set but file does not exist: {explicit}")
+
+    if os.path.isfile(default_path):
+        return default_path
+
+    discovered = shutil.which(fallback_command)
+    if discovered:
+        return discovered
+
+    raise RuntimeError(
+        f"Unable to locate {fallback_command}. Set {env_var} or install it in PATH."
+    )
+
+IVERILOG = resolve_executable("BITBYBIT_IVERILOG", r"D:\Tools\iverilog\bin\iverilog.exe", "iverilog")
+VVP      = resolve_executable("BITBYBIT_VVP", r"D:\Tools\iverilog\bin\vvp.exe", "vvp")
 
 CHAR_TO_TOKEN = {
     ' ':  0,  'a':  1,  'b':  2,  'c':  3,
@@ -82,14 +102,15 @@ def generate_testbench(token_sequence, tb_path, hex_dir, ED, FD, VS, MSL, NL, NH
     tk_bits = max(1, int(np.ceil(np.log2(VS))))
     pos_bits = max(1, int(np.ceil(np.log2(MSL))))
     dim_bits = max(1, int(np.ceil(np.log2(ED))))
-    ffn_bits = max(1, int(np.ceil(np.log2(FD))))
+    ffn_bits = max(1, int(np.ceil(np.log2(max(FD, ED)))))
+    layer_bits = max(1, int(np.ceil(np.log2(NL + 1))))
 
     # Convert hex_dir to forward slashes for Verilog
     hex_fwd = hex_dir.replace('\\', '/')
 
     L = []
     L.append('`timescale 1ns/1ps')
-    L.append(f'module scaled_cosim_tb;')
+    L.append('module scaled_cosim_tb;')
     L.append(f'  parameter VOCAB_SIZE  = {VS};')
     L.append(f'  parameter MAX_SEQ_LEN = {MSL};')
     L.append(f'  parameter EMBED_DIM   = {ED};')
@@ -109,27 +130,34 @@ def generate_testbench(token_sequence, tb_path, hex_dir, ED, FD, VS, MSL, NL, NH
     L.append(f'  reg signed [{DW-1}:0] load_emb_data;')
     L.append(f'  reg [{pos_bits-1}:0] load_pos_idx;')
     L.append('')
-
-    # Weight buses — declared as regs
-    L.append(f'  reg [{ED*DW-1}:0] ln1_gamma, ln1_beta;')
-    L.append(f'  reg [{ED*DW-1}:0] ln2_gamma, ln2_beta;')
-    L.append(f'  reg [{ED*DW-1}:0] ln_final_gamma, ln_final_beta;')
-    L.append(f'  reg [{ED*ED*DW-1}:0] wq_flat, wk_flat, wv_flat, wo_flat;')
-    L.append(f'  reg [{ED*FD*DW-1}:0] ffn_w1_flat;')
-    L.append(f'  reg [{FD*DW-1}:0] ffn_b1_flat;')
-    L.append(f'  reg [{FD*ED*DW-1}:0] ffn_w2_flat;')
-    L.append(f'  reg [{ED*DW-1}:0] ffn_b2_flat;')
+    L.append('  // Load-based transformer weight interface')
+    L.append('  reg load_ln_en;')
+    L.append(f'  reg [{layer_bits-1}:0] load_layer_idx;')
+    L.append('  reg load_ln_sel, load_ln_is_gamma;')
+    L.append(f'  reg [{dim_bits-1}:0] load_ln_dim;')
+    L.append(f'  reg signed [{DW-1}:0] load_ln_data;')
+    L.append('  reg load_attn_weight_en;')
+    L.append('  reg [1:0] load_attn_matrix_sel;')
+    L.append(f'  reg [{dim_bits-1}:0] load_attn_row, load_attn_col;')
+    L.append(f'  reg signed [{DW-1}:0] load_attn_data;')
+    L.append('  reg load_ffn_weight_en;')
+    L.append('  reg load_ffn_layer_sel, load_ffn_is_bias;')
+    L.append(f'  reg [{ffn_bits-1}:0] load_ffn_row, load_ffn_col;')
+    L.append(f'  reg signed [{DW-1}:0] load_ffn_data;')
+    L.append('')
     L.append(f'  wire [{tk_bits-1}:0] token_out;')
     L.append(f'  wire [{ED*DW-1}:0] logits_out;')
     L.append('  wire valid_out;')
+    L.append('  wire [31:0] total_zero_skips;')
+    L.append('  wire [31:0] total_cycles_hw;')
     L.append('  integer cycle_count;')
     L.append('  integer total_cycles;')
     L.append('  integer token_count;')
-    L.append('  integer idx;')
+    L.append('  integer idx, row_idx, col_idx, layer_idx_i;')
     L.append('')
 
     # Memory arrays for $readmemh
-    L.append(f'  // Memory arrays for weight loading')
+    L.append('  // Memory arrays for weight loading')
     L.append(f'  reg [{DW-1}:0] tok_emb_mem  [0:{VS*ED-1}];')
     L.append(f'  reg [{DW-1}:0] pos_emb_mem  [0:{MSL*ED-1}];')
     L.append(f'  reg [{DW-1}:0] ln1g_mem     [0:{ED-1}];')
@@ -159,25 +187,34 @@ def generate_testbench(token_sequence, tb_path, hex_dir, ED, FD, VS, MSL, NL, NH
     L.append('    .load_token_emb(load_token_emb), .load_token_idx(load_token_idx),')
     L.append('    .load_dim_idx(load_dim_idx), .load_emb_data(load_emb_data),')
     L.append('    .load_pos_emb(load_pos_emb), .load_pos_idx(load_pos_idx),')
-    L.append('    .ln1_gamma(ln1_gamma), .ln1_beta(ln1_beta),')
-    L.append('    .ln2_gamma(ln2_gamma), .ln2_beta(ln2_beta),')
-    L.append('    .wq_flat(wq_flat), .wk_flat(wk_flat),')
-    L.append('    .wv_flat(wv_flat), .wo_flat(wo_flat),')
-    L.append('    .ffn_w1_flat(ffn_w1_flat), .ffn_b1_flat(ffn_b1_flat),')
-    L.append('    .ffn_w2_flat(ffn_w2_flat), .ffn_b2_flat(ffn_b2_flat),')
-    L.append('    .ln_final_gamma(ln_final_gamma), .ln_final_beta(ln_final_beta),')
-    L.append('    .valid_in(valid_in), .token_in(token_in),')
-    L.append('    .position_in(position_in),')
-    L.append('    .token_out(token_out), .logits_out(logits_out),')
-    L.append('    .valid_out(valid_out)')
+    L.append('    .load_ln_en(load_ln_en), .load_layer_idx(load_layer_idx),')
+    L.append('    .load_ln_sel(load_ln_sel), .load_ln_is_gamma(load_ln_is_gamma),')
+    L.append('    .load_ln_dim(load_ln_dim), .load_ln_data(load_ln_data),')
+    L.append('    .load_attn_weight_en(load_attn_weight_en),')
+    L.append('    .load_attn_matrix_sel(load_attn_matrix_sel),')
+    L.append('    .load_attn_row(load_attn_row), .load_attn_col(load_attn_col),')
+    L.append('    .load_attn_data(load_attn_data),')
+    L.append('    .load_ffn_weight_en(load_ffn_weight_en),')
+    L.append('    .load_ffn_layer_sel(load_ffn_layer_sel),')
+    L.append('    .load_ffn_is_bias(load_ffn_is_bias),')
+    L.append('    .load_ffn_row(load_ffn_row), .load_ffn_col(load_ffn_col),')
+    L.append('    .load_ffn_data(load_ffn_data),')
+    L.append('    .valid_in(valid_in), .token_in(token_in), .position_in(position_in),')
+    L.append('    .token_out(token_out), .logits_out(logits_out), .valid_out(valid_out),')
+    L.append('    .total_zero_skips(total_zero_skips), .total_cycles(total_cycles_hw)')
     L.append('  );')
     L.append('')
     L.append('  always #5 clk = ~clk;')
     L.append('')
+    L.append('  initial begin')
+    L.append('    $dumpfile("scaled_cosim.vcd");')
+    L.append('    $dumpvars(0, scaled_cosim_tb);')
+    L.append('  end')
+    L.append('')
 
     # Initial block: load weights from hex files
     L.append('  initial begin')
-    L.append(f'    // Load weights via $readmemh')
+    L.append('    // Load weights via $readmemh')
     L.append(f'    $readmemh("{hex_fwd}/token_emb.hex", tok_emb_mem);')
     L.append(f'    $readmemh("{hex_fwd}/pos_emb.hex",   pos_emb_mem);')
     L.append(f'    $readmemh("{hex_fwd}/ln1_gamma.hex", ln1g_mem);')
@@ -204,51 +241,91 @@ def generate_testbench(token_sequence, tb_path, hex_dir, ED, FD, VS, MSL, NL, NH
     L.append('    token_in = 0; position_in = 0;')
     L.append('    load_token_idx = 0; load_dim_idx = 0; load_emb_data = 0;')
     L.append('    load_pos_idx = 0;')
+    L.append('    load_ln_en = 0; load_layer_idx = 0; load_ln_sel = 0; load_ln_is_gamma = 0; load_ln_dim = 0; load_ln_data = 0;')
+    L.append('    load_attn_weight_en = 0; load_attn_matrix_sel = 0; load_attn_row = 0; load_attn_col = 0; load_attn_data = 0;')
+    L.append('    load_ffn_weight_en = 0; load_ffn_layer_sel = 0; load_ffn_is_bias = 0; load_ffn_row = 0; load_ffn_col = 0; load_ffn_data = 0;')
     L.append('    total_cycles = 0; token_count = 0;')
-    L.append('')
-    L.append('    // Pack flat weight buses from memory arrays')
-    L.append(f'    for (idx = 0; idx < {ED}; idx = idx + 1) begin')
-    L.append(f'      ln1_gamma[idx*DATA_WIDTH +: DATA_WIDTH] = ln1g_mem[idx];')
-    L.append(f'      ln1_beta[idx*DATA_WIDTH +: DATA_WIDTH]  = ln1b_mem[idx];')
-    L.append(f'      ln2_gamma[idx*DATA_WIDTH +: DATA_WIDTH] = ln2g_mem[idx];')
-    L.append(f'      ln2_beta[idx*DATA_WIDTH +: DATA_WIDTH]  = ln2b_mem[idx];')
-    L.append(f'      ln_final_gamma[idx*DATA_WIDTH +: DATA_WIDTH] = lnfg_mem[idx];')
-    L.append(f'      ln_final_beta[idx*DATA_WIDTH +: DATA_WIDTH]  = lnfb_mem[idx];')
-    L.append(f'      ffn_b2_flat[idx*DATA_WIDTH +: DATA_WIDTH] = fb2_mem[idx];')
-    L.append('    end')
-    L.append(f'    for (idx = 0; idx < {ED*ED}; idx = idx + 1) begin')
-    L.append(f'      wq_flat[idx*DATA_WIDTH +: DATA_WIDTH] = wq_mem[idx];')
-    L.append(f'      wk_flat[idx*DATA_WIDTH +: DATA_WIDTH] = wk_mem[idx];')
-    L.append(f'      wv_flat[idx*DATA_WIDTH +: DATA_WIDTH] = wv_mem[idx];')
-    L.append(f'      wo_flat[idx*DATA_WIDTH +: DATA_WIDTH] = wo_mem[idx];')
-    L.append('    end')
-    L.append(f'    for (idx = 0; idx < {ED*FD}; idx = idx + 1)')
-    L.append(f'      ffn_w1_flat[idx*DATA_WIDTH +: DATA_WIDTH] = fw1_mem[idx];')
-    L.append(f'    for (idx = 0; idx < {FD}; idx = idx + 1)')
-    L.append(f'      ffn_b1_flat[idx*DATA_WIDTH +: DATA_WIDTH] = fb1_mem[idx];')
-    L.append(f'    for (idx = 0; idx < {FD*ED}; idx = idx + 1)')
-    L.append(f'      ffn_w2_flat[idx*DATA_WIDTH +: DATA_WIDTH] = fw2_mem[idx];')
     L.append('')
     L.append('    #35 rst = 0; #25;')
     L.append('')
+    L.append('    // Load LayerNorm parameters for each transformer layer')
+    L.append('    for (layer_idx_i = 0; layer_idx_i < NUM_LAYERS; layer_idx_i = layer_idx_i + 1) begin')
+    L.append('      for (idx = 0; idx < EMBED_DIM; idx = idx + 1) begin')
+    L.append('        @(negedge clk); load_ln_en = 1; load_layer_idx = layer_idx_i; load_ln_sel = 0; load_ln_is_gamma = 1; load_ln_dim = idx; load_ln_data = ln1g_mem[idx];')
+    L.append('        @(negedge clk); load_ln_en = 0;')
+    L.append('        @(negedge clk); load_ln_en = 1; load_layer_idx = layer_idx_i; load_ln_sel = 0; load_ln_is_gamma = 0; load_ln_dim = idx; load_ln_data = ln1b_mem[idx];')
+    L.append('        @(negedge clk); load_ln_en = 0;')
+    L.append('        @(negedge clk); load_ln_en = 1; load_layer_idx = layer_idx_i; load_ln_sel = 1; load_ln_is_gamma = 1; load_ln_dim = idx; load_ln_data = ln2g_mem[idx];')
+    L.append('        @(negedge clk); load_ln_en = 0;')
+    L.append('        @(negedge clk); load_ln_en = 1; load_layer_idx = layer_idx_i; load_ln_sel = 1; load_ln_is_gamma = 0; load_ln_dim = idx; load_ln_data = ln2b_mem[idx];')
+    L.append('        @(negedge clk); load_ln_en = 0;')
+    L.append('      end')
+    L.append('    end')
+    L.append('')
+    L.append('    // Load final LayerNorm (load_layer_idx == NUM_LAYERS)')
+    L.append('    for (idx = 0; idx < EMBED_DIM; idx = idx + 1) begin')
+    L.append('      @(negedge clk); load_ln_en = 1; load_layer_idx = NUM_LAYERS; load_ln_sel = 0; load_ln_is_gamma = 1; load_ln_dim = idx; load_ln_data = lnfg_mem[idx];')
+    L.append('      @(negedge clk); load_ln_en = 0;')
+    L.append('      @(negedge clk); load_ln_en = 1; load_layer_idx = NUM_LAYERS; load_ln_sel = 0; load_ln_is_gamma = 0; load_ln_dim = idx; load_ln_data = lnfb_mem[idx];')
+    L.append('      @(negedge clk); load_ln_en = 0;')
+    L.append('    end')
+    L.append('')
+    L.append('    // Load attention matrices Wq/Wk/Wv/Wo')
+    L.append('    for (row_idx = 0; row_idx < EMBED_DIM; row_idx = row_idx + 1) begin')
+    L.append('      for (col_idx = 0; col_idx < EMBED_DIM; col_idx = col_idx + 1) begin')
+    L.append('        @(negedge clk); load_attn_weight_en = 1; load_attn_matrix_sel = 2\'d0; load_attn_row = row_idx; load_attn_col = col_idx; load_attn_data = wq_mem[row_idx*EMBED_DIM + col_idx];')
+    L.append('        @(negedge clk); load_attn_weight_en = 0;')
+    L.append('        @(negedge clk); load_attn_weight_en = 1; load_attn_matrix_sel = 2\'d1; load_attn_row = row_idx; load_attn_col = col_idx; load_attn_data = wk_mem[row_idx*EMBED_DIM + col_idx];')
+    L.append('        @(negedge clk); load_attn_weight_en = 0;')
+    L.append('        @(negedge clk); load_attn_weight_en = 1; load_attn_matrix_sel = 2\'d2; load_attn_row = row_idx; load_attn_col = col_idx; load_attn_data = wv_mem[row_idx*EMBED_DIM + col_idx];')
+    L.append('        @(negedge clk); load_attn_weight_en = 0;')
+    L.append('        @(negedge clk); load_attn_weight_en = 1; load_attn_matrix_sel = 2\'d3; load_attn_row = row_idx; load_attn_col = col_idx; load_attn_data = wo_mem[row_idx*EMBED_DIM + col_idx];')
+    L.append('        @(negedge clk); load_attn_weight_en = 0;')
+    L.append('      end')
+    L.append('    end')
+    L.append('')
+    L.append('    // Load FFN W1 and b1')
+    L.append('    for (row_idx = 0; row_idx < EMBED_DIM; row_idx = row_idx + 1) begin')
+    L.append('      for (col_idx = 0; col_idx < FFN_DIM; col_idx = col_idx + 1) begin')
+    L.append('        @(negedge clk); load_ffn_weight_en = 1; load_ffn_layer_sel = 0; load_ffn_is_bias = 0; load_ffn_row = row_idx; load_ffn_col = col_idx; load_ffn_data = fw1_mem[row_idx*FFN_DIM + col_idx];')
+    L.append('        @(negedge clk); load_ffn_weight_en = 0;')
+    L.append('      end')
+    L.append('    end')
+    L.append('    for (col_idx = 0; col_idx < FFN_DIM; col_idx = col_idx + 1) begin')
+    L.append('      @(negedge clk); load_ffn_weight_en = 1; load_ffn_layer_sel = 0; load_ffn_is_bias = 1; load_ffn_row = 0; load_ffn_col = col_idx; load_ffn_data = fb1_mem[col_idx];')
+    L.append('      @(negedge clk); load_ffn_weight_en = 0;')
+    L.append('    end')
+    L.append('')
+    L.append('    // Load FFN W2 and b2')
+    L.append('    for (row_idx = 0; row_idx < FFN_DIM; row_idx = row_idx + 1) begin')
+    L.append('      for (col_idx = 0; col_idx < EMBED_DIM; col_idx = col_idx + 1) begin')
+    L.append('        @(negedge clk); load_ffn_weight_en = 1; load_ffn_layer_sel = 1; load_ffn_is_bias = 0; load_ffn_row = row_idx; load_ffn_col = col_idx; load_ffn_data = fw2_mem[row_idx*EMBED_DIM + col_idx];')
+    L.append('        @(negedge clk); load_ffn_weight_en = 0;')
+    L.append('      end')
+    L.append('    end')
+    L.append('    for (col_idx = 0; col_idx < EMBED_DIM; col_idx = col_idx + 1) begin')
+    L.append('      @(negedge clk); load_ffn_weight_en = 1; load_ffn_layer_sel = 1; load_ffn_is_bias = 1; load_ffn_row = 0; load_ffn_col = col_idx; load_ffn_data = fb2_mem[col_idx];')
+    L.append('      @(negedge clk); load_ffn_weight_en = 0;')
+    L.append('    end')
+    L.append('')
 
     # Load embeddings from memory arrays
-    L.append(f'    // Load embeddings into DUT')
-    L.append(f'    for (idx = 0; idx < {VS*ED}; idx = idx + 1) begin')
-    L.append(f'      @(negedge clk);')
-    L.append(f'      load_token_emb = 1;')
-    L.append(f'      load_token_idx = idx / EMBED_DIM;')
-    L.append(f'      load_dim_idx   = idx % EMBED_DIM;')
-    L.append(f'      load_emb_data  = tok_emb_mem[idx];')
-    L.append(f'      @(negedge clk); load_token_emb = 0;')
+    L.append('    // Load embeddings into DUT')
+    L.append('    for (idx = 0; idx < VOCAB_SIZE*EMBED_DIM; idx = idx + 1) begin')
+    L.append('      @(negedge clk);')
+    L.append('      load_token_emb = 1;')
+    L.append('      load_token_idx = idx / EMBED_DIM;')
+    L.append('      load_dim_idx   = idx % EMBED_DIM;')
+    L.append('      load_emb_data  = tok_emb_mem[idx];')
+    L.append('      @(negedge clk); load_token_emb = 0;')
     L.append('    end')
-    L.append(f'    for (idx = 0; idx < {MSL*ED}; idx = idx + 1) begin')
-    L.append(f'      @(negedge clk);')
-    L.append(f'      load_pos_emb = 1;')
-    L.append(f'      load_pos_idx   = idx / EMBED_DIM;')
-    L.append(f'      load_dim_idx   = idx % EMBED_DIM;')
-    L.append(f'      load_emb_data  = pos_emb_mem[idx];')
-    L.append(f'      @(negedge clk); load_pos_emb = 0;')
+    L.append('    for (idx = 0; idx < MAX_SEQ_LEN*EMBED_DIM; idx = idx + 1) begin')
+    L.append('      @(negedge clk);')
+    L.append('      load_pos_emb = 1;')
+    L.append('      load_pos_idx = idx / EMBED_DIM;')
+    L.append('      load_dim_idx = idx % EMBED_DIM;')
+    L.append('      load_emb_data = pos_emb_mem[idx];')
+    L.append('      @(negedge clk); load_pos_emb = 0;')
     L.append('    end')
     L.append('    #20;')
     L.append('')
@@ -260,34 +337,35 @@ def generate_testbench(token_sequence, tb_path, hex_dir, ED, FD, VS, MSL, NL, NH
     # Process tokens
     for pos, tok in enumerate(token_sequence):
         L.append(f'    // Token {pos}: id={tok}')
-        L.append(f'    @(negedge clk);')
+        L.append('    @(negedge clk);')
         L.append(f'    token_in = {tok}; position_in = {pos};')
-        L.append(f'    valid_in = 1;')
-        L.append(f'    @(negedge clk); valid_in = 0;')
-        L.append(f'    cycle_count = 0;')
-        L.append(f'    while (!valid_out && cycle_count < 100000) begin')
-        L.append(f'      @(negedge clk); cycle_count = cycle_count + 1;')
-        L.append(f'    end')
-        L.append(f'    if (valid_out) begin')
-        L.append(f'      total_cycles = total_cycles + cycle_count;')
-        L.append(f'      token_count = token_count + 1;')
-        L.append(f'      $display("TOKEN pos=%0d id=%0d predicted=%0d cycles=%0d",')
-        L.append(f'               {pos}, {tok}, token_out, cycle_count);')
-        # Print first few logit dimensions
+        L.append('    valid_in = 1;')
+        L.append('    @(negedge clk); valid_in = 0;')
+        L.append('    cycle_count = 0;')
+        L.append('    while (!valid_out && cycle_count < 100000) begin')
+        L.append('      @(negedge clk); cycle_count = cycle_count + 1;')
+        L.append('    end')
+        L.append('    if (valid_out) begin')
+        L.append('      total_cycles = total_cycles + cycle_count;')
+        L.append('      token_count = token_count + 1;')
+        L.append(f'      $display("TOKEN pos=%0d id=%0d predicted=%0d cycles=%0d", {pos}, {tok}, token_out, cycle_count);')
         num_logits_to_show = min(ED, 16)
         for d in range(num_logits_to_show):
-            L.append(f'      $display("  LOGIT pos=%0d dim=%0d hex=%h", {pos}, {d}, logits_out[{d*DW} +: {DW}]);')
+            L.append(f'      $display("LOGIT pos=%0d dim=%0d hex=%h", {pos}, {d}, logits_out[{d*DW} +: {DW}]);')
         if ED > 16:
-            L.append(f'      $display("  ... ({ED - 16} more dimensions)");')
-        L.append(f'    end else begin')
+            L.append(f'      $display("LOGIT_TRUNC pos=%0d dims_remaining=%0d", {pos}, {ED - 16});')
+        L.append('    end else begin')
         L.append(f'      $display("TOKEN pos=%0d id=%0d TIMEOUT", {pos}, {tok});')
-        L.append(f'    end')
-        L.append(f'    repeat(3) @(negedge clk);')
+        L.append('    end')
+        L.append('    repeat(3) @(negedge clk);')
         L.append('')
 
     L.append('    $display("");')
-    L.append('    $display("SUMMARY total_tokens=%0d total_cycles=%0d avg_cycles=%0d",')
-    L.append('             token_count, total_cycles, total_cycles / token_count);')
+    L.append('    if (token_count > 0)')
+    L.append('      $display("SUMMARY total_tokens=%0d total_cycles=%0d avg_cycles=%0d",')
+    L.append('               token_count, total_cycles, total_cycles / token_count);')
+    L.append('    else')
+    L.append('      $display("SUMMARY total_tokens=0 total_cycles=%0d avg_cycles=0", total_cycles);')
     L.append('    $display("DONE");')
     L.append('    $finish;')
     L.append('  end')
@@ -445,6 +523,25 @@ def main():
         print(s)
         report.write(s + "\n")
 
+    def run_checked(cmd, step, cwd=None, timeout=None):
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=cwd,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"{step} timed out after {timeout}s") from exc
+
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            stdout = (result.stdout or "").strip()
+            detail = stderr if stderr else stdout
+            raise RuntimeError(f"{step} failed with return code {result.returncode}\n{detail}")
+        return result
+
     out("")
     out("=" * 70)
     out(f"  BitbyBit GPU -- Scaled Cosimulation (EMBED_DIM={ED})")
@@ -501,6 +598,9 @@ def main():
         os.path.join(root_dir, "rtl", "transformer", "attention_unit.v"),
         os.path.join(root_dir, "rtl", "transformer", "ffn_block.v"),
         os.path.join(root_dir, "rtl", "transformer", "linear_layer.v"),
+        os.path.join(root_dir, "rtl", "compute", "gelu_lut_256.v"),
+        os.path.join(root_dir, "rtl", "compute", "exp_lut_256.v"),
+        os.path.join(root_dir, "rtl", "compute", "inv_sqrt_lut_256.v"),
         os.path.join(root_dir, "rtl", "compute", "gelu_activation.v"),
         os.path.join(root_dir, "rtl", "compute", "softmax_unit.v"),
         tb_path,
@@ -509,16 +609,21 @@ def main():
 
     out("  [1/3] Compiling Verilog...")
     cmd = [IVERILOG, "-g2012", "-o", out_bin, "-s", "scaled_cosim_tb"] + sources
-    r = subprocess.run(cmd, capture_output=True, text=True)
-    if r.returncode != 0:
-        out("  COMPILE FAILED:")
-        out(r.stderr)
+    try:
+        run_checked(cmd, "Compilation")
+    except RuntimeError as err:
+        out(f"  COMPILE FAILED:\n{err}")
         report.close()
         sys.exit(1)
     out("  [2/3] Running simulation (this may take a while at dim=64)...")
 
     t_start = time.time()
-    r = subprocess.run([VVP, out_bin], capture_output=True, text=True, timeout=600, cwd=build_dir)
+    try:
+        r = run_checked([VVP, out_bin], "Simulation", cwd=build_dir, timeout=600)
+    except RuntimeError as err:
+        out(f"  SIMULATION FAILED:\n{err}")
+        report.close()
+        sys.exit(1)
     sim_time = time.time() - t_start
     verilog_output = r.stdout
     out(f"  [3/3] Simulation completed in {sim_time:.1f}s")

@@ -1,0 +1,15 @@
+=================================================
+   Hardware Prefetch Engine Tests
+   Paper: Google 'Four Architectural Opportunities' (Jan 2026)
+   Strategy: Overlap compute + memory transfer
+=================================================
+[PASS] Test 1: Prefetch started ΓÇö dma_request generated
+[PASS] Test 2: First layer loaded ΓÇö compute_ready = 1
+    Read buffer[0] = 0xdead0000
+[PASS] Test 3: Buffer read returns data
+[PASS] Test 4: Layer advanced ΓÇö current_layer=1
+[PASS] Test 5: layer_done + dma_done race handled (layer=2, state=2)
+=================================================
+   Prefetch Tests: 5 / 5 PASSED
+=================================================
+tb\memory\prefetch_engine_tb.v:114: $finish called at 320000 (1ps)

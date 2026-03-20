@@ -65,6 +65,8 @@ module medusa_head_predictor #(
     // Working storage
     reg signed [DATA_WIDTH-1:0] h_reg [0:HIDDEN_DIM-1];
     reg signed [2*DATA_WIDTH-1:0] dot_product;
+    reg [NUM_HEADS-1:0] verify_mask;
+    reg [$clog2(NUM_HEADS):0] verify_count;
     integer h, d;
 
     // Weight loading
@@ -106,21 +108,18 @@ module medusa_head_predictor #(
                     
                     // Verification (can happen while idle)
                     if (verify_en) begin
+                        verify_mask = {NUM_HEADS{1'b0}};
+                        verify_count = {($clog2(NUM_HEADS)+1){1'b0}};
                         for (h = 0; h < NUM_HEADS; h = h + 1) begin
                             if (predicted_tokens[h*VOCAB_BITS +: VOCAB_BITS] == 
                                 actual_tokens[h*VOCAB_BITS +: VOCAB_BITS]) begin
-                                accept_mask[h] <= 1'b1;
-                            end else begin
-                                accept_mask[h] <= 1'b0;
+                                verify_mask[h] = 1'b1;
+                                verify_count = verify_count + 1'b1;
                             end
                         end
-                        // Count accepted (use sequential add since we can't easily popcount in a loop)
-                        accepted_count <= 0;
-                        for (h = 0; h < NUM_HEADS; h = h + 1) begin
-                            if (predicted_tokens[h*VOCAB_BITS +: VOCAB_BITS] == 
-                                actual_tokens[h*VOCAB_BITS +: VOCAB_BITS])
-                                total_accepted <= total_accepted + 1;
-                        end
+                        accept_mask <= verify_mask;
+                        accepted_count <= verify_count;
+                        total_accepted <= total_accepted + verify_count;
                         total_predictions <= total_predictions + NUM_HEADS;
                     end
                 end

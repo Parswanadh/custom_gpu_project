@@ -1,0 +1,13 @@
+=================================================
+   Parallel Softmax Tests (4-wide SIMD)
+   All exp/normalize units run simultaneously
+=================================================
+[PASS] Test 1: Equal inputs → equal probs [63,63,63,63], 4 cycles
+[PASS] Test 2: Varying inputs → probs: [13,13,13,214], 4 cycles
+[PASS] Test 3: Parallel softmax = 4 cycles (serial=25 → 6.2x faster)
+[PASS] Test 4: Probability sum = 253 (valid range)
+[PASS] Test 5: Uses shift-based exp approximation (no expensive multiplies)
+=================================================
+   Parallel Softmax Tests: 5 / 5 PASSED
+=================================================
+tb/compute/parallel_softmax_tb.v:105: $finish called at 200000 (1ps)

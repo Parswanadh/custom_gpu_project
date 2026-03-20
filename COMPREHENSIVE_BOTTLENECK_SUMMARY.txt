@@ -1,0 +1,319 @@
+# BITBYBIT ACTIVE INFERENCE: ARCHITECTURE BOTTLENECK ANALYSIS
+## Throughput/Latency Constraints by Design Choice
+
+### BASELINE
+- **130 cycles/token @ 100 MHz = 1.3 µs latency**
+- **Zero-skip rate: 28.7%** (sparsity benefit)
+- **Full-model integration:** 6 pipelined stages (RoPE→GQA→Softmax→GELU→KV_Quant→Compress)
+
+---
+
+## TOP-6 CRITICAL BOTTLENECKS (Ranked by Impact & Effort)
+
+### 1. SEQUENTIAL PIPELINE STAGE HANDOFF ⭐⭐⭐ (30.8% of latency - 40 CYCLES)
+**Impact:** Highest - 12-15 cycle reduction possible  
+**Effort:** Medium - 5-7 days (architectural refactor)  
+**Status:** Ready to fix (blocker for all other optimizations)
+
+**Root Cause:**
+- FSM has explicit wait states (S_ROPE_W, S_GQA_W, S_SOFTMAX_W, etc.)
+- Each stage blocks until prior stage completes
+- No inter-stage buffering (skid buffers)
+- No ready/valid handshaking protocol
+
+**Current Flow (BROKEN):**
+\\\
+[RoPE compute] WAIT(1 cycle) → [GQA compute] WAIT(1 cycle) → [Softmax] WAIT(1 cycle) ...
+^-- Stall          ^-- Stall        ^-- Stall (30% of time = 40 cycles!)
+\\\
+
+**Fix Strategy:**
+1. Remove wait states from FSM (S_ROPE_W, S_GQA_W, etc.)
+2. Add .ready input to each stage module
+3. Implement 1-entry skid buffers between all 5 inter-stage connections
+4. Use ready/valid handshaking (combinational, low latency)
+
+**Expected Outcome:** 115 cycles/token (-11% overall speedup)
+
+**Files to Modify:**
+- tl/integration/optimized_transformer_layer.v (FSM refactor)
+- Create: tl/integration/skid_buffer.v (new pipelining module)
+
+---
+
+### 2. SOFTMAX SEQUENTIAL STATE MACHINE (19.2% of latency - 25 CYCLES)
+**Impact:** High - 3-5 cycle reduction  
+**Effort:** LOW-MEDIUM (2-3 days, TWO independent fixes)  
+**Status:** Partially ready (exp LUT already exists!)
+
+**Root Cause:**
+- 6-state FSM: FIND_MAX → CALC_EXP → SUM_EXP → RECIP → NORMALIZE → DONE
+- ast_exp() function uses crude shift-based approximation (8 cases, ~5-10% RMSE)
+- Min/max reduction done sequentially (for-loop in combinational logic)
+- Precision loss requires extra rounding cycles
+
+**Fix #1 - Replace fast_exp() (TRIVIAL - 5 minutes!):**
+`erilog
+// Lines 54-60 of parallel_softmax.v ALREADY instantiate exp_lut_256:
+genvar gi;
+generate
+    for (gi = 0; gi < VECTOR_LEN; gi = gi + 1) begin : gen_exp_luts
+        exp_lut_256 u_exp_lut (.x_in(exp_lut_in[gi]), .exp_out(exp_lut_out[gi]));
+    end
+endgenerate
+
+// Just use exp_lut_out[i] instead of calling fast_exp()!
+`
+
+**Fix #2 - Parallelize tree reduction (MEDIUM - 1 day):**
+- Replace sequential for-loop with 3-level parallel comparator tree
+- Reduces max-finding from 5 cycles to 1 cycle
+
+**Expected Outcome:** 122 cycles/token (-5.6% speedup) + better accuracy
+
+**Files to Modify:**
+- tl/compute/parallel_softmax.v (simple replacements)
+
+---
+
+### 3. KV CACHE QUANTIZATION LOOP (11.5% of latency - 15 CYCLES)
+**Impact:** High - 3-5 cycle reduction  
+**Effort:** Medium (3-4 days, requires pipelining + reciprocal LUT)  
+**Status:** Ready (all pieces exist)
+
+**Root Cause:**
+- Two sequential for-loops: min/max search → quantization
+- Division operator (line 107) is ~3-4 cycle divider
+- No parallelization between passes
+- Scale factor computed as right-shift (crude)
+
+**Current Implementation:**
+`erilog
+// LOOP 1: Find min/max (sequential, ~5 cycles)
+for (i = 1; i < VEC_LEN; i++) { if (val < vmin) vmin = val; }
+
+// LOOP 2: Quantize (sequential, ~10 cycles - division is slow!)
+q_raw = (shifted_u + (scale_factor >> 1)) / scale_factor;
+`
+
+**Fix Strategy:**
+1. Parallelize min/max tree (1 cycle, not 5)
+2. Fuse quantization: Replace division with reciprocal LUT lookup
+3. 4 parallel multiplications (fast) instead of 4 sequential divisions (slow)
+
+**Expected Outcome:** 110 cycles/token (-15% speedup from #1+#2+#3)
+
+**Files to Modify:**
+- tl/memory/kv_cache_quantizer.v (fuse min/max + pipelining + recip LUT)
+
+---
+
+### 4. DMA ENGINE MEMORY STALL (3.8% latency, SCALES WITH MODEL SIZE)
+**Impact:** Medium (6-11% speedup potential, hidden in small models)  
+**Effort:** LOW (2-3 days - module ALREADY EXISTS, just needs wiring!)  
+**Status:** Integration missing (module exists but not instantiated)
+
+**Root Cause:**
+- Weight loading is **REACTIVE** (compute requests → DMA starts → 2-4 cycle AXI handshake)
+- Layer N+1 weights only load AFTER layer N finishes computing
+- No prefetch orchestration
+- **BUT:** prefetch_engine.v module exists (lines 31-68) with full ping-pong logic!
+
+**Current Flow (INEFFICIENT):**
+`
+[Compute Layer N] blocks → [Wait for DMA Layer N+1] → [Compute N+1]
+^-- Idle, no parallelism
+`
+
+**With Prefetch (OPTIMAL):**
+`
+[Compute Layer N] overlaps with [DMA Layer N+1]
+^-- Both happen in parallel, 0 additional stall cycles
+`
+
+**Fix Strategy:**
+1. Instantiate prefetch_engine in gpu_system_top_v2.v (10 lines)
+2. Wire layer_done signal from compute completion
+3. Coordinate DMA requests: prioritize compute, but allow prefetch in idle time
+4. Connect dual-port weight buffer
+
+**Expected Outcome:** Hide 8-15 cycles latency (6-11% speedup)
+**Bonus:** Scales with model size (larger models = bigger win)
+
+**Files to Modify:**
+- tl/top/gpu_system_top_v2.v (instantiate + wire prefetch_engine)
+- tl/control/layer_pipeline_controller.v (coordinate layer sequencing)
+
+---
+
+### 5. SYSTOLIC ARRAY SMALL-MATRIX STALL (6.2% of latency - 8 CYCLES)
+**Impact:** Medium - 4-7 cycle reduction  
+**Effort:** MEDIUM-HIGH (2-3 days, area cost ~4×)  
+**Status:** Ready (parameter change or prefetch-based tiling)
+
+**Root Cause:**
+- Fixed ARRAY_SIZE=4 (4×4 PE grid)
+- DIM=8 embeddings require 2 passes per matmul
+- PE utilization: only 25% (1-2 PEs active per cycle)
+- Total per-token matmul latency: 14 cycles (vs optimal 7 if single-pass)
+
+**Current Architecture:**
+`
+ARRAY_SIZE = 4  →  Latency per pass = 4 + 4 - 1 = 7 cycles
+DIM = 8         →  Requires 2 passes = 14 cycles total
+
+PE Utilization: 8D input × 4-wide array = 25% (severely underutilized!)
+`
+
+**Option A: Increase array to 8×8 (HIGH COST, HIGH GAIN)**
+- Area: ~4× (16 → 64 PEs)
+- Latency: 14 cycles → 7 cycles (50% reduction!)
+- Single-pass 8×8 matmul
+
+**Option B: Implement prefetch-based weight tiling (LOW COST, MEDIUM GAIN)**
+- Keep 4×4 array
+- Load next pass's weights while computing current pass
+- Effective throughput: 8 cycles (reduce pipeline fill overhead)
+
+**Recommendation:** Option B first (lower cost), then Option A if area permits
+
+---
+
+### 6. SOFTMAX FIXED-POINT ACCUMULATION (1.9% - 2-3 CYCLES)
+**Impact:** Low-Medium (1-2 cycle reduction + accuracy improvement)  
+**Effort:** LOW (1-2 days, trivial changes)  
+**Status:** Ready (just expand registers)
+
+**Root Cause:**
+- exp_val stored as 8-bit (limits to [0, 256])
+- exp_sum stored as 16-bit (can overflow for 4-element vector: 4×255 = 1020)
+- Saturation triggering extra correction cycles
+
+**Fix Strategy:**
+1. Expand exp_val to 16-bit (match LUT output width)
+2. Expand exp_sum to 20-21 bit (prevent overflow)
+3. Remove saturation handling code (not needed with wider accumulators)
+
+**Cost:** Negligible (4 bytes register storage)
+
+---
+
+## LOWER-IMPACT ITEMS (Total: ~7-8 cycles, 5-6% speedup)
+
+| # | Bottleneck | Cycles | % | Effort | Speedup |
+|---|------------|--------|---|--------|---------|
+| 7 | GQA Head Replication Mux | 3-5 | 2.3% | Low | 1-2 cycles |
+| 8 | KV Cache Double-Buffer Conflict | 2-3 | 1.5% | Medium | 2-3 cycles |
+| 9 | Activation Compression Stall | 2-3 | 1.5% | Low | 1-2 cycles |
+| 10 | Recip LUT Latency | 1-2 | 0.8% | Low | 0.5-1 cycles |
+| 11 | Layer Norm Missing | 0* | 0% | Medium | 0 (required for correctness) |
+| 12 | Imprinted Path Unused | 0† | 0% | Low | **122 cycles†** (for compatible models) |
+
+*Hidden cost (required for real models, may add 6-8 cycles overhead)
+†Only for specific model profiles (mini-gpt, gemma3); not general
+
+---
+
+## 4-WEEK OPTIMIZATION ROADMAP
+
+### WEEK 1: CRITICAL FOUNDATION (Target: 115 cycles, -11% overall)
+**Parallel efforts:**
+- **Pipeline Stage Handoff:** Remove wait states + add skid buffers
+- **Softmax Exp LUT:** Replace fast_exp() + parallelize tree
+- **Accumulator Expansion:** Widen registers (trivial)
+
+**Measurement:** cosim_report.txt should show 15-cycle reduction
+
+---
+
+### WEEK 2: MEMORY & CACHE (Target: 95 cycles, -26% overall)
+- **KV Cache Quantization Fusion:** Parallelize min/max + fused quant
+- **DMA Prefetch Wiring:** Instantiate + coordinate layer scheduling
+- **GQA Head Replication:** Add pipeline stage
+
+**Measurement:** Multi-token sequence (seq_len=5+) to verify prefetch hiding latency
+
+---
+
+### WEEK 3: SCALING & CORRECTNESS (Target: 80 cycles, -38% overall)
+- **Systolic Array 8×8** (optional, if area permits)
+- **KV Cache Double-Buffering** (reduce read-after-write stall)
+- **Layer Norm + Residuals** (fix missing stages, may add 6-8 cycles)
+
+---
+
+### WEEK 4: SPECIALIZED ACCELERATION
+- **Imprinted Path Extension:** Profile OPT-350M, LLaMA-7B for hardwired coefficients
+- **Result:** 8 cycles/token for compatible models (16× speedup!)
+
+---
+
+## REALISTIC OUTCOME PROJECTION
+
+`
+Baseline:                 130 cycles/token = 1.30 µs
+After Week 1:             115 cycles (-11%)  = 1.15 µs (1.13× faster)
+After Week 1-2:            95 cycles (-27%)  = 0.95 µs (1.37× faster)
+After Week 1-3:            80 cycles (-38%)  = 0.80 µs (1.63× faster)
+With 8×8 systolic:         73 cycles (-44%)  = 0.73 µs (1.78× faster)
+With imprinting*:           8 cycles (-94%)  = 0.08 µs (16× faster)
+
+* = Conditional; only for compatible model profiles
+`
+
+---
+
+## CRITICAL SUCCESS FACTORS
+
+1. **Pipeline handoff MUST be first** (blocks all other optimizations)
+2. **Test incrementally** (per-week, measure with cosim_report.txt)
+3. **Preserve sparsity** (28.7% zero-skip is 1.4× multiplier; don't break it!)
+4. **Memory prefetch testing** (only shows benefit with seq_len > 4 tokens)
+5. **Validate all phases** (no compound bugs)
+
+---
+
+## IMMEDIATE NEXT STEPS (TODAY)
+
+### Step 1: Trivial Fix (5 minutes) - Softmax exp LUT
+Replace crude fast_exp() with exp_lut_256 (already instantiated on lines 54-60)
+
+### Step 2: FSM Refactor (3-4 days) - Pipeline Handoff
+This unblocks everything else; prioritize this.
+
+### Step 3: KV Quantization (2 days) - Parallel min/max + fused pass
+
+### Step 4: DMA Prefetch Wiring (1 day) - Just 10 lines of instantiation!
+
+---
+
+## CONCRETE CODE EXAMPLE: First Fix
+
+File: \tl/compute/parallel_softmax.v\, lines 62-88
+
+**BEFORE (Crude approximation):**
+\\\erilog
+function [7:0] fast_exp;
+    input signed [15:0] x;
+    if (x < -8) fast_exp = 8'd0;
+    else if (x < -4) fast_exp = 8'd1;
+    else if (x < 0) fast_exp = 8'd16;
+    // ... 8 crude cases
+endfunction
+\\\
+
+**AFTER (Use existing LUT):**
+\\\erilog
+// Lines 54-60 ALREADY HAVE THIS!
+generate
+    for (gi = 0; gi < VECTOR_LEN; gi++) begin
+        exp_lut_256 u_exp_lut (.x_in(exp_lut_in[gi]), .exp_out(exp_lut_out[gi]));
+    end
+endgenerate
+
+// Just use exp_lut_out instead of fast_exp()
+// exp_val[i] <= exp_lut_out[i];
+\\\
+
+**Result:** Accurate exp computation, 1-2 cycle reduction, improved numerics
+

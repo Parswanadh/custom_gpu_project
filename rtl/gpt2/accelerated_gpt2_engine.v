@@ -54,7 +54,7 @@ module accelerated_gpt2_engine #(
     input  wire [$clog2(VOCAB_SIZE)-1:0]      token_in,
     input  wire [$clog2(MAX_SEQ_LEN)-1:0]     position_in,
     output reg  [$clog2(VOCAB_SIZE)-1:0]      token_out,
-    output reg  [EMBED_DIM*DATA_WIDTH-1:0]    logits_out,
+    output reg  [EMBED_DIM*DATA_WIDTH-1:0]    logits_out, // Debug slice: vocab logits [0:EMBED_DIM-1]
     output reg                                valid_out,
 
     // Performance counters
@@ -69,6 +69,11 @@ module accelerated_gpt2_engine #(
     reg [EMBED_DIM*DATA_WIDTH-1:0] ln2_beta_bank  [0:NUM_LAYERS-1];
     reg [EMBED_DIM*DATA_WIDTH-1:0] ln_final_gamma;
     reg [EMBED_DIM*DATA_WIDTH-1:0] ln_final_beta;
+    localparam integer Q_FRAC_BITS   = 8;
+    localparam integer DOT_ACC_WIDTH = (2*DATA_WIDTH) + ((EMBED_DIM > 1) ? $clog2(EMBED_DIM) : 1);
+
+    // Output projection uses tied token embeddings as the LM head.
+    reg signed [DATA_WIDTH-1:0] lm_head_token_bank [0:VOCAB_SIZE-1][0:EMBED_DIM-1];
 
     integer li;
     always @(posedge clk) begin
@@ -103,6 +108,18 @@ module accelerated_gpt2_engine #(
         end
     end
 
+    // Keep a local copy of token embeddings for vocab-logit projection.
+    integer lv, ld;
+    always @(posedge clk) begin
+        if (rst) begin
+            for (lv = 0; lv < VOCAB_SIZE; lv = lv + 1)
+                for (ld = 0; ld < EMBED_DIM; ld = ld + 1)
+                    lm_head_token_bank[lv][ld] <= 0;
+        end else if (load_token_emb) begin
+            lm_head_token_bank[load_token_idx][load_dim_idx] <= load_emb_data;
+        end
+    end
+
     // Current layer params
     reg [$clog2(NUM_LAYERS):0] layer_idx;
     wire [EMBED_DIM*DATA_WIDTH-1:0] cur_ln1_gamma = ln1_gamma_bank[layer_idx];
@@ -115,6 +132,7 @@ module accelerated_gpt2_engine #(
     wire                            emb_valid;
 
     reg  [EMBED_DIM*DATA_WIDTH-1:0] current_hidden;
+    reg  [EMBED_DIM*DATA_WIDTH-1:0] final_hidden;
     wire [EMBED_DIM*DATA_WIDTH-1:0] block_out;
     wire                            block_valid;
     wire [31:0]                     block_zero_skips;
@@ -122,6 +140,8 @@ module accelerated_gpt2_engine #(
     wire                            ln_final_valid;
 
     reg                             block_en, ln_final_en;
+    reg                             block_valid_d, block_active;
+    wire                            block_done_pulse = block_valid & ~block_valid_d;
     reg [$clog2(MAX_SEQ_LEN)-1:0]   seq_position;
 
     reg [3:0] state;
@@ -182,14 +202,18 @@ module accelerated_gpt2_engine #(
             logits_out     <= 0;
             layer_idx      <= 0;
             current_hidden <= 0;
+            final_hidden   <= 0;
             block_en       <= 0;
             ln_final_en    <= 0;
+            block_valid_d  <= 0;
+            block_active   <= 0;
             seq_position   <= 0;
             total_zero_skips <= 0;
             total_cycles   <= 0;
         end else begin
             block_en    <= 0;
             ln_final_en <= 0;
+            block_valid_d <= block_valid;
             if (state != IDLE) begin
                 total_cycles <= total_cycles + 1;
             end
@@ -197,6 +221,7 @@ module accelerated_gpt2_engine #(
             case (state)
                 IDLE: begin
                     valid_out <= 1'b0;
+                    block_active <= 1'b0;
                     if (valid_in) begin
                         seq_position <= position_in;
                         state <= EMBEDDING;
@@ -209,17 +234,20 @@ module accelerated_gpt2_engine #(
                         layer_idx <= 0;
                         state <= TRANSFORMER;
                         block_en <= 1'b1;
+                        block_active <= 1'b1;
                     end
                 end
 
                 TRANSFORMER: begin
-                    if (block_valid) begin
+                    if (block_done_pulse && block_active) begin
                         current_hidden <= block_out;
                         total_zero_skips <= total_zero_skips + block_zero_skips;
                         layer_idx <= layer_idx + 1;
                         if (layer_idx + 1 < NUM_LAYERS) begin
                             block_en <= 1'b1;
+                            block_active <= 1'b1;
                         end else begin
+                            block_active <= 1'b0;
                             ln_final_en <= 1'b1;
                             state <= FINAL_LN;
                         end
@@ -228,24 +256,52 @@ module accelerated_gpt2_engine #(
 
                 FINAL_LN: begin
                     if (ln_final_valid) begin
-                        logits_out <= ln_final_out;
+                        final_hidden <= ln_final_out;
                         state <= LOGITS;
                     end
                 end
 
                 LOGITS: begin
-                    begin : argmax_block
-                        reg signed [DATA_WIDTH-1:0] max_val;
+                    begin : vocab_argmax_block
+                        integer vocab_i, dim_i;
+                        reg signed [DOT_ACC_WIDTH-1:0] dot_acc;
+                        reg signed [DATA_WIDTH-1:0] vocab_logit;
                         reg [$clog2(VOCAB_SIZE)-1:0] max_idx;
-                        max_val = $signed(logits_out[0 +: DATA_WIDTH]);
+                        reg signed [DATA_WIDTH-1:0] max_val;
+                        reg [EMBED_DIM*DATA_WIDTH-1:0] logits_debug;
+
+                        logits_debug = 0;
+                        dot_acc = 0;
+                        for (dim_i = 0; dim_i < EMBED_DIM; dim_i = dim_i + 1)
+                            dot_acc = dot_acc +
+                                ($signed(final_hidden[dim_i*DATA_WIDTH +: DATA_WIDTH]) *
+                                 $signed(lm_head_token_bank[0][dim_i]));
+                        vocab_logit = $signed(dot_acc >>> Q_FRAC_BITS);
+                        max_val = vocab_logit;
                         max_idx = 0;
-                        for (i = 1; i < EMBED_DIM; i = i + 1) begin
-                            if ($signed(logits_out[i*DATA_WIDTH +: DATA_WIDTH]) > max_val) begin
-                                max_val = $signed(logits_out[i*DATA_WIDTH +: DATA_WIDTH]);
-                                max_idx = i;
+
+                        if (EMBED_DIM > 0)
+                            logits_debug[0 +: DATA_WIDTH] = vocab_logit;
+
+                        for (vocab_i = 1; vocab_i < VOCAB_SIZE; vocab_i = vocab_i + 1) begin
+                            dot_acc = 0;
+                            for (dim_i = 0; dim_i < EMBED_DIM; dim_i = dim_i + 1)
+                                dot_acc = dot_acc +
+                                    ($signed(final_hidden[dim_i*DATA_WIDTH +: DATA_WIDTH]) *
+                                     $signed(lm_head_token_bank[vocab_i][dim_i]));
+                            vocab_logit = $signed(dot_acc >>> Q_FRAC_BITS);
+
+                            if (vocab_i < EMBED_DIM)
+                                logits_debug[vocab_i*DATA_WIDTH +: DATA_WIDTH] = vocab_logit;
+
+                            if (vocab_logit > max_val) begin
+                                max_val = vocab_logit;
+                                max_idx = vocab_i[$clog2(VOCAB_SIZE)-1:0];
                             end
                         end
-                        token_out <= max_idx;
+
+                        logits_out <= logits_debug;
+                        token_out  <= max_idx;
                     end
                     state <= OUTPUT;
                 end

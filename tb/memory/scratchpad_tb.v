@@ -168,8 +168,35 @@ module scratchpad_tb;
             fail_count = fail_count + 1;
         end
 
-        // Test 5: Burst write and sequential read
-        $display("[5] Burst write/read pattern...");
+        // Test 5: Same-address collision policy (Port B wins)
+        $display("[5] Same-address simultaneous write (Port B priority)...");
+        @(posedge clk);
+        a_write_en   <= 1'b1;
+        a_write_addr <= 8'd60;
+        a_write_data <= 16'hAAAA;
+        b_write_en   <= 1'b1;
+        b_write_addr <= 8'd60;
+        b_write_data <= 16'hBBBB;
+        @(posedge clk);
+        a_write_en <= 1'b0;
+        b_write_en <= 1'b0;
+        @(posedge clk);
+        a_read_en   <= 1'b1;
+        a_read_addr <= 8'd60;
+        @(posedge clk);
+        a_read_en <= 1'b0;
+        @(posedge clk);
+
+        if (a_read_valid && a_read_data == 16'hBBBB) begin
+            $display("[PASS] Collision policy enforced: addr60=0x%04H (Port B wins)", a_read_data);
+            pass_count = pass_count + 1;
+        end else begin
+            $display("[FAIL] Collision policy mismatch: got=0x%04H valid=%b (expected 0xBBBB)", a_read_data, a_read_valid);
+            fail_count = fail_count + 1;
+        end
+
+        // Test 6: Burst write and sequential read
+        $display("[6] Burst write/read pattern...");
         begin : burst_test
             integer i;
             reg [DATA_W-1:0] expected;
@@ -212,6 +239,8 @@ module scratchpad_tb;
         $display("============================================");
         $display("  Results: %0d PASSED, %0d FAILED", pass_count, fail_count);
         $display("============================================");
+        if (fail_count != 0)
+            $fatal(1, "scratchpad_tb failed with %0d checks failing", fail_count);
         $finish;
     end
 
