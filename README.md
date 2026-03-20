@@ -10,6 +10,8 @@ BitbyBit is a ground-up, cycle-accurate **Verilog-2005** hardware architecture e
 - **Zero-Multiplier Ternary Logic:** Utilizing BitNet-style (-1, 0, 1) logic to eliminate multi-cycle multipliers, achieving 4.8x faster matrix math.
 - **6-Stage Hardware Pipeline:** A fully pipelined flow (Embed → RoPE → GQA → Softmax → GELU → KV Quant) that executes 12-layer inference in just **341 cycles**.
 - **Hardware-Native Primitives:** Custom RTL for Grouped Query Attention (GQA), Rotary Positional Embeddings (RoPE), and Parallelized Softmax.
+- **Full SSR Architecture:** Powered by Next.js 14 for maximum SEO and performance, with optimized client-side hydration for heavy 3D workloads.
+- **Dynamic GPU Assembly:** Advanced Three.js visuals simulating the real-time hardware synthesis and assembly of the GPU die upon page load.
 
 ## 📊 Performance Benchmarks (Cycle-Accurate Sim)
 

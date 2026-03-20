@@ -2,265 +2,210 @@
 
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Float, Box, Plane, Line } from '@react-three/drei';
+import { OrbitControls, Float, Box, Plane, Line, Sphere } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { useReducedMotion } from 'framer-motion';
 
-// --- SUB-COMPONENTS --- //
+// --- ASSEMBLY SUB-COMPONENTS --- //
 
-const TransistorGrid = () => {
-  const instances = useRef<THREE.InstancedMesh>(null);
-  const gridSize = 30;
-  
-  useMemo(() => {
-    if (!instances.current) return;
-    const dummy = new THREE.Object3D();
-    let i = 0;
-    for (let x = -gridSize / 2; x < gridSize / 2; x++) {
-      for (let z = -gridSize / 2; z < gridSize / 2; z++) {
-        dummy.position.set(x * 0.2, 0.05, z * 0.2);
-        // Add random slight variation to scale to look like complex logic gates
-        dummy.scale.set(0.8, Math.random() * 0.5 + 0.1, 0.8);
-        dummy.updateMatrix();
-        instances.current.setMatrixAt(i++, dummy.matrix);
-      }
-    }
-    instances.current.instanceMatrix.needsUpdate = true;
-  }, []);
-
-  return (
-    <instancedMesh ref={instances} args={[undefined, undefined, gridSize * gridSize]}>
-      <boxGeometry args={[0.1, 0.1, 0.1]} />
-      <meshStandardMaterial color="#1a1f2e" metalness={0.8} roughness={0.2} />
-    </instancedMesh>
-  );
-};
-
-const BondPads = () => {
-  const pads = [];
-  const edge = 3.8;
-  const count = 12;
-  const step = (edge * 2) / count;
-  
-  for (let i = 0; i <= count; i++) {
-    const pos = -edge + i * step;
-    pads.push([-edge, 0.02, pos]); // Left Edge
-    pads.push([edge, 0.02, pos]);  // Right Edge
-    pads.push([pos, 0.02, -edge]); // Top Edge
-    pads.push([pos, 0.02, edge]);  // Bottom Edge
-  }
+const SubstrateQuads = ({ assemblyProgress }: { assemblyProgress: number }) => {
+  // 4 pieces of the silicon substrate that slide in from corners
+  const quads = [
+    { pos: [-2, 0, -2], start: [-15, 5, -15] }, // Top Left
+    { pos: [2, 0, -2], start: [15, 5, -15] },  // Top Right
+    { pos: [-2, 0, 2], start: [-15, 5, 15] },  // Bottom Left
+    { pos: [2, 0, 2], start: [15, 5, 15] },   // Bottom Right
+  ];
 
   return (
     <group>
-      {pads.map((pos, i) => (
-        <Box key={i} args={[0.2, 0.05, 0.2]} position={pos as [number, number, number]}>
-          <meshStandardMaterial color="#B87333" metalness={1} roughness={0.1} />
-        </Box>
-      ))}
+      {quads.map((q, i) => {
+        const currentPos = new THREE.Vector3().fromArray(q.start).lerp(new THREE.Vector3().fromArray(q.pos), Math.min(1, assemblyProgress * 1.5));
+        return (
+          <Box key={i} args={[4, 0.15, 4]} position={currentPos}>
+            <meshStandardMaterial 
+              color="#020408" 
+              metalness={1} 
+              roughness={0.1} 
+              transparent 
+              opacity={assemblyProgress > 0.1 ? 1 : 0} 
+            />
+          </Box>
+        );
+      })}
     </group>
   );
 };
 
-const Traces = () => {
+const AssemblyCore = ({ assemblyProgress }: { assemblyProgress: number }) => {
+  const coreRef = useRef<THREE.Group>(null);
+  
+  useFrame((state) => {
+    if (!coreRef.current) return;
+    const pulse = Math.sin(state.clock.elapsedTime * 2) * 0.1 + 0.3;
+    if (assemblyProgress > 0.8) {
+      coreRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 4) * 0.02);
+    }
+  });
+
+  // Core drops from top
+  const coreY = assemblyProgress < 0.5 ? 10 : THREE.MathUtils.lerp(10, 0.06, (assemblyProgress - 0.5) * 2);
+  const coreOpacity = assemblyProgress < 0.5 ? 0 : (assemblyProgress - 0.5) * 2;
+
+  return (
+    <group ref={coreRef} position={[0, coreY, 0]}>
+      <Plane args={[4.5, 4.5]} rotation={[-Math.PI / 2, 0, 0]}>
+        <meshBasicMaterial color="#00F5FF" transparent opacity={coreOpacity * 0.3} blending={THREE.AdditiveBlending} />
+      </Plane>
+      <Plane args={[2, 2]} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+        <meshBasicMaterial color="#7C3AED" transparent opacity={coreOpacity * 0.5} blending={THREE.AdditiveBlending} />
+      </Plane>
+    </group>
+  );
+};
+
+const FloatingALU = ({ index, assemblyProgress }: { index: number, assemblyProgress: number }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const startPos = useMemo(() => [
+    (Math.random() - 0.5) * 40,
+    Math.random() * 20 + 10,
+    (Math.random() - 0.5) * 40
+  ], []);
+  
+  const targetPos = useMemo(() => [
+    (index % 4 - 1.5) * 1.5,
+    0.1,
+    (Math.floor(index / 4) - 1.5) * 1.5
+  ], [index]);
+
+  useFrame((state) => {
+    if (!meshRef.current || assemblyProgress < 0.3) return;
+    const p = Math.min(1, (assemblyProgress - 0.3) * 2);
+    meshRef.current.position.x = THREE.MathUtils.lerp(startPos[0], targetPos[0], p);
+    meshRef.current.position.y = THREE.MathUtils.lerp(startPos[1], targetPos[1], p);
+    meshRef.current.position.z = THREE.MathUtils.lerp(startPos[2], targetPos[2], p);
+    meshRef.current.rotation.x += 0.01;
+    meshRef.current.rotation.y += 0.01;
+  });
+
+  return (
+    <Box ref={meshRef} args={[0.4, 0.4, 0.4]} position={startPos as [number, number, number]}>
+      <meshStandardMaterial color="#1A1F2E" metalness={0.8} roughness={0.2} transparent opacity={assemblyProgress > 0.3 ? 1 : 0} />
+    </Box>
+  );
+};
+
+const AssemblyTraces = ({ assemblyProgress }: { assemblyProgress: number }) => {
   const lines = useMemo(() => {
     const l = [];
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 30; i++) {
       const points = [];
-      let x = (Math.random() - 0.5) * 6;
-      let z = (Math.random() - 0.5) * 6;
-      points.push(new THREE.Vector3(x, 0.03, z));
-      
+      let x = (Math.random() - 0.5) * 7;
+      let z = (Math.random() - 0.5) * 7;
+      points.push(new THREE.Vector3(x, 0.04, z));
       for (let j = 0; j < 3; j++) {
-        // Orthogonal routing typical of silicon
         if (Math.random() > 0.5) x += (Math.random() - 0.5) * 2;
         else z += (Math.random() - 0.5) * 2;
-        points.push(new THREE.Vector3(x, 0.03, z));
+        points.push(new THREE.Vector3(Math.max(-3.8, Math.min(3.8, x)), 0.04, Math.max(-3.8, Math.min(3.8, z))));
       }
       l.push(points);
     }
     return l;
   }, []);
 
+  const opacity = assemblyProgress < 0.7 ? 0 : (assemblyProgress - 0.7) * 3.3;
+
   return (
     <group>
       {lines.map((pts, i) => (
-        <Line key={i} points={pts} color="#FFD700" lineWidth={1} />
+        <Line key={i} points={pts} color="#FFD700" lineWidth={1.5} transparent opacity={opacity} />
       ))}
     </group>
   );
 };
 
-const CopperParticles = ({ reducedMotion, count = 200 }: { reducedMotion: boolean, count?: number }) => {
-  const positions = useMemo(() => {
-    const arr = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      arr[i * 3] = (Math.random() - 0.5) * 10;
-      arr[i * 3 + 1] = Math.random() * 5;
-      arr[i * 3 + 2] = (Math.random() - 0.5) * 10;
-    }
-    return arr;
-  }, [count]);
-
-  const pointsRef = useRef<THREE.Points>(null);
-
-  useFrame(() => {
-    if (reducedMotion || !pointsRef.current) return;
-    const positions = pointsRef.current.geometry.attributes.position.array as Float32Array;
-    for (let i = 0; i < count; i++) {
-      positions[i * 3 + 1] += 0.01; // float up
-      if (positions[i * 3 + 1] > 5) {
-        positions[i * 3 + 1] = 0;
-      }
-    }
-    pointsRef.current.geometry.attributes.position.needsUpdate = true;
-  });
-
-  return (
-    <points ref={pointsRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
-      </bufferGeometry>
-      <pointsMaterial size={0.05} color="#00F5FF" transparent opacity={0.6} sizeAttenuation />
-    </points>
-  );
-};
-
-// Main Die Object with enhanced visual effects
-const SiliconDie = ({ isHovered, reducedMotion }: { isHovered: boolean, reducedMotion: boolean }) => {
-  const dieRef = useRef<THREE.Group>(null);
-  const coreRef = useRef<THREE.Mesh>(null);
-  
-  useFrame((state, delta) => {
-    if (reducedMotion || !dieRef.current) return;
-    
-    // Smooth adaptive rotation
-    const targetSpeed = isHovered ? 0.05 : 0.3;
-    dieRef.current.rotation.y += delta * targetSpeed;
-    
-    // Pulsing central compute core logic
-    if (coreRef.current) {
-      const pulse = Math.sin(state.clock.elapsedTime * 2) * 0.1 + 0.25;
-      (coreRef.current.material as THREE.MeshBasicMaterial).opacity = pulse;
-      coreRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 3) * 0.015);
-    }
-  });
-
-  return (
-    <group ref={dieRef}>
-      {/* Base Silicon Substrate - Ultra Metallic */}
-      <Box args={[8, 0.15, 8]} position={[0, 0, 0]} castShadow receiveShadow>
-        <meshStandardMaterial 
-          color="#020408" 
-          metalness={1} 
-          roughness={0.1} 
-          envMapIntensity={2}
-        />
-      </Box>
-
-      {/* Surface Pattern (Transistors) */}
-      <TransistorGrid />
-      
-      {/* Bond Pads - Copper Highlights */}
-      <BondPads />
-      
-      {/* Circuit Traces - Golden Highways */}
-      <Traces />
-
-      {/* Active Compute Core Glow (Neon Cyan) */}
-      <Plane ref={coreRef} args={[4.5, 4.5]} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
-        <meshBasicMaterial 
-          color="#00F5FF" 
-          transparent 
-          opacity={0.3} 
-          blending={THREE.AdditiveBlending} 
-        />
-      </Plane>
-      
-      {/* Inner Processing Core (Plasma Violet) */}
-      <Plane args={[2, 2]} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]}>
-        <meshBasicMaterial 
-          color="#7C3AED" 
-          transparent 
-          opacity={0.5} 
-          blending={THREE.AdditiveBlending} 
-        />
-      </Plane>
-    </group>
-  );
-};
-
+// Main Scene
 export default function SiliconDieCanvas() {
-  const [isHovered, setIsHovered] = useState(false);
+  const [assemblyProgress, setAssemblyProgress] = useState(0);
   const reducedMotion = useReducedMotion() ?? false;
-  const [webGLAvailable, setWebGLAvailable] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const dieGroupRef = useRef<THREE.Group>(null);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
-    try {
-      const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-      if (!gl) setWebGLAvailable(false);
-    } catch {
-      setWebGLAvailable(false);
-    }
-    
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  if (!webGLAvailable) {
-    return (
-      <div className="absolute inset-0 bg-silicon-black flex items-center justify-center">
-        <div className="w-full h-full bg-[radial-gradient(ellipse_at_center,_var(--neon-cyan)_0%,_var(--silicon-black)_100%)] opacity-20"></div>
-        <div className="absolute inset-0 grain-overlay"></div>
-      </div>
-    );
-  }
+  useFrame((state, delta) => {
+    if (reducedMotion) {
+      setAssemblyProgress(1);
+      return;
+    }
+    // Slowly advance assembly over 4 seconds
+    if (assemblyProgress < 1) {
+      setAssemblyProgress(prev => Math.min(1, prev + delta * 0.25));
+    }
+
+    if (dieGroupRef.current && assemblyProgress >= 1) {
+      dieGroupRef.current.rotation.y += delta * 0.2;
+    }
+  });
 
   return (
-    <div 
-      className="absolute inset-0 z-0 bg-silicon-black overflow-hidden"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
+    <div className="absolute inset-0 z-0 bg-silicon-black overflow-hidden">
       <Canvas 
         shadows 
-        camera={{ position: isMobile ? [8, 6, 12] : [5, 4, 8], fov: 45 }}
-        gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }}
+        camera={{ position: [12, 10, 20], fov: 45 }}
+        gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
         dpr={isMobile ? [1, 1] : [1, 1.5]}
       >
         <color attach="background" args={['#020408']} />
-        <fog attach="fog" args={['#020408', 10, 20]} />
+        <fog attach="fog" args={['#020408', 15, 35]} />
         
         <ambientLight intensity={0.4} />
-        <directionalLight position={[10, 10, 5]} intensity={1.5} color="#FFD700" castShadow />
-        <pointLight position={[-5, 5, -5]} intensity={2} color="#00F5FF" />
-        <pointLight position={[0, 2, 0]} intensity={1} color="#7C3AED" />
+        <directionalLight position={[10, 20, 5]} intensity={1.5} color="#FFD700" castShadow />
+        <pointLight position={[-10, 10, -10]} intensity={2} color="#00F5FF" />
 
-        <Float speed={reducedMotion ? 0 : 2.5} rotationIntensity={0.8} floatIntensity={2}>
-          <SiliconDie isHovered={isHovered} reducedMotion={reducedMotion} />
-        </Float>
+        <group ref={dieGroupRef}>
+          <Float speed={assemblyProgress >= 1 ? 2 : 0} rotationIntensity={0.5} floatIntensity={1}>
+            <SubstrateQuads assemblyProgress={assemblyProgress} />
+            <AssemblyCore assemblyProgress={assemblyProgress} />
+            <AssemblyTraces assemblyProgress={assemblyProgress} />
+            
+            {/* ALU Clusters assembling */}
+            {Array.from({ length: 16 }).map((_, i) => (
+              <FloatingALU key={i} index={i} assemblyProgress={assemblyProgress} />
+            ))}
+          </Float>
+        </group>
 
-        <CopperParticles reducedMotion={reducedMotion} count={isMobile ? 50 : 200} />
-
-        <OrbitControls 
-          enableZoom={false} 
-          enablePan={false} 
-          maxPolarAngle={Math.PI / 2.2} 
-          minDistance={3} 
-          maxDistance={20}
-        />
+        <OrbitControls enableZoom={false} enablePan={false} maxPolarAngle={Math.PI / 2.1} />
         
         {!reducedMotion && !isMobile && (
           <EffectComposer multisampling={0}>
-            <Bloom luminanceThreshold={0.2} mipmapBlur intensity={1.5} />
+            <Bloom luminanceThreshold={0.2} mipmapBlur intensity={assemblyProgress >= 1 ? 1.5 : 0.5} />
           </EffectComposer>
         )}
       </Canvas>
+      
+      {/* Background assembly status text overlay */}
+      {assemblyProgress < 1 && (
+        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center">
+          <div className="w-64 h-1 bg-white/5 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-neon-cyan transition-all duration-300 ease-out" 
+              style={{ width: `${assemblyProgress * 100}%` }}
+            />
+          </div>
+          <p className="mt-4 font-mono text-[10px] text-neon-cyan uppercase tracking-[0.2em] animate-pulse">
+            Initializing RTL Subsystems: {(assemblyProgress * 100).toFixed(0)}%
+          </p>
+        </div>
+      )}
+
       <div className="absolute inset-0 grain-overlay z-10 pointer-events-none"></div>
     </div>
   );
