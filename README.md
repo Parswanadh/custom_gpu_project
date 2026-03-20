@@ -50,7 +50,7 @@ npm run dev -- -p 3007
 ```
 
 ## 🌐 Live Website
-Experience the 3D GPU die and interactive simulation flow at: [https://bitbybit-sandy.vercel.app](https://bitbybit-sandy.vercel.app)
+Experience the 3D GPU die and interactive simulation flow at: [https://bitbybit-silicon.vercel.app](https://bitbybit-silicon.vercel.app)
 
 ---
 © 2026 BitbyBit Custom Silicon. Cycle-Accurate Execution.

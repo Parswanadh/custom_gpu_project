@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Auto-GIT Homepage E2E', () => {
+test.describe('BitbyBit Homepage E2E', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    // Test the live production URL
+    await page.goto('https://bitbybit-silicon.vercel.app');
   });
 
   test('Full page loads without fatal console errors', async ({ page }) => {
@@ -21,27 +22,14 @@ test.describe('Auto-GIT Homepage E2E', () => {
 
     await page.waitForLoadState('networkidle');
     expect(errors).toHaveLength(0);
-  });
-
-  test('All 6 nav links scroll to correct section', async ({ page }) => {
-    // Implementation deferred
+    
+    // Check for BitbyBit headline
+    const headline = page.locator('h1');
+    await expect(headline).toContainText('BitbyBit');
   });
 
   test('Three.js canvas renders', async ({ page }) => {
     const canvas = page.locator('canvas').first();
     await expect(canvas).toBeVisible();
-  });
-
-  test('All stat counters reach non-zero values after scroll', async ({ page }) => {
-    // Implementation deferred
-  });
-
-  test('Pipeline animation completes all 8 nodes in sequence', async ({ page }) => {
-    // Implementation deferred
-  });
-
-  test('Page is fully functional on mobile viewport', async ({ page, isMobile }) => {
-    if (!isMobile) test.skip();
-    // Implementation deferred
   });
 });
