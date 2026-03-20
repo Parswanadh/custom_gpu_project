@@ -10,18 +10,19 @@ import { useReducedMotion } from 'framer-motion';
 // --- ASSEMBLY SUB-COMPONENTS --- //
 
 const SubstrateQuads = ({ assemblyProgress }: { assemblyProgress: number }) => {
-  // 4 pieces of the silicon substrate that slide in from corners
   const quads = [
-    { pos: [-2, 0, -2], start: [-15, 5, -15] }, // Top Left
-    { pos: [2, 0, -2], start: [15, 5, -15] },  // Top Right
-    { pos: [-2, 0, 2], start: [-15, 5, 15] },  // Bottom Left
-    { pos: [2, 0, 2], start: [15, 5, 15] },   // Bottom Right
+    { pos: [-2, 0, -2], start: [-15, 5, -15] },
+    { pos: [2, 0, -2], start: [15, 5, -15] },
+    { pos: [-2, 0, 2], start: [-15, 5, 15] },
+    { pos: [2, 0, 2], start: [15, 5, 15] },
   ];
 
   return (
     <group>
       {quads.map((q, i) => {
-        const currentPos = new THREE.Vector3().fromArray(q.start).lerp(new THREE.Vector3().fromArray(q.pos), Math.min(1, assemblyProgress * 1.5));
+        const target = new THREE.Vector3().fromArray(q.pos);
+        const start = new THREE.Vector3().fromArray(q.start);
+        const currentPos = new THREE.Vector3().lerpVectors(start, target, Math.min(1, assemblyProgress * 1.5));
         return (
           <Box key={i} args={[4, 0.15, 4]} position={currentPos}>
             <meshStandardMaterial 
@@ -48,7 +49,6 @@ const AssemblyCore = ({ assemblyProgress }: { assemblyProgress: number }) => {
     }
   });
 
-  // Core drops from top
   const coreY = assemblyProgress < 0.5 ? 10 : THREE.MathUtils.lerp(10, 0.06, (assemblyProgress - 0.5) * 2);
   const coreOpacity = assemblyProgress < 0.5 ? 0 : (assemblyProgress - 0.5) * 2;
 
@@ -124,26 +124,26 @@ const AssemblyTraces = ({ assemblyProgress }: { assemblyProgress: number }) => {
   );
 };
 
-// Main Scene
-export default function SiliconDieCanvas() {
-  const [assemblyProgress, setAssemblyProgress] = useState(0);
-  const reducedMotion = useReducedMotion() ?? false;
-  const [isMobile, setIsMobile] = useState(false);
+// Scene Controller component to handle useFrame correctly inside Canvas
+const SceneController = ({ 
+  assemblyProgress, 
+  setAssemblyProgress, 
+  reducedMotion, 
+  isMobile 
+}: { 
+  assemblyProgress: number, 
+  setAssemblyProgress: React.Dispatch<React.SetStateAction<number>>, 
+  reducedMotion: boolean,
+  isMobile: boolean
+}) => {
   const dieGroupRef = useRef<THREE.Group>(null);
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   useFrame((state, delta) => {
     if (reducedMotion) {
       setAssemblyProgress(1);
       return;
     }
-    // Slowly advance assembly over 4 seconds
+    
     if (assemblyProgress < 1) {
       setAssemblyProgress(prev => Math.min(1, prev + delta * 0.25));
     }
@@ -154,6 +154,49 @@ export default function SiliconDieCanvas() {
   });
 
   return (
+    <>
+      <color attach="background" args={['#020408']} />
+      <fog attach="fog" args={['#020408', 15, 35]} />
+      
+      <ambientLight intensity={0.4} />
+      <directionalLight position={[10, 20, 5]} intensity={1.5} color="#FFD700" castShadow />
+      <pointLight position={[-10, 10, -10]} intensity={2} color="#00F5FF" />
+
+      <group ref={dieGroupRef}>
+        <Float speed={assemblyProgress >= 1 ? 2 : 0} rotationIntensity={0.5} floatIntensity={1}>
+          <SubstrateQuads assemblyProgress={assemblyProgress} />
+          <AssemblyCore assemblyProgress={assemblyProgress} />
+          <AssemblyTraces assemblyProgress={assemblyProgress} />
+          {Array.from({ length: 16 }).map((_, i) => (
+            <FloatingALU key={i} index={i} assemblyProgress={assemblyProgress} />
+          ))}
+        </Float>
+      </group>
+
+      <OrbitControls enableZoom={false} enablePan={false} maxPolarAngle={Math.PI / 2.1} />
+      
+      {!reducedMotion && !isMobile && (
+        <EffectComposer multisampling={0}>
+          <Bloom luminanceThreshold={0.2} mipmapBlur intensity={assemblyProgress >= 1 ? 1.5 : 0.5} />
+        </EffectComposer>
+      )}
+    </>
+  );
+};
+
+export default function SiliconDieCanvas() {
+  const [assemblyProgress, setAssemblyProgress] = useState(0);
+  const reducedMotion = useReducedMotion() ?? false;
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return (
     <div className="absolute inset-0 z-0 bg-silicon-black overflow-hidden">
       <Canvas 
         shadows 
@@ -161,36 +204,14 @@ export default function SiliconDieCanvas() {
         gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
         dpr={isMobile ? [1, 1] : [1, 1.5]}
       >
-        <color attach="background" args={['#020408']} />
-        <fog attach="fog" args={['#020408', 15, 35]} />
-        
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[10, 20, 5]} intensity={1.5} color="#FFD700" castShadow />
-        <pointLight position={[-10, 10, -10]} intensity={2} color="#00F5FF" />
-
-        <group ref={dieGroupRef}>
-          <Float speed={assemblyProgress >= 1 ? 2 : 0} rotationIntensity={0.5} floatIntensity={1}>
-            <SubstrateQuads assemblyProgress={assemblyProgress} />
-            <AssemblyCore assemblyProgress={assemblyProgress} />
-            <AssemblyTraces assemblyProgress={assemblyProgress} />
-            
-            {/* ALU Clusters assembling */}
-            {Array.from({ length: 16 }).map((_, i) => (
-              <FloatingALU key={i} index={i} assemblyProgress={assemblyProgress} />
-            ))}
-          </Float>
-        </group>
-
-        <OrbitControls enableZoom={false} enablePan={false} maxPolarAngle={Math.PI / 2.1} />
-        
-        {!reducedMotion && !isMobile && (
-          <EffectComposer multisampling={0}>
-            <Bloom luminanceThreshold={0.2} mipmapBlur intensity={assemblyProgress >= 1 ? 1.5 : 0.5} />
-          </EffectComposer>
-        )}
+        <SceneController 
+          assemblyProgress={assemblyProgress}
+          setAssemblyProgress={setAssemblyProgress}
+          reducedMotion={reducedMotion}
+          isMobile={isMobile}
+        />
       </Canvas>
       
-      {/* Background assembly status text overlay */}
       {assemblyProgress < 1 && (
         <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center">
           <div className="w-64 h-1 bg-white/5 rounded-full overflow-hidden">
