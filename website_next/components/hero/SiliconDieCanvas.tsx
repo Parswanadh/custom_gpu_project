@@ -2,7 +2,7 @@
 
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Float, Box, Plane, Line, Sphere } from '@react-three/drei';
+import { OrbitControls, Float, Box, Plane, Line } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { useReducedMotion } from 'framer-motion';
@@ -43,7 +43,6 @@ const AssemblyCore = ({ assemblyProgress }: { assemblyProgress: number }) => {
   
   useFrame((state) => {
     if (!coreRef.current) return;
-    const pulse = Math.sin(state.clock.elapsedTime * 2) * 0.1 + 0.3;
     if (assemblyProgress > 0.8) {
       coreRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 4) * 0.02);
     }
@@ -79,7 +78,7 @@ const FloatingALU = ({ index, assemblyProgress }: { index: number, assemblyProgr
     (Math.floor(index / 4) - 1.5) * 1.5
   ], [index]);
 
-  useFrame((state) => {
+  useFrame(() => {
     if (!meshRef.current || assemblyProgress < 0.3) return;
     const p = Math.min(1, (assemblyProgress - 0.3) * 2);
     meshRef.current.position.x = THREE.MathUtils.lerp(startPos[0], targetPos[0], p);
