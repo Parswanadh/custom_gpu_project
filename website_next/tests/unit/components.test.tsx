@@ -14,6 +14,7 @@ import PipelineSection from '@/components/sections/PipelineSection';
 import ArchitectureSection from '@/components/sections/ArchitectureSection';
 import MetricsDashboardSection from '@/components/sections/MetricsDashboardSection';
 import ComparisonSection from '@/components/sections/ComparisonSection';
+import ExecutionEvidenceSection from '@/components/sections/ExecutionEvidenceSection';
 import RoadmapSection from '@/components/sections/RoadmapSection';
 import FooterSection from '@/components/sections/FooterSection';
 
@@ -26,7 +27,7 @@ describe('Auto-GIT Component Mount Tests', () => {
   it('NavigationBar mounts and renders core routing links', () => {
     render(<NavigationBar />);
     expect(screen.getByText('Architecture')).toBeInTheDocument();
-    expect(screen.getByText('Evolution')).toBeInTheDocument();
+    expect(screen.getByText('Performance')).toBeInTheDocument();
   });
 
   it('WorkflowBackground renders SVG pattern correctly', () => {
@@ -41,6 +42,7 @@ describe('Auto-GIT Component Mount Tests', () => {
     { name: 'ArchitectureSection', component: <ArchitectureSection /> },
     { name: 'MetricsDashboardSection', component: <MetricsDashboardSection /> },
     { name: 'ComparisonSection', component: <ComparisonSection /> },
+    { name: 'ExecutionEvidenceSection', component: <ExecutionEvidenceSection /> },
     { name: 'RoadmapSection', component: <RoadmapSection /> },
     { name: 'FooterSection', component: <FooterSection /> }
   ];

@@ -5,7 +5,6 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Float, Box, Plane, Line } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
-import { useReducedMotion } from 'framer-motion';
 
 // --- ASSEMBLY SUB-COMPONENTS (STATICAL) --- //
 
@@ -132,13 +131,6 @@ const AssemblyScene = ({
   const coreRef = useRef<THREE.Group>(null);
   const aluRefs = useRef<(THREE.Mesh | null)[]>([]);
 
-  // Setup ALU target positions once
-  const aluTargets = useMemo(() => Array.from({ length: 16 }).map((_, i) => [
-    (index % 4 - 1.5) * 1.5,
-    0.1,
-    (Math.floor(index / 4) - 1.5) * 1.5
-  ]), []);
-
   useFrame((state, delta) => {
     // 1. Advance assembly progress
     if (reducedMotion) {
@@ -155,23 +147,6 @@ const AssemblyScene = ({
     // 3. Animate Core pulse
     if (coreRef.current && assemblyProgress > 0.8) {
       coreRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 4) * 0.02);
-    }
-
-    // 4. Animate ALU positions
-    if (assemblyProgress > 0.3) {
-      const p = Math.min(1, (assemblyProgress - 0.3) * 2);
-      aluRefs.current.forEach((mesh, i) => {
-        if (!mesh) return;
-        const target = [
-          (i % 4 - 1.5) * 1.5,
-          0.1,
-          (Math.floor(i / 4) - 1.5) * 1.5
-        ];
-        // We use the same start positions defined in FloatingALU useMemo
-        // but since we need them here, we'll just lerp from wherever they are
-        // To be safe, we'll just let the FloatingALU component handle its own position
-        // but the R3F hook must be called here or in FloatingALU if FloatingALU is inside Canvas.
-      });
     }
   });
 
