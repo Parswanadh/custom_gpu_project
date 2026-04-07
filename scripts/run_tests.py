@@ -242,7 +242,7 @@ for phase, name, outbin, sources, tb in TESTS:
     try:
         comp = subprocess.run(
             [IVERILOG, "-g2012", "-o", out_path] + all_files,
-            capture_output=True, text=True
+            capture_output=True, text=True, cwd=ROOT
         )
     except OSError as e:
         error_text = f"Failed to launch iverilog '{IVERILOG}': {e}"
@@ -266,7 +266,7 @@ for phase, name, outbin, sources, tb in TESTS:
     # Simulate
     try:
         sim = subprocess.run(
-            [VVP, out_path], capture_output=True, text=True, timeout=SIM_TIMEOUT_SEC
+            [VVP, out_path], capture_output=True, text=True, timeout=SIM_TIMEOUT_SEC, cwd=ROOT
         )
     except subprocess.TimeoutExpired as e:
         output = _coerce_text(e.stdout) + _coerce_text(e.stderr)
@@ -303,24 +303,19 @@ for phase, name, outbin, sources, tb in TESTS:
         passes = int(tb_result.group(1))
         fails = int(tb_result.group(2))
     else:
-        # Backward-compatible fallback for legacy benches.
-        passes = len(re.findall(r'\[PASS\]', output))
-        fails = len(re.findall(r'\[FAIL\]', output))
-        # Subtract summary line matches: "N [PASS], N [FAIL]"
+        # Backward-compatible parser order for legacy benches:
+        # 1) explicit summary lines, 2) legacy "PASSED/FAILED", 3) marker counting.
         summary = re.findall(r'(\d+)\s+\[PASS\],\s+(\d+)\s+\[FAIL\]', output)
-        for sp, sf in summary:
-            passes -= 1  # remove the summary [PASS] match
-            fails -= 1   # remove the summary [FAIL] match
-            # Use summary counts if no individual markers found
-            if passes <= 1 and fails <= 0:
-                passes = int(sp)
-                fails = int(sf)
-
-        # Fallback: "N PASSED, N FAILED" summary
-        if passes == 0 and fails == 0:
+        if summary:
+            sp, sf = summary[-1]
+            passes, fails = int(sp), int(sf)
+        else:
             m = re.search(r'(\d+)\s+(?:PASSED|passed),\s+(\d+)\s+(?:FAILED|failed)', output)
             if m:
                 passes, fails = int(m.group(1)), int(m.group(2))
+            else:
+                passes = len(re.findall(r'\[PASS\]', output))
+                fails = len(re.findall(r'\[FAIL\]', output))
 
     total_pass += passes
     total_fail += fails

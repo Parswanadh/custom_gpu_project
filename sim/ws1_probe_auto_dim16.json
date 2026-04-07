@@ -1,0 +1,135 @@
+{
+  "run_id": "20260331-034537",
+  "config": {
+    "dim": 16,
+    "ffn_dim": 64,
+    "vocab": 16,
+    "seq_len": 8,
+    "layers": 2,
+    "heads": 2,
+    "head_dim": 8,
+    "clock_mhz": 100
+  },
+  "input": {
+    "sentence": "<token-seq>",
+    "token_sequence": [
+      5,
+      15
+    ],
+    "position_sequence": [
+      2,
+      0
+    ],
+    "warmup_token_sequence": [
+      0,
+      0
+    ],
+    "warmup_position_sequence": [
+      0,
+      1
+    ]
+  },
+  "aggregate": {
+    "total_tokens": 2,
+    "total_cycles": 1172,
+    "avg_cycles_per_token": 586.0,
+    "latency_us": 11.72,
+    "verilog_vs_q88_matches": 0,
+    "verilog_vs_float32_matches": 0,
+    "avg_mse_vs_q88": 1742.5823314210845,
+    "zero_skip_rate_pct": 5.803571428571429,
+    "throughput_boost_estimate": 1.061611374407583,
+    "sim_time_seconds": 0.2574954032897949
+  },
+  "parity": {
+    "emit_checkpoints": true,
+    "logit_tolerance": 2.0,
+    "checkpoint_tolerance": 2.0,
+    "overall_pass": false,
+    "tokens": [
+      {
+        "position_index": 0,
+        "input_pos": 2,
+        "token_id": 5,
+        "logits": {
+          "mean_abs_error": 40.196283485074886,
+          "max_abs_error": 79.34036964280445,
+          "mse": 2140.5783240514047,
+          "pass": false,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 8.504025392087616,
+            "max_abs_error": 25.936189078874005,
+            "mse": 122.9916372657469,
+            "pass": false
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 13.173549162924672,
+            "max_abs_error": 60.239031224786515,
+            "mse": 369.0836992880815,
+            "pass": false
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 48.59801902291757,
+          "max_abs_error": 113.90790608597695,
+          "mse": 3813.4769608928927,
+          "pass": false
+        },
+        "pass": false
+      },
+      {
+        "position_index": 1,
+        "input_pos": 0,
+        "token_id": 15,
+        "logits": {
+          "mean_abs_error": 29.33727970473592,
+          "max_abs_error": 64.18249920832977,
+          "mse": 1344.5863387907643,
+          "pass": false,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 13.426884011352477,
+            "max_abs_error": 62.10948203963644,
+            "mse": 408.1115504041293,
+            "pass": false
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 25.32890327884451,
+            "max_abs_error": 122.5678424668683,
+            "mse": 1422.52428556487,
+            "pass": false
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 57.77958618510097,
+          "max_abs_error": 104.91566592506081,
+          "mse": 4222.458701654269,
+          "pass": false
+        },
+        "pass": false
+      }
+    ]
+  },
+  "verilog_config": {
+    "dim": "16",
+    "ffn": "64",
+    "vocab": "16",
+    "layers": "2",
+    "heads": "2"
+  }
+}

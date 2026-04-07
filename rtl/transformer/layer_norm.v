@@ -37,6 +37,8 @@ module layer_norm #(
     reg signed [DATA_WIDTH-1:0]   var_val;
     reg signed [DATA_WIDTH-1:0]   inv_std;
     reg signed [DATA_WIDTH-1:0]   diff;
+    reg signed [DATA_WIDTH-1:0]   norm_q88;
+    reg signed [DATA_WIDTH-1:0]   scaled_q88;
     reg signed [2*DATA_WIDTH-1:0] norm_val;
     reg signed [2*DATA_WIDTH-1:0] scaled;
 
@@ -108,8 +110,8 @@ module layer_norm #(
                     end else begin
                         // Issue #5: Replace division with shift
                         // var = var_acc / DIM → var_acc >>> log2(DIM)
-                        // Q16.16 → Q8.8: take bits [DATA_WIDTH+7:8], then shift
-                        var_val <= var_acc[DATA_WIDTH+7:8] >>> DIM_LOG2;
+                        // Preserve signedness when slicing Q16.16 -> Q8.8.
+                        var_val <= $signed(var_acc[DATA_WIDTH+7:8]) >>> DIM_LOG2;
                         state <= CALC_INVSTD;
                     end
                 end
@@ -125,9 +127,11 @@ module layer_norm #(
                     if (idx < DIM) begin
                         diff = x_buf[idx] - mean_val;
                         norm_val = diff * inv_std;
-
-                        scaled = gamma[idx] * norm_val[DATA_WIDTH+7:8];
-                        y_out[idx*DATA_WIDTH +: DATA_WIDTH] <= scaled[DATA_WIDTH+7:8] + beta[idx];
+                        // Preserve signed Q8.8 semantics when slicing intermediates.
+                        norm_q88 = $signed(norm_val[DATA_WIDTH+7:8]);
+                        scaled = gamma[idx] * norm_q88;
+                        scaled_q88 = $signed(scaled[DATA_WIDTH+7:8]);
+                        y_out[idx*DATA_WIDTH +: DATA_WIDTH] <= scaled_q88 + beta[idx];
                         idx <= idx + 1;
                     end else begin
                         state <= OUTPUT;

@@ -1,0 +1,138 @@
+VCD info: dumpfile scaled_cosim.vcd opened for output.
+
+CONFIG dim=16 ffn=64 vocab=16 layers=2 heads=2
+
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=0 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=1 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=2 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=3 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=4 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=5 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=6 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=7 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=8 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=9 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=10 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=11 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=12 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=13 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=14 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=0 dim=15 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=0 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=1 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=2 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=3 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=4 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=5 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=6 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=7 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=8 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=9 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=10 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=11 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=12 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=13 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=14 hex=xxxx
+CKPT pos=0 input_pos=2 type=layer layer=1 dim=15 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=0 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=1 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=2 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=3 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=4 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=5 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=6 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=7 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=8 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=9 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=10 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=11 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=12 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=13 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=14 hex=xxxx
+CKPT pos=0 input_pos=2 type=final_ln layer=2 dim=15 hex=xxxx
+TOKEN pos=0 input_pos=2 id=5 predicted=0 cycles=592
+LOGIT pos=0 input_pos=2 dim=0 hex=xxxx
+LOGIT pos=0 input_pos=2 dim=1 hex=xxxx
+LOGIT pos=0 input_pos=2 dim=2 hex=xxxx
+LOGIT pos=0 input_pos=2 dim=3 hex=xxxx
+LOGIT pos=0 input_pos=2 dim=4 hex=xxxx
+LOGIT pos=0 input_pos=2 dim=5 hex=xxxx
+LOGIT pos=0 input_pos=2 dim=6 hex=xxxx
+LOGIT pos=0 input_pos=2 dim=7 hex=xxxx
+LOGIT pos=0 input_pos=2 dim=8 hex=xxxx
+LOGIT pos=0 input_pos=2 dim=9 hex=xxxx
+LOGIT pos=0 input_pos=2 dim=10 hex=xxxx
+LOGIT pos=0 input_pos=2 dim=11 hex=xxxx
+LOGIT pos=0 input_pos=2 dim=12 hex=xxxx
+LOGIT pos=0 input_pos=2 dim=13 hex=xxxx
+LOGIT pos=0 input_pos=2 dim=14 hex=xxxx
+LOGIT pos=0 input_pos=2 dim=15 hex=xxxx
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=0 hex=f5a4
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=1 hex=0bb3
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=2 hex=dece
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=3 hex=01a2
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=4 hex=0d10
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=5 hex=fb09
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=6 hex=fda3
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=7 hex=3db5
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=8 hex=e88f
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=9 hex=fd0e
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=10 hex=f85a
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=11 hex=fc31
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=12 hex=fc99
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=13 hex=f24d
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=14 hex=fb81
+CKPT pos=1 input_pos=0 type=layer layer=0 dim=15 hex=0fbf
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=0 hex=d61e
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=1 hex=e1d5
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=2 hex=ea6d
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=3 hex=05cf
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=4 hex=11ff
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=5 hex=fa2f
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=6 hex=e8e1
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=7 hex=7a23
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=8 hex=e343
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=9 hex=fbf8
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=10 hex=f291
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=11 hex=f5bf
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=12 hex=f58e
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=13 hex=e6cf
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=14 hex=fdaf
+CKPT pos=1 input_pos=0 type=layer layer=1 dim=15 hex=2b23
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=0 hex=56de
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=1 hex=557f
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=2 hex=d8d8
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=3 hex=0260
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=4 hex=06b5
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=5 hex=3e8e
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=6 hex=353d
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=7 hex=3015
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=8 hex=695f
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=9 hex=2f45
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=10 hex=60a6
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=11 hex=450c
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=12 hex=3230
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=13 hex=43c7
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=14 hex=46c8
+CKPT pos=1 input_pos=0 type=final_ln layer=2 dim=15 hex=1048
+TOKEN pos=1 input_pos=0 id=15 predicted=1 cycles=580
+LOGIT pos=1 input_pos=0 dim=0 hex=c91b
+LOGIT pos=1 input_pos=0 dim=1 hex=04dc
+LOGIT pos=1 input_pos=0 dim=2 hex=c817
+LOGIT pos=1 input_pos=0 dim=3 hex=c030
+LOGIT pos=1 input_pos=0 dim=4 hex=f219
+LOGIT pos=1 input_pos=0 dim=5 hex=e794
+LOGIT pos=1 input_pos=0 dim=6 hex=f6d5
+LOGIT pos=1 input_pos=0 dim=7 hex=c7d2
+LOGIT pos=1 input_pos=0 dim=8 hex=c875
+LOGIT pos=1 input_pos=0 dim=9 hex=f120
+LOGIT pos=1 input_pos=0 dim=10 hex=e831
+LOGIT pos=1 input_pos=0 dim=11 hex=f3c5
+LOGIT pos=1 input_pos=0 dim=12 hex=f816
+LOGIT pos=1 input_pos=0 dim=13 hex=f578
+LOGIT pos=1 input_pos=0 dim=14 hex=cbfc
+LOGIT pos=1 input_pos=0 dim=15 hex=f8f1
+
+SUMMARY total_tokens=2 total_cycles=1172 avg_cycles=586
+DONE
+D:\Projects\BitbyBit\custom_gpu_project\tb\cocotb\sim_build\scaled_cosim_tb.v:315: $finish called at 85800000 (1ps)

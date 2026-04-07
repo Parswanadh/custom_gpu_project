@@ -1,0 +1,181 @@
+
+======================================================================
+  BitbyBit GPU -- Scaled Cosimulation (EMBED_DIM=16)
+======================================================================
+  Config: dim=16, ffn=64, vocab=16, seq=32, layers=2, heads=2
+  Parameters: 3,232 weight values
+
+  Loading cached Q8.8 weights (dim=16)...
+  Wrote hex files to D:\Projects\BitbyBit\custom_gpu_project\weights\gpt2_dim16\hex_sim
+  Input text:     "<token-seq>"
+  Token sequence: [5, 15, 7, 4, 13, 0, 14, 2, 2, 13, 10, 9, 1, 7, 5, 4, 8, 3, 8, 10, 4, 13, 4, 4]
+  Position seq:   [2, 0, 4, 5, 6, 5, 6, 2, 3, 2, 7, 6, 0, 7, 0, 0, 0, 0, 6, 6, 7, 7, 3, 1]
+  Warmup tokens:  [0, 0, 0, 0, 0, 0, 0]
+  Warmup pos:     [0, 1, 2, 3, 4, 5, 6]
+
+  Generated testbench (24 tokens)
+  [1/3] Compiling Verilog...
+  [2/3] Running simulation (this may take a while at dim=64)...
+  [3/3] Simulation completed in 1.0s
+
+  Running CPU Q8.8 reference...
+======================================================================
+                      COMPARISON REPORT
+======================================================================
+
+  PER-TOKEN RESULTS:
+  Pos | Inp | Char |  ID | GPU Pred | Q88 Pred | F32 Pred |  Cycles
+  --- | --- | ---- | --- | -------- | -------- | -------- | -------
+    0 |   2 | 'e'  |   5 |  15 ('o')  |        4 |        4 |     592
+    1 |   0 | 'o'  |  15 |   1 ('a')  |        2 |        2 |     580
+    2 |   4 | 'g'  |   7 |  12 ('l')  |       15 |       15 |     604
+    3 |   5 | 'd'  |   4 |   1 ('a')  |        2 |        2 |     610
+    4 |   6 | 'm'  |  13 |  15 ('o')  |        4 |        4 |     616
+    5 |   5 | ' '  |   0 |   1 ('a')  |        4 |        4 |     610
+    6 |   6 | 'n'  |  14 |   1 ('a')  |        3 |        3 |     616
+    7 |   2 | 'b'  |   2 |   1 ('a')  |        4 |        4 |     592
+    8 |   3 | 'b'  |   2 |   1 ('a')  |        4 |        4 |     598
+    9 |   2 | 'm'  |  13 |  15 ('o')  |        4 |        4 |     592
+   10 |   7 | 'j'  |  10 |   1 ('a')  |        4 |        4 |     622
+   11 |   6 | 'i'  |   9 |  13 ('m')  |        1 |        1 |     616
+   12 |   0 | 'a'  |   1 |   1 ('a')  |        4 |        4 |     580
+   13 |   7 | 'g'  |   7 |   1 ('a')  |       15 |       15 |     622
+   14 |   0 | 'e'  |   5 |   9 ('i')  |        2 |        2 |     580
+   15 |   0 | 'd'  |   4 |   1 ('a')  |        8 |        8 |     580
+   16 |   0 | 'h'  |   8 |   1 ('a')  |        2 |        2 |     580
+   17 |   0 | 'c'  |   3 |   1 ('a')  |        2 |        2 |     580
+   18 |   6 | 'h'  |   8 |   1 ('a')  |        2 |        2 |     616
+   19 |   6 | 'j'  |  10 |   1 ('a')  |        4 |        4 |     616
+   20 |   7 | 'd'  |   4 |   1 ('a')  |        2 |        2 |     622
+   21 |   7 | 'm'  |  13 |   1 ('a')  |        4 |        4 |     622
+   22 |   3 | 'd'  |   4 |   1 ('a')  |        2 |        2 |     598
+   23 |   1 | 'd'  |   4 |   1 ('a')  |        8 |        0 |     586
+
+  AGGREGATE METRICS:
+  +-----------------------------------+------------------+
+  | Metric                            | Value            |
+  +-----------------------------------+------------------+
+  | Embedding Dimension               |               16 |
+  | FFN Dimension                     |               64 |
+  | Total Weight Parameters           |            3,232 |
+  | Total Tokens Processed            |               24 |
+  | Total GPU Clock Cycles            |           14,430 |
+  | Avg Cycles Per Token              |            601.2 |
+  | Est. Latency @ 100MHz             |         144.3 us |
+  | Verilog vs Q8.8 Match             | 0/           24 |
+  | Verilog vs Float32 Match          | 0/           24 |
+  | Avg MSE (vs Q8.8 reference)       |      1089.026787 |
+  | Parity Gate (all tokens)          |             FAIL |
+  | Zero-Skip Rate (activations)      |            4.7% |
+  | Est. Throughput Boost (0-skip)     |            1.05x |
+  | Simulation Wall-Clock Time        |           1.0 s |
+  +-----------------------------------+------------------+
+
+  PARITY SUMMARY:
+    Logit tolerance:      2.0000
+    Checkpoint tolerance: 2.0000
+    Token 0: status=FAIL logit_max_abs_err=79.340370
+    Token 1: status=FAIL logit_max_abs_err=64.182499
+    Token 2: status=FAIL logit_max_abs_err=43.343376
+    Token 3: status=FAIL logit_max_abs_err=61.562955
+    Token 4: status=FAIL logit_max_abs_err=56.752073
+    Token 5: status=FAIL logit_max_abs_err=66.491537
+    Token 6: status=FAIL logit_max_abs_err=52.363629
+    Token 7: status=FAIL logit_max_abs_err=34.691790
+    Token 8: status=FAIL logit_max_abs_err=60.205197
+    Token 9: status=FAIL logit_max_abs_err=74.880475
+    Token 10: status=FAIL logit_max_abs_err=40.024963
+    Token 11: status=FAIL logit_max_abs_err=43.495030
+    Token 12: status=FAIL logit_max_abs_err=66.146657
+    Token 13: status=FAIL logit_max_abs_err=46.095555
+    Token 14: status=FAIL logit_max_abs_err=39.740861
+    Token 15: status=FAIL logit_max_abs_err=35.969382
+    Token 16: status=FAIL logit_max_abs_err=87.364030
+    Token 17: status=FAIL logit_max_abs_err=50.886947
+    Token 18: status=FAIL logit_max_abs_err=71.324610
+    Token 19: status=FAIL logit_max_abs_err=40.142045
+    Token 20: status=FAIL logit_max_abs_err=68.957826
+    Token 21: status=FAIL logit_max_abs_err=68.113970
+    Token 22: status=FAIL logit_max_abs_err=53.463517
+    Token 23: status=FAIL logit_max_abs_err=49.387547
+
+  SCALING COMPARISON (dim=4 vs dim=64):
+  +----------------------------+-----------+-----------+
+  | Metric                     | dim=4     | dim=16    |
+  +----------------------------+-----------+-----------+
+  | Weight parameters          | 232       |     3,232 |
+  | Cycles per token           | 130       |       601 |
+  | Logit expressiveness       | Low       |      High |
+  | Token differentiation      | Poor      |      Good |
+  +----------------------------+-----------+-----------+
+
+  LOGIT DETAILS (first 2 tokens, first 16 dims):
+  Token 0 ('e', id=5):
+     Dim |    Verilog |    CPU Q88 |      Err
+    [ 0] |   -69.1992 |    -0.4825 |  68.7167
+    [ 1] |   -15.4766 |    -1.0064 |  14.4701
+    [ 2] |   -58.8281 |    +2.0986 |  60.9267
+    [ 3] |   -73.1914 |    +0.1786 |  73.3700
+    [ 4] |   -45.4023 |    +2.6918 |  48.0942
+    [ 5] |   -32.6250 |    -3.0193 |  29.6057
+    [ 6] |   -23.0039 |   -11.4470 |  11.5569
+    [ 7] |   -78.7148 |    +0.6255 |  79.3404
+    [ 8] |   -56.3086 |    -0.6657 |  55.6429
+    [ 9] |   -35.6719 |    +0.1111 |  35.7830
+    [10] |   -41.8750 |    -0.9521 |  40.9229
+    [11] |   -26.6992 |    -0.2243 |  26.4750
+    [12] |   -18.0586 |    +1.0176 |  19.0762
+    [13] |   -18.0703 |    +0.5141 |  18.5844
+    [14] |   -55.3555 |    +0.5108 |  55.8663
+    [15] |    -4.1055 |    +0.6037 |   4.7092
+
+  Token 1 ('o', id=15):
+     Dim |    Verilog |    CPU Q88 |      Err
+    [ 0] |   -54.8945 |    -0.3870 |  54.5075
+    [ 1] |    +4.8594 |    -2.2696 |   7.1289
+    [ 2] |   -55.9102 |    +2.5968 |  58.5070
+    [ 3] |   -63.8125 |    +0.3700 |  64.1825
+    [ 4] |   -13.9023 |    +2.2464 |  16.1488
+    [ 5] |   -24.4219 |    -2.0085 |  22.4133
+    [ 6] |    -9.1680 |   -13.7541 |   4.5861
+    [ 7] |   -56.1797 |    -1.4430 |  54.7367
+    [ 8] |   -55.5430 |    +0.4554 |  55.9984
+    [ 9] |   -14.8750 |    +0.4222 |  15.2972
+    [10] |   -23.8086 |    -0.1819 |  23.6267
+    [11] |   -12.2305 |    +0.5394 |  12.7699
+    [12] |    -7.9141 |    +0.1595 |   8.0735
+    [13] |   -10.5312 |    +0.8037 |  11.3349
+    [14] |   -52.0156 |    +1.2526 |  53.2682
+    [15] |    -7.0586 |    -0.2418 |   6.8168
+
+  RAW VERILOG OUTPUT (tokens only):
+  CONFIG dim=16 ffn=64 vocab=16 layers=2 heads=2
+  TOKEN pos=0 input_pos=2 id=5 predicted=15 cycles=592
+  TOKEN pos=1 input_pos=0 id=15 predicted=1 cycles=580
+  TOKEN pos=2 input_pos=4 id=7 predicted=12 cycles=604
+  TOKEN pos=3 input_pos=5 id=4 predicted=1 cycles=610
+  TOKEN pos=4 input_pos=6 id=13 predicted=15 cycles=616
+  TOKEN pos=5 input_pos=5 id=0 predicted=1 cycles=610
+  TOKEN pos=6 input_pos=6 id=14 predicted=1 cycles=616
+  TOKEN pos=7 input_pos=2 id=2 predicted=1 cycles=592
+  TOKEN pos=8 input_pos=3 id=2 predicted=1 cycles=598
+  TOKEN pos=9 input_pos=2 id=13 predicted=15 cycles=592
+  TOKEN pos=10 input_pos=7 id=10 predicted=1 cycles=622
+  TOKEN pos=11 input_pos=6 id=9 predicted=13 cycles=616
+  TOKEN pos=12 input_pos=0 id=1 predicted=1 cycles=580
+  TOKEN pos=13 input_pos=7 id=7 predicted=1 cycles=622
+  TOKEN pos=14 input_pos=0 id=5 predicted=9 cycles=580
+  TOKEN pos=15 input_pos=0 id=4 predicted=1 cycles=580
+  TOKEN pos=16 input_pos=0 id=8 predicted=1 cycles=580
+  TOKEN pos=17 input_pos=0 id=3 predicted=1 cycles=580
+  TOKEN pos=18 input_pos=6 id=8 predicted=1 cycles=616
+  TOKEN pos=19 input_pos=6 id=10 predicted=1 cycles=616
+  TOKEN pos=20 input_pos=7 id=4 predicted=1 cycles=622
+  TOKEN pos=21 input_pos=7 id=13 predicted=1 cycles=622
+  TOKEN pos=22 input_pos=3 id=4 predicted=1 cycles=598
+  TOKEN pos=23 input_pos=1 id=4 predicted=1 cycles=586
+  SUMMARY total_tokens=24 total_cycles=14430 avg_cycles=601
+  DONE
+
+  JSON report saved to: D:\Projects\BitbyBit\custom_gpu_project\sim/ws1_cosim_dim16_20260331-095527.json
+

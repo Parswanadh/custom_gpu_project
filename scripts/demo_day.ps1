@@ -60,10 +60,23 @@ function Invoke-SimBench {
     $allRelFiles = $Sources + @($Testbench)
     $allFiles = $allRelFiles | ForEach-Object { Join-Path $root $_ }
 
+    if (-not $allFiles -or $allFiles.Count -eq 0) {
+        throw "Compile input list is empty for $Name"
+    }
+
     Write-Host ""
     Write-Host "Compiling $Name ..." -ForegroundColor Cyan
-    $compileOutput = & $iverilog -g2012 -o $outBin @allFiles 2>&1
+    $compileArgs = @("-g2012", "-o", $outBin) + $allFiles
+    $compileOutput = & $iverilog @compileArgs 2>&1
     $compileExit = $LASTEXITCODE
+
+    # Retry once for intermittent ivlpp no-input behavior seen under long matrix runs.
+    if ($compileExit -ne 0 -and ($compileOutput | Out-String) -match "No input files given") {
+        Start-Sleep -Milliseconds 200
+        $compileOutput = & $iverilog @compileArgs 2>&1
+        $compileExit = $LASTEXITCODE
+    }
+
     if ($compileOutput) { $compileOutput | Write-Host }
     if ($compileExit -ne 0) {
         throw "Compile failed for $Name"

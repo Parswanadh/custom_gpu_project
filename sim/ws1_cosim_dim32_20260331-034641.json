@@ -1,0 +1,375 @@
+{
+  "run_id": "20260331-034645",
+  "config": {
+    "dim": 32,
+    "ffn_dim": 128,
+    "vocab": 16,
+    "seq_len": 8,
+    "layers": 2,
+    "heads": 4,
+    "head_dim": 8,
+    "clock_mhz": 100
+  },
+  "input": {
+    "sentence": "<token-seq>",
+    "token_sequence": [
+      5,
+      15,
+      7,
+      4,
+      13,
+      0,
+      14,
+      2
+    ],
+    "position_sequence": [
+      2,
+      0,
+      4,
+      5,
+      6,
+      5,
+      6,
+      2
+    ],
+    "warmup_token_sequence": [
+      0,
+      0
+    ],
+    "warmup_position_sequence": [
+      0,
+      1
+    ]
+  },
+  "aggregate": {
+    "total_tokens": 8,
+    "total_cycles": 8788,
+    "avg_cycles_per_token": 1098.5,
+    "latency_us": 87.88,
+    "verilog_vs_q88_matches": 0,
+    "verilog_vs_float32_matches": 0,
+    "avg_mse_vs_q88": 203.20831440143053,
+    "zero_skip_rate_pct": 3.2552083333333335,
+    "throughput_boost_estimate": 1.0336473755047106,
+    "sim_time_seconds": 1.0809204578399658
+  },
+  "parity": {
+    "emit_checkpoints": true,
+    "logit_tolerance": 2.0,
+    "checkpoint_tolerance": 2.0,
+    "overall_pass": false,
+    "tokens": [
+      {
+        "position_index": 0,
+        "input_pos": 2,
+        "token_id": 5,
+        "logits": {
+          "mean_abs_error": 13.504123160853636,
+          "max_abs_error": 61.859871680558136,
+          "mse": 440.02105357994355,
+          "pass": false,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 15.12244847116663,
+            "max_abs_error": 63.79985753429101,
+            "mse": 447.4507206224797,
+            "pass": false
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 25.472108171031692,
+            "max_abs_error": 91.74675583666608,
+            "mse": 1288.5194125662738,
+            "pass": false
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 48.25005367428854,
+          "max_abs_error": 115.91177035271605,
+          "mse": 3546.711274096507,
+          "pass": false
+        },
+        "pass": false
+      },
+      {
+        "position_index": 1,
+        "input_pos": 0,
+        "token_id": 15,
+        "logits": {
+          "mean_abs_error": 9.65701573029858,
+          "max_abs_error": 46.85326671133174,
+          "mse": 235.12371757157518,
+          "pass": false,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 26.838885605954296,
+            "max_abs_error": 101.3239296896193,
+            "mse": 1737.3334393337504,
+            "pass": false
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 43.43200572638315,
+            "max_abs_error": 123.82636655712025,
+            "mse": 3388.8996161550895,
+            "pass": false
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 37.320027770500936,
+          "max_abs_error": 87.42178813615612,
+          "mse": 2086.7031857820957,
+          "pass": false
+        },
+        "pass": false
+      },
+      {
+        "position_index": 2,
+        "input_pos": 4,
+        "token_id": 7,
+        "logits": {
+          "mean_abs_error": 1.2225101325220464,
+          "max_abs_error": 4.993414128957394,
+          "mse": 2.8819213258911685,
+          "pass": false,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": true,
+            "mean_abs_error": null,
+            "max_abs_error": null,
+            "mse": null,
+            "pass": false
+          },
+          {
+            "layer": 1,
+            "missing": true,
+            "mean_abs_error": null,
+            "max_abs_error": null,
+            "mse": null,
+            "pass": false
+          }
+        ],
+        "final_ln": {
+          "missing": true,
+          "mean_abs_error": null,
+          "max_abs_error": null,
+          "mse": null,
+          "pass": false
+        },
+        "pass": false
+      },
+      {
+        "position_index": 3,
+        "input_pos": 5,
+        "token_id": 4,
+        "logits": {
+          "mean_abs_error": 1.4757640577209967,
+          "max_abs_error": 13.894572334029236,
+          "mse": 7.717328587478054,
+          "pass": false,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": true,
+            "mean_abs_error": null,
+            "max_abs_error": null,
+            "mse": null,
+            "pass": false
+          },
+          {
+            "layer": 1,
+            "missing": true,
+            "mean_abs_error": null,
+            "max_abs_error": null,
+            "mse": null,
+            "pass": false
+          }
+        ],
+        "final_ln": {
+          "missing": true,
+          "mean_abs_error": null,
+          "max_abs_error": null,
+          "mse": null,
+          "pass": false
+        },
+        "pass": false
+      },
+      {
+        "position_index": 4,
+        "input_pos": 6,
+        "token_id": 13,
+        "logits": {
+          "mean_abs_error": 1.154522753645603,
+          "max_abs_error": 7.940847182417744,
+          "mse": 4.0572608358499425,
+          "pass": false,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": true,
+            "mean_abs_error": null,
+            "max_abs_error": null,
+            "mse": null,
+            "pass": false
+          },
+          {
+            "layer": 1,
+            "missing": true,
+            "mean_abs_error": null,
+            "max_abs_error": null,
+            "mse": null,
+            "pass": false
+          }
+        ],
+        "final_ln": {
+          "missing": true,
+          "mean_abs_error": null,
+          "max_abs_error": null,
+          "mse": null,
+          "pass": false
+        },
+        "pass": false
+      },
+      {
+        "position_index": 5,
+        "input_pos": 5,
+        "token_id": 0,
+        "logits": {
+          "mean_abs_error": 1.2815034663739138,
+          "max_abs_error": 6.7039278371804825,
+          "mse": 4.031082388674548,
+          "pass": false,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": true,
+            "mean_abs_error": null,
+            "max_abs_error": null,
+            "mse": null,
+            "pass": false
+          },
+          {
+            "layer": 1,
+            "missing": true,
+            "mean_abs_error": null,
+            "max_abs_error": null,
+            "mse": null,
+            "pass": false
+          }
+        ],
+        "final_ln": {
+          "missing": true,
+          "mean_abs_error": null,
+          "max_abs_error": null,
+          "mse": null,
+          "pass": false
+        },
+        "pass": false
+      },
+      {
+        "position_index": 6,
+        "input_pos": 6,
+        "token_id": 14,
+        "logits": {
+          "mean_abs_error": 1.6927362323831887,
+          "max_abs_error": 20.974031838002688,
+          "mse": 15.2590245041878,
+          "pass": false,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": true,
+            "mean_abs_error": null,
+            "max_abs_error": null,
+            "mse": null,
+            "pass": false
+          },
+          {
+            "layer": 1,
+            "missing": true,
+            "mean_abs_error": null,
+            "max_abs_error": null,
+            "mse": null,
+            "pass": false
+          }
+        ],
+        "final_ln": {
+          "missing": true,
+          "mean_abs_error": null,
+          "max_abs_error": null,
+          "mse": null,
+          "pass": false
+        },
+        "pass": false
+      },
+      {
+        "position_index": 7,
+        "input_pos": 2,
+        "token_id": 2,
+        "logits": {
+          "mean_abs_error": 19.347234492346498,
+          "max_abs_error": 79.98678255417519,
+          "mse": 916.5751264178439,
+          "pass": false,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 19.163578249646285,
+            "max_abs_error": 88.15547544450962,
+            "mse": 826.6451147365524,
+            "pass": false
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 36.58766325797369,
+            "max_abs_error": 115.84878544241136,
+            "mse": 2381.894237202011,
+            "pass": false
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 43.16970340768782,
+          "max_abs_error": 109.47024869582481,
+          "mse": 2794.600075168488,
+          "pass": false
+        },
+        "pass": false
+      }
+    ]
+  },
+  "verilog_config": {
+    "dim": "32",
+    "ffn": "128",
+    "vocab": "16",
+    "layers": "2",
+    "heads": "4"
+  }
+}

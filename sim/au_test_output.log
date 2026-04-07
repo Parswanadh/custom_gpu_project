@@ -1,28 +1,3 @@
-VCD info: dumpfile sim/waveforms/attention_unit.vcd opened for output.
+VCD Error: D:\Projects\BitbyBit\custom_gpu_project\tb\transformer\attention_unit_tb.v:76: Unable to open sim/waveforms/attention_unit.vcd for output.
 ============================================
-  Attention Unit Testbench (Q8.8, SRAM)
-============================================
-[1] Loading identity weights into Wq/Wk/Wv/Wo...
-    Done loading weights.
 
-[2] Test: Single token, identity weights
-    Output received after 11 cycles
-    y[0] = 255 (0.996)
-    y[1] = 510 (1.992)
-    y[2] = 765 (2.988)
-    y[3] = 1020 (3.984)
-    Zero-skips: 0
-[PASS] Single token with identity weights
-
-[3] Test: Second token (KV cache)
-    Output received after 14 cycles
-    y[0] = 161 (0.629)
-    y[1] = 288 (1.125)
-    y[2] = 415 (1.621)
-    y[3] = 542 (2.117)
-[PASS] Second token with KV cache
-
-============================================
-  Results: 2 passed, 0 failed
-============================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/transformer/attention_unit_tb.v:165: $finish called at 1080000 (1ps)

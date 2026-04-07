@@ -69,11 +69,21 @@ function Run-Test {
     $compileArgs = @("-g2012", "-o", $outPath) + $allFiles
     $compileResult = ""
     $compileLaunchFailed = $false
+    $compileExitCode = 1
     try {
         $compileResult = & $iverilog @compileArgs 2>&1
+        $compileExitCode = $LASTEXITCODE
     } catch {
         $compileLaunchFailed = $true
         $compileResult = ($_ | Out-String)
+    }
+
+    # Icarus can intermittently emit "No input files given" despite valid args.
+    # Retry once to keep the regression runner deterministic.
+    if ((-not $compileLaunchFailed) -and ($compileExitCode -ne 0) -and (($compileResult | Out-String) -match "No input files given")) {
+        Start-Sleep -Milliseconds 200
+        $compileResult = & $iverilog @compileArgs 2>&1
+        $compileExitCode = $LASTEXITCODE
     }
 
     if ($compileLaunchFailed) {
@@ -85,7 +95,7 @@ function Run-Test {
         return
     }
 
-    if ($LASTEXITCODE -ne 0) {
+    if ($compileExitCode -ne 0) {
         Write-Host "COMPILE FAIL" -ForegroundColor Red
         Set-Content -Path $logPath -Value ($compileResult | Out-String)
         $script:totalFail++
@@ -104,7 +114,9 @@ function Run-Test {
     $simProcess = $null
 
     try {
+        # Ensure relative paths inside testbenches (e.g. sim/waveforms, weights/) resolve from repo root.
         $simProcess = Start-Process -FilePath $vvp -ArgumentList @($outPath) -NoNewWindow -PassThru `
+            -WorkingDirectory $root `
             -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
 
         $simTimedOut = -not $simProcess.WaitForExit($simulationTimeoutSec * 1000)
@@ -179,27 +191,21 @@ function Run-Test {
         $passes = [int]$tbResult.Groups[1].Value
         $fails = [int]$tbResult.Groups[2].Value
     } else {
-        # Backward-compatible fallback for legacy benches.
-        $passes = ([regex]::Matches($simOutput, '\[PASS\]')).Count
-        $fails = ([regex]::Matches($simOutput, '\[FAIL\]')).Count
-
-        # Remove summary marker matches like "4 [PASS], 0 [FAIL]"
-        $summaryMatches = [regex]::Matches($simOutput, '(\d+)\s+\[PASS\],\s+(\d+)\s+\[FAIL\]')
-        foreach ($m in $summaryMatches) {
-            if ($passes -gt 0) { $passes-- }
-            if ($fails -gt 0) { $fails-- }
-            if ($passes -le 1 -and $fails -le 0) {
-                $passes = [int]$m.Groups[1].Value
-                $fails = [int]$m.Groups[2].Value
-            }
-        }
-
-        # Fallback: if no [PASS]/[FAIL] markers, try to parse "Results: N passed, N failed"
-        if ($passes -eq 0 -and $fails -eq 0) {
+        # Backward-compatible parser order for legacy benches:
+        # 1) explicit summary lines, 2) legacy "PASSED/FAILED", 3) marker counting.
+        $legacySummary = [regex]::Matches($simOutput, '(\d+)\s+\[PASS\],\s+(\d+)\s+\[FAIL\]')
+        if ($legacySummary.Count -gt 0) {
+            $lastSummary = $legacySummary[$legacySummary.Count - 1]
+            $passes = [int]$lastSummary.Groups[1].Value
+            $fails = [int]$lastSummary.Groups[2].Value
+        } else {
             $summaryMatch = [regex]::Match($simOutput, '(\d+)\s+(?:PASSED|passed),\s+(\d+)\s+(?:FAILED|failed)')
             if ($summaryMatch.Success) {
                 $passes = [int]$summaryMatch.Groups[1].Value
                 $fails = [int]$summaryMatch.Groups[2].Value
+            } else {
+                $passes = ([regex]::Matches($simOutput, '\[PASS\]')).Count
+                $fails = ([regex]::Matches($simOutput, '\[FAIL\]')).Count
             }
         }
     }
@@ -259,7 +265,7 @@ Write-Host ""
 # -- Phase 4: GPT-2 Full Pipeline --
 Write-Host "--- Phase 4: GPT-2 Full Pipeline ---" -ForegroundColor Yellow
 Run-Test "P4" "embedding_lookup" "emb_test" @("rtl/gpt2/embedding_lookup.v") "tb/gpt2/embedding_lookup_tb.v"
-Run-Test "P4" "gpt2_engine_FULL" "gpt2_test" @(
+Run-Test -Phase "P4" -Name "gpt2_engine_FULL" -OutputBin "gpt2_test" -Sources @(
     "rtl/gpt2/embedding_lookup.v",
     "rtl/gpt2/transformer_block.v",
     "rtl/gpt2/gpt2_engine.v",
@@ -272,8 +278,8 @@ Run-Test "P4" "gpt2_engine_FULL" "gpt2_test" @(
     "rtl/compute/softmax_unit.v",
     "rtl/compute/exp_lut_256.v",
     "rtl/compute/inv_sqrt_lut_256.v"
-) "tb/gpt2/gpt2_engine_tb.v"
-Run-Test "P4" "accel_gpt2_engine" "gpt2_acc_test" @(
+) -Testbench "tb/gpt2/gpt2_engine_tb.v"
+Run-Test -Phase "P4" -Name "accel_gpt2_engine" -OutputBin "gpt2_acc_test" -Sources @(
     "rtl/primitives/zero_detect_mult.v",
     "rtl/primitives/fused_dequantizer.v",
     "rtl/primitives/gpu_core.v",
@@ -285,7 +291,7 @@ Run-Test "P4" "accel_gpt2_engine" "gpt2_acc_test" @(
     "rtl/transformer/accelerated_transformer_block.v",
     "rtl/gpt2/embedding_lookup.v",
     "rtl/gpt2/accelerated_gpt2_engine.v"
-) "tb/gpt2/accelerated_gpt2_engine_tb.v"
+) -Testbench "tb/gpt2/accelerated_gpt2_engine_tb.v"
 Write-Host ""
 
 # -- Phase 5: Memory Interface --
@@ -369,7 +375,7 @@ Run-Test "P15" "layer_pipeline_controller" "pipe_test" @("rtl/control/layer_pipe
 Write-Host ""
 # -- Phase 16: End-to-End Integration --
 Write-Host "--- Phase 16: End-to-End Pipeline Integration ---" -ForegroundColor Yellow
-Run-Test "P16" "optimized_transformer_layer" "e2e_test" @(
+Run-Test -Phase "P16" -Name "optimized_transformer_layer" -OutputBin "e2e_test" -Sources @(
     "rtl/integration/optimized_transformer_layer.v",
     "rtl/transformer/rope_encoder.v",
     "rtl/transformer/grouped_query_attention.v",
@@ -380,14 +386,14 @@ Run-Test "P16" "optimized_transformer_layer" "e2e_test" @(
     "rtl/compute/gelu_lut_256.v",
     "rtl/memory/kv_cache_quantizer.v",
     "rtl/compute/activation_compressor.v"
-) "tb/integration/end_to_end_pipeline_tb.v"
+) -Testbench "tb/integration/end_to_end_pipeline_tb.v"
 Write-Host ""
 
 # -- Phase 17: Continuation Integrations (Q4 + Unified Top) --
 Write-Host "--- Phase 17: Continuation Integrations ---" -ForegroundColor Yellow
 Run-Test "P17" "block_dequantizer" "bdq_test" @("rtl/compute/block_dequantizer.v") "tb/compute/block_dequantizer_tb.v"
 Run-Test "P17" "systolic_array_q4" "sa_q4_test" @("rtl/compute/systolic_array.v") "tb/compute/systolic_array_q4_tb.v"
-Run-Test "P17" "nanogpt_q4_e2e" "nanogpt_q4_test" @(
+Run-Test -Phase "P17" -Name "nanogpt_q4_e2e" -OutputBin "nanogpt_q4_test" -Sources @(
     "rtl/compute/gelu_lut_256.v",
     "rtl/compute/exp_lut_256.v",
     "rtl/compute/inv_sqrt_lut_256.v",
@@ -397,8 +403,8 @@ Run-Test "P17" "nanogpt_q4_e2e" "nanogpt_q4_test" @(
     "rtl/gpt2/transformer_block.v",
     "rtl/gpt2/embedding_lookup.v",
     "rtl/gpt2/gpt2_engine.v"
-) "tb/gpt2/nanogpt_q4_tb.v"
-Run-Test "P17" "gpu_system_top_v2" "sys_v2_test" @(
+) -Testbench "tb/gpt2/nanogpt_q4_tb.v"
+Run-Test -Phase "P17" -Name "gpu_system_top_v2" -OutputBin "sys_v2_test" -Sources @(
     "rtl/top/reset_synchronizer.v",
     "rtl/top/gpu_config_regs.v",
     "rtl/top/command_processor.v",
@@ -420,7 +426,7 @@ Run-Test "P17" "gpu_system_top_v2" "sys_v2_test" @(
     "rtl/control/layer_pipeline_controller.v",
     "rtl/integration/optimized_transformer_layer.v",
     "rtl/top/gpu_system_top_v2.v"
-) "tb/top/gpu_system_top_v2_tb.v"
+) -Testbench "tb/top/gpu_system_top_v2_tb.v"
 Write-Host ""
 # -- Summary --
 Write-Host "================================================================" -ForegroundColor Cyan

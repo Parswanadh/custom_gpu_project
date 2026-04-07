@@ -1,0 +1,175 @@
+
+=== [full_regression] START ===
+
+================================================================
+       CUSTOM GPU - FULL TEST SUITE                             
+       Designed for GPT-2 Inference on FPGA                     
+================================================================
+
+--- Phase 1: Core Compute Primitives ---
+  [P1] zero_detect_mult ... NO OUTPUT
+  [P1] variable_precision_alu ... NO OUTPUT
+  [P1] sparse_memory_ctrl ... NO OUTPUT
+  [P1] fused_dequantizer ... NO OUTPUT
+  [P1] gpu_top ... NO OUTPUT
+
+--- Phase 2: Extended Compute Modules ---
+  [P2] mac_unit ... 8/8 PASS
+  [P2] systolic_array ... 3/3 PASS
+  [P2] gelu_activation ... NO OUTPUT
+  [P2] softmax_unit ... 5/5 PASS
+
+--- Phase 3: Transformer Building Blocks ---
+  [P3] layer_norm ... NO OUTPUT
+  [P3] linear_layer ... 2/2 PASS
+  [P3] attention_unit ... NO OUTPUT
+  [P3] ffn_block ... NO OUTPUT
+
+--- Phase 4: GPT-2 Full Pipeline ---
+  [P4] embedding_lookup ... 2/2 PASS
+  [P4] gpt2_engine_FULL ... COMPILE FAIL
+  [P4] accel_gpt2_engine ... COMPILE FAIL
+
+--- Phase 5: Memory Interface ---
+  [P5] axi_weight_memory ... NO OUTPUT
+  [P5] dma_engine ... NO OUTPUT
+  [P5] scratchpad ... NO OUTPUT
+
+--- Phase 6: Top-Level Control ---
+  [P6] command_processor ... NO OUTPUT
+  [P6] perf_counters ... NO OUTPUT
+  [P6] gpu_config_regs ... NO OUTPUT
+  [P6] reset_synchronizer ... 5/5 PASS
+
+--- Phase 7: System Integration ---
+  [P7] gpu_system_top ... NO OUTPUT
+
+--- Phase 8: Architecture Improvements ---
+  [P8] online_softmax ... NO OUTPUT
+  [P8] sparsity_decoder_2_4 ... NO OUTPUT
+  [P8] activation_compressor ... NO OUTPUT
+  [P8] weight_double_buffer ... NO OUTPUT
+  [P8] parallel_attention ... NO OUTPUT
+  [P8] token_scheduler ... 4/4 PASS
+  [P8] power_management_unit ... 6/6 PASS
+
+--- Phase 9: Advanced SOTA Integrations ---
+  [P9] w4a8_decompressor ... 4/4 PASS
+  [P9] moe_router ... 4/4 PASS
+
+--- Phase 10: New Features ---
+  [P10] speculative_decode_engine ... NO OUTPUT
+  [P10] paged_attention_mmu ... NO OUTPUT
+
+--- Phase 11: Closing SOTA Gaps ---
+  [P11] flash_attention_unit ... NO OUTPUT
+  [P11] mixed_precision_decompressor ... NO OUTPUT
+  [P11] q4_weight_pipeline ... NO OUTPUT
+
+--- Phase 13: Novel Breakthrough Features ---
+  [P13] ternary_mac_engine ... NO OUTPUT
+  [P13] rope_encoder ... 4/4 PASS
+  [P13] grouped_query_attention ... NO OUTPUT
+  [P13] kv_cache_quantizer ... NO OUTPUT
+  [P13] medusa_head_predictor ... NO OUTPUT
+  [P13] prefetch_engine ... NO OUTPUT
+
+--- Phase 14: Memory Bandwidth Solutions ---
+  [P14] multibank_sram_controller ... NO OUTPUT
+  [P14] compute_in_sram ... NO OUTPUT
+  [P14] hbm_controller ... NO OUTPUT
+
+--- Phase 15: Speed Optimizations ---
+  [P15] simd_ternary_engine ... NO OUTPUT
+  [P15] parallel_softmax ... NO OUTPUT
+  [P15] layer_pipeline_controller ... NO OUTPUT
+
+--- Phase 16: End-to-End Pipeline Integration ---
+  [P16] optimized_transformer_layer ... COMPILE FAIL
+
+--- Phase 17: Continuation Integrations ---
+  [P17] block_dequantizer ... 16/16 PASS
+  [P17] systolic_array_q4 ... NO OUTPUT
+  [P17] nanogpt_q4_e2e ... COMPILE FAIL
+  [P17] gpu_system_top_v2 ... COMPILE FAIL
+
+================================================================
+                    TEST RESULTS SUMMARY                        
+================================================================
+
+  Modules tested : 55
+  Total PASS     : 63
+  Total FAIL     : 43
+
+
+Phase Module                       Status       Tests
+----- ------                       ------       -----
+P1    zero_detect_mult             NO OUTPUT    0/0  
+P1    variable_precision_alu       NO OUTPUT    0/0  
+P1    sparse_memory_ctrl           NO OUTPUT    0/0  
+P1    fused_dequantizer            NO OUTPUT    0/0  
+P1    gpu_top                      NO OUTPUT    0/0  
+P2    mac_unit                     PASS         8/8  
+P2    systolic_array               PASS         3/3  
+P2    gelu_activation              NO OUTPUT    0/0  
+P2    softmax_unit                 PASS         5/5  
+P3    layer_norm                   NO OUTPUT    0/0  
+P3    linear_layer                 PASS         2/2  
+P3    attention_unit               NO OUTPUT    0/0  
+P3    ffn_block                    NO OUTPUT    0/0  
+P4    embedding_lookup             PASS         2/2  
+P4    gpt2_engine_FULL             COMPILE FAIL -    
+P4    accel_gpt2_engine            COMPILE FAIL -    
+P5    axi_weight_memory            NO OUTPUT    0/0  
+P5    dma_engine                   NO OUTPUT    0/0  
+P5    scratchpad                   NO OUTPUT    0/0  
+P6    command_processor            NO OUTPUT    0/0  
+P6    perf_counters                NO OUTPUT    0/0  
+P6    gpu_config_regs              NO OUTPUT    0/0  
+P6    reset_synchronizer           PASS         5/5  
+P7    gpu_system_top               NO OUTPUT    0/0  
+P8    online_softmax               NO OUTPUT    0/0  
+P8    sparsity_decoder_2_4         NO OUTPUT    0/0  
+P8    activation_compressor        NO OUTPUT    0/0  
+P8    weight_double_buffer         NO OUTPUT    0/0  
+P8    parallel_attention           NO OUTPUT    0/0  
+P8    token_scheduler              PASS         4/4  
+P8    power_management_unit        PASS         6/6  
+P9    w4a8_decompressor            PASS         4/4  
+P9    moe_router                   PASS         4/4  
+P10   speculative_decode_engine    NO OUTPUT    0/0  
+P10   paged_attention_mmu          NO OUTPUT    0/0  
+P11   flash_attention_unit         NO OUTPUT    0/0  
+P11   mixed_precision_decompressor NO OUTPUT    0/0  
+P11   q4_weight_pipeline           NO OUTPUT    0/0  
+P13   ternary_mac_engine           NO OUTPUT    0/0  
+P13   rope_encoder                 PASS         4/4  
+P13   grouped_query_attention      NO OUTPUT    0/0  
+P13   kv_cache_quantizer           NO OUTPUT    0/0  
+P13   medusa_head_predictor        NO OUTPUT    0/0  
+P13   prefetch_engine              NO OUTPUT    0/0  
+P14   multibank_sram_controller    NO OUTPUT    0/0  
+P14   compute_in_sram              NO OUTPUT    0/0  
+P14   hbm_controller               NO OUTPUT    0/0  
+P15   simd_ternary_engine          NO OUTPUT    0/0  
+P15   parallel_softmax             NO OUTPUT    0/0  
+P15   layer_pipeline_controller    NO OUTPUT    0/0  
+P16   optimized_transformer_layer  COMPILE FAIL -    
+P17   block_dequantizer            PASS         16/16
+P17   systolic_array_q4            NO OUTPUT    0/0  
+P17   nanogpt_q4_e2e               COMPILE FAIL -    
+P17   gpu_system_top_v2            COMPILE FAIL -    
+
+
+  >>> SOME TESTS FAILED - REVIEW REQUIRED <<<
+
+=== [full_regression] FAIL (9.27s) ===
+run_all_tests.ps1 failed with exit code 1
+At D:\Projects\BitbyBit\custom_gpu_project\scripts\validate_full_chain.ps1:89 
+char:13
++             throw "run_all_tests.ps1 failed with exit code $LASTEXITC ...
++             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (run_all_tests.p...ith exit co 
+   de 1:String) [], RuntimeException
+    + FullyQualifiedErrorId : run_all_tests.ps1 failed with exit code 1
+ 

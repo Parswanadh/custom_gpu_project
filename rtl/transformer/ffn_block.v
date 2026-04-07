@@ -44,6 +44,7 @@ module ffn_block #(
     reg signed [DATA_WIDTH-1:0] x [0:EMBED_DIM-1];
     reg signed [DATA_WIDTH-1:0] hidden [0:FFN_DIM-1];
     reg signed [DATA_WIDTH-1:0] activated [0:FFN_DIM-1];
+    reg signed [DATA_WIDTH-1:0] accum_q88;
 
     reg signed [2*DATA_WIDTH-1:0] accum;
     reg signed [2*DATA_WIDTH-1:0] product;
@@ -120,7 +121,8 @@ module ffn_block #(
                                 accum = accum + product;
                             end
                         end
-                        hidden[j] = accum[DATA_WIDTH+7:8] + b1[j];
+                        accum_q88 = $signed(accum[DATA_WIDTH+7:8]);
+                        hidden[j] = accum_q88 + b1[j];
                     end
                     gelu_idx <= 0;
                     state <= GELU_SET;
@@ -153,7 +155,8 @@ module ffn_block #(
                                 accum = accum + product;
                             end
                         end
-                        y_out[j*DATA_WIDTH +: DATA_WIDTH] <= accum[DATA_WIDTH+7:8] + b2[j];
+                        accum_q88 = $signed(accum[DATA_WIDTH+7:8]);
+                        y_out[j*DATA_WIDTH +: DATA_WIDTH] <= accum_q88 + b2[j];
                     end
                     state <= DONE;
                 end

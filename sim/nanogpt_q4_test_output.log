@@ -1,21 +1,10 @@
-============================================
-  NanoGPT-Q4 End-to-End Inference Test
-============================================
-  Config: EMBED=4, LAYERS=2, FFN=8, VOCAB=16
+iverilog.exe : D:\Tools\iverilog\lib\ivl\ivlpp: No input files given.
+At D:\Projects\BitbyBit\custom_gpu_project\scripts\run_all_tests.ps1:73 char:26
++         $compileResult = & $iverilog @compileArgs 2>&1
++                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (D:\Tools\iveril...ut files given. 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+No top level modules, and no -s option.
 
-[Test 1] Running inference: token=0, position=0
-[PASS] Test 1: token=0â†’0, logits=[266,266,265,265] (golden match)
-
-[Test 2] Running inference: token=3, position=0
-[PASS] Test 2: token=3â†’0, logits=[266,266,265,265] (golden match)
-
-[Test 3] Running inference: token=7, position=0
-[PASS] Test 3: token=7â†’0, logits=[266,266,265,265] (golden match)
-
-[Test 4] Running inference: token=15, position=0
-[PASS] Test 4: token=15â†’0, logits=[266,266,265,265] (golden match)
-
-============================================
-  4 [PASS], 0 [FAIL]
-============================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/gpt2/nanogpt_q4_tb.v:324: $finish called at 22906000 (1ps)

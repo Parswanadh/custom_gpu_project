@@ -1,23 +1,10 @@
-VCD info: dumpfile sim/waveforms/gpt2_engine.vcd opened for output.
-============================================
-  GPT-2 Engine Testbench (SRAM Weights)
-============================================
-[1] Loading LayerNorm params (identity)...
-[2] Loading attention identity weights...
-[3] Loading FFN identity weights...
-[4] Loading token embeddings...
+iverilog.exe : D:\Tools\iverilog\lib\ivl\ivlpp: No input files given.
+At D:\Projects\BitbyBit\custom_gpu_project\scripts\run_all_tests.ps1:73 char:26
++         $compileResult = & $iverilog @compileArgs 2>&1
++                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (D:\Tools\iveril...ut files given. 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+No top level modules, and no -s option.
 
-[5] Running GPT-2 inference: token=3, position=0
-[PASS] GPT-2 inference completed in 176 cycles!
-  Predicted next token: 3
-  Logits:
-    logit[0] = 0.000
-    logit[1] = 0.000
-    logit[2] = 0.000
-    logit[3] = 11.371
-  Total zero-skips: 0
-  Total cycles: 388
-============================================
-  Results: 1 PASSED, 0 FAILED
-============================================
-D:\Projects\BitbyBit\custom_gpu_project\tb/gpt2/gpt2_engine_tb.v:283: $finish called at 3930000 (1ps)

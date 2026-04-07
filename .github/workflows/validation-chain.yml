@@ -1,0 +1,102 @@
+name: Validation Chain
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+  workflow_dispatch:
+    inputs:
+      full_run:
+        description: 'Run full benchmark matrix (default false uses quick mode)'
+        required: false
+        default: 'false'
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: custom_gpu_project
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            auto-git-website/package-lock.json
+
+      - name: Install Icarus Verilog
+        run: |
+          $installed = $false
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            choco install iverilog --no-progress --limit-output -y
+            if ($LASTEXITCODE -eq 0) {
+              $installed = $true
+              break
+            }
+
+            if ($attempt -lt 3) {
+              Write-Host "Icarus install failed on attempt $attempt. Retrying..." -ForegroundColor Yellow
+              Start-Sleep -Seconds (5 * $attempt)
+            }
+          }
+
+          if (-not $installed) {
+            throw "Failed to install Icarus Verilog after 3 attempts."
+          }
+
+          iverilog -V
+
+      - name: Install website deps
+        run: |
+          Set-Location ..\auto-git-website
+          npm ci
+
+      - name: Install Playwright Chromium
+        run: |
+          Set-Location ..\auto-git-website
+          npx playwright install chromium
+          npx playwright --version
+
+      - name: Validate orchestrator syntax
+        run: |
+          $parseErrors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path .\scripts\validate_full_chain.ps1), [ref]$null, [ref]$parseErrors)
+          if ($parseErrors -and $parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Host $_.Message -ForegroundColor Red }
+            throw "PowerShell syntax validation failed for scripts/validate_full_chain.ps1"
+          }
+          Write-Host "PowerShell syntax validation passed for scripts/validate_full_chain.ps1" -ForegroundColor Green
+
+      - name: Run validation chain (quick)
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.full_run != 'true'
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\validate_full_chain.ps1 -Quick
+
+      - name: Run validation chain (full)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.full_run == 'true'
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\validate_full_chain.ps1
+
+      - name: Upload validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-artifacts
+          path: |
+            custom_gpu_project/sim/validation_manifest_latest.json
+            custom_gpu_project/sim/compare_summary_latest.json
+            custom_gpu_project/sim/phase3_benchmark_proof_pack.json
+            custom_gpu_project/sim/phase3_benchmark_proof_pack.csv
+            custom_gpu_project/sim/dim_sweep_report.json
+            custom_gpu_project/sim/parity_report.json

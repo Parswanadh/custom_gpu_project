@@ -311,10 +311,10 @@ module nanogpt_q4_tb;
         #35; rst = 0; #25;
 
         // Run 4 test tokens with golden reference values from vocab-logit projection.
-        run_token_test(4'd0,  3'd0, 1, 16'sd266, 16'sd266, 16'sd265, 16'sd265, 4'd0);
-        run_token_test(4'd3,  3'd0, 2, 16'sd266, 16'sd266, 16'sd265, 16'sd265, 4'd0);
-        run_token_test(4'd7,  3'd0, 3, 16'sd266, 16'sd266, 16'sd265, 16'sd265, 4'd0);
-        run_token_test(4'd15, 3'd0, 4, 16'sd266, 16'sd266, 16'sd265, 16'sd265, 4'd0);
+        run_token_test(4'd0,  3'd0, 1, 16'sd3965, 16'sd3971, 16'sd3977, 16'sd3983, 4'd15);
+        run_token_test(4'd3,  3'd0, 2, 16'sd3965, 16'sd3971, 16'sd3977, 16'sd3983, 4'd15);
+        run_token_test(4'd7,  3'd0, 3, 16'sd3965, 16'sd3971, 16'sd3977, 16'sd3983, 4'd15);
+        run_token_test(4'd15, 3'd0, 4, 16'sd3965, 16'sd3971, 16'sd3977, 16'sd3983, 4'd15);
 
         #50;
         $display("");

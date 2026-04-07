@@ -1,0 +1,150 @@
+{
+  "run_id": "20260401-085547",
+  "generated_at_utc": "2026-04-01T08:55:47.513244+00:00",
+  "workload_mode": "matrix",
+  "workload_generation": "seeded_random_unique",
+  "workload_seed": 20260331,
+  "workload_count_requested": 24,
+  "workload_count_effective": 24,
+  "token_space": 16,
+  "position_space": 8,
+  "dimensions": [
+    16,
+    32,
+    64
+  ],
+  "workloads": [
+    {
+      "token_id": 5,
+      "position": 2
+    },
+    {
+      "token_id": 15,
+      "position": 0
+    },
+    {
+      "token_id": 7,
+      "position": 4
+    },
+    {
+      "token_id": 4,
+      "position": 5
+    },
+    {
+      "token_id": 13,
+      "position": 6
+    },
+    {
+      "token_id": 0,
+      "position": 5
+    },
+    {
+      "token_id": 14,
+      "position": 6
+    },
+    {
+      "token_id": 2,
+      "position": 2
+    },
+    {
+      "token_id": 2,
+      "position": 3
+    },
+    {
+      "token_id": 13,
+      "position": 2
+    },
+    {
+      "token_id": 10,
+      "position": 7
+    },
+    {
+      "token_id": 9,
+      "position": 6
+    },
+    {
+      "token_id": 1,
+      "position": 0
+    },
+    {
+      "token_id": 7,
+      "position": 7
+    },
+    {
+      "token_id": 5,
+      "position": 0
+    },
+    {
+      "token_id": 4,
+      "position": 0
+    },
+    {
+      "token_id": 8,
+      "position": 0
+    },
+    {
+      "token_id": 3,
+      "position": 0
+    },
+    {
+      "token_id": 8,
+      "position": 6
+    },
+    {
+      "token_id": 10,
+      "position": 6
+    },
+    {
+      "token_id": 4,
+      "position": 7
+    },
+    {
+      "token_id": 13,
+      "position": 7
+    },
+    {
+      "token_id": 4,
+      "position": 3
+    },
+    {
+      "token_id": 4,
+      "position": 1
+    }
+  ],
+  "results": [
+    {
+      "dim": 16,
+      "ffn_dim": 64,
+      "report_path": "sim/ws1_cosim_dim16_20260401-085547.txt",
+      "json_path": "sim/ws1_cosim_dim16_20260401-085547.json",
+      "total_tokens": 24,
+      "total_cycles": 14430,
+      "avg_cycles_per_token": 601.25,
+      "zero_skip_rate_pct": 3.087797619047619,
+      "parity_overall_pass": true
+    },
+    {
+      "dim": 32,
+      "ffn_dim": 128,
+      "report_path": "sim/ws1_cosim_dim32_20260401-085547.txt",
+      "json_path": "sim/ws1_cosim_dim32_20260401-085547.json",
+      "total_tokens": 24,
+      "total_cycles": 26334,
+      "avg_cycles_per_token": 1097.25,
+      "zero_skip_rate_pct": 2.4615575396825395,
+      "parity_overall_pass": true
+    },
+    {
+      "dim": 64,
+      "ffn_dim": 256,
+      "report_path": "sim/ws1_cosim_dim64_20260401-085547.txt",
+      "json_path": "sim/ws1_cosim_dim64_20260401-085547.json",
+      "total_tokens": 24,
+      "total_cycles": 50142,
+      "avg_cycles_per_token": 2089.25,
+      "zero_skip_rate_pct": 13.073536706349206,
+      "parity_overall_pass": true
+    }
+  ],
+  "overall_parity_pass": true
+}

@@ -1,0 +1,59 @@
+
+Phase Module                       Status   Tests
+----- ------                       ------   -----
+P1    zero_detect_mult             SIM FAIL -
+P1    variable_precision_alu       SIM FAIL -
+P1    sparse_memory_ctrl           SIM FAIL -
+P1    fused_dequantizer            SIM FAIL -
+P1    gpu_top                      SIM FAIL -
+P2    mac_unit                     SIM FAIL -
+P2    systolic_array               SIM FAIL -
+P2    gelu_activation              SIM FAIL -
+P2    softmax_unit                 SIM FAIL -
+P3    layer_norm                   SIM FAIL -
+P3    linear_layer                 SIM FAIL -
+P3    attention_unit               SIM FAIL -
+P3    ffn_block                    SIM FAIL -
+P4    embedding_lookup             SIM FAIL -
+P4    gpt2_engine_FULL             SIM FAIL -
+P4    accel_gpt2_engine            PASS     3/3
+P5    axi_weight_memory            PASS     8/8
+P5    dma_engine                   PASS     9/9
+P5    scratchpad                   PASS     6/6
+P6    command_processor            PASS     7/7
+P6    perf_counters                PASS     11/11
+P6    gpu_config_regs              PASS     9/9
+P6    reset_synchronizer           PASS     5/5
+P7    gpu_system_top               PASS     8/8
+P8    online_softmax               SIM FAIL -
+P8    sparsity_decoder_2_4         SIM FAIL -
+P8    activation_compressor        SIM FAIL -
+P8    weight_double_buffer         SIM FAIL -
+P8    parallel_attention           SIM FAIL -
+P8    token_scheduler              SIM FAIL -
+P8    power_management_unit        SIM FAIL -
+P9    w4a8_decompressor            PASS     4/4
+P9    moe_router                   PASS     4/4
+P10   speculative_decode_engine    PASS     5/5
+P10   paged_attention_mmu          PASS     10/10
+P11   flash_attention_unit         PASS     5/5
+P11   mixed_precision_decompressor PASS     5/5
+P11   q4_weight_pipeline           PASS     5/5
+P13   ternary_mac_engine           PASS     5/5
+P13   rope_encoder                 PASS     4/4
+P13   grouped_query_attention      PASS     5/5
+P13   kv_cache_quantizer           PASS     6/6
+P13   medusa_head_predictor        PASS     4/4
+P13   prefetch_engine              PASS     6/6
+P14   multibank_sram_controller    PASS     5/5
+P14   compute_in_sram              PASS     5/5
+P14   hbm_controller               PASS     5/5
+P15   simd_ternary_engine          PASS     5/5
+P15   parallel_softmax             PASS     4/4
+P15   layer_pipeline_controller    PASS     5/5
+P16   optimized_transformer_layer  PASS     12/12
+P17   block_dequantizer            PASS     16/16
+P17   systolic_array_q4            SIM FAIL -
+P17   nanogpt_q4_e2e               PASS     4/4
+P17   gpu_system_top_v2            SIM FAIL -
+

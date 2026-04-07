@@ -1,0 +1,41 @@
+﻿{
+    "generated_utc":  "2026-04-01T08:57:02.3079565Z",
+    "root":  "D:\\Projects\\BitbyBit\\custom_gpu_project",
+    "quick_mode":  false,
+    "skip_website":  false,
+    "skip_ws1":  false,
+    "run_id":  "20260401-142256",
+    "benchmark_meta":  {
+                           "workload_count_effective":  20,
+                           "measured_runs":  20
+                       },
+    "commands":  [
+                     "powershell -ExecutionPolicy Bypass -File scripts/run_all_tests.ps1",
+                     "powershell -ExecutionPolicy Bypass -File D:\\Projects\\BitbyBit\\custom_gpu_project\\scripts\\run_production_demo.ps1 -WorkloadMode matrix -WarmupRuns 5 -MeasuredRuns 20 -WorkloadCount 20 -WorkloadSeed 20260331",
+                     "python D:\\Projects\\BitbyBit\\custom_gpu_project\\scripts\\run_ws1_scale_proof.py --dims 16,32,64 --workload-count 24 --workload-seed 20260331 --token-space 16 --position-space 8 --seq-len 32 --enforce-gate",
+                     "npx vitest run",
+                     "npx playwright test tests/e2e/homepage.spec.ts --reporter=line --project=chromium --project=Mobile Chrome"
+                 ],
+    "stages":  {
+                   "full_regression":  {
+                                           "duration_seconds":  10.85,
+                                           "status":  "PASS"
+                                       },
+                   "ws1_parity_gate":  {
+                                           "duration_seconds":  18.32,
+                                           "status":  "PASS"
+                                       },
+                   "website_vitest":  {
+                                          "duration_seconds":  10.6,
+                                          "status":  "PASS"
+                                      },
+                   "website_playwright_suite":  {
+                                                    "duration_seconds":  45.66,
+                                                    "status":  "PASS"
+                                                },
+                   "production_benchmark":  {
+                                                "duration_seconds":  177.49,
+                                                "status":  "PASS"
+                                            }
+               }
+}

@@ -1,0 +1,2870 @@
+{
+  "run_id": "20260401-085547",
+  "generated_at_utc": "2026-04-01T08:55:47.513244+00:00",
+  "logit_tolerance": 2.0,
+  "checkpoint_tolerance": 2.0,
+  "workloads": [
+    {
+      "token_id": 5,
+      "position": 2
+    },
+    {
+      "token_id": 15,
+      "position": 0
+    },
+    {
+      "token_id": 7,
+      "position": 4
+    },
+    {
+      "token_id": 4,
+      "position": 5
+    },
+    {
+      "token_id": 13,
+      "position": 6
+    },
+    {
+      "token_id": 0,
+      "position": 5
+    },
+    {
+      "token_id": 14,
+      "position": 6
+    },
+    {
+      "token_id": 2,
+      "position": 2
+    },
+    {
+      "token_id": 2,
+      "position": 3
+    },
+    {
+      "token_id": 13,
+      "position": 2
+    },
+    {
+      "token_id": 10,
+      "position": 7
+    },
+    {
+      "token_id": 9,
+      "position": 6
+    },
+    {
+      "token_id": 1,
+      "position": 0
+    },
+    {
+      "token_id": 7,
+      "position": 7
+    },
+    {
+      "token_id": 5,
+      "position": 0
+    },
+    {
+      "token_id": 4,
+      "position": 0
+    },
+    {
+      "token_id": 8,
+      "position": 0
+    },
+    {
+      "token_id": 3,
+      "position": 0
+    },
+    {
+      "token_id": 8,
+      "position": 6
+    },
+    {
+      "token_id": 10,
+      "position": 6
+    },
+    {
+      "token_id": 4,
+      "position": 7
+    },
+    {
+      "token_id": 13,
+      "position": 7
+    },
+    {
+      "token_id": 4,
+      "position": 3
+    },
+    {
+      "token_id": 4,
+      "position": 1
+    }
+  ],
+  "dimensions": [
+    {
+      "dim": 16,
+      "overall_pass": true,
+      "token_count": 24,
+      "token_pass_count": 24,
+      "token_fail_count": 0,
+      "tokens": [
+        {
+          "position_index": 0,
+          "input_pos": 2,
+          "token_id": 5,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 1,
+          "input_pos": 0,
+          "token_id": 15,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 2,
+          "input_pos": 4,
+          "token_id": 7,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 3,
+          "input_pos": 5,
+          "token_id": 4,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 4,
+          "input_pos": 6,
+          "token_id": 13,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 5,
+          "input_pos": 5,
+          "token_id": 0,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 6,
+          "input_pos": 6,
+          "token_id": 14,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 7,
+          "input_pos": 2,
+          "token_id": 2,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 8,
+          "input_pos": 3,
+          "token_id": 2,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 9,
+          "input_pos": 2,
+          "token_id": 13,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 10,
+          "input_pos": 7,
+          "token_id": 10,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 11,
+          "input_pos": 6,
+          "token_id": 9,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 12,
+          "input_pos": 0,
+          "token_id": 1,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 13,
+          "input_pos": 7,
+          "token_id": 7,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 14,
+          "input_pos": 0,
+          "token_id": 5,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 15,
+          "input_pos": 0,
+          "token_id": 4,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 16,
+          "input_pos": 0,
+          "token_id": 8,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 17,
+          "input_pos": 0,
+          "token_id": 3,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 18,
+          "input_pos": 6,
+          "token_id": 8,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 19,
+          "input_pos": 6,
+          "token_id": 10,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 20,
+          "input_pos": 7,
+          "token_id": 4,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 21,
+          "input_pos": 7,
+          "token_id": 13,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 22,
+          "input_pos": 3,
+          "token_id": 4,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 23,
+          "input_pos": 1,
+          "token_id": 4,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        }
+      ]
+    },
+    {
+      "dim": 32,
+      "overall_pass": true,
+      "token_count": 24,
+      "token_pass_count": 24,
+      "token_fail_count": 0,
+      "tokens": [
+        {
+          "position_index": 0,
+          "input_pos": 2,
+          "token_id": 5,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 1,
+          "input_pos": 0,
+          "token_id": 15,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 2,
+          "input_pos": 4,
+          "token_id": 7,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 3,
+          "input_pos": 5,
+          "token_id": 4,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 4,
+          "input_pos": 6,
+          "token_id": 13,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 5,
+          "input_pos": 5,
+          "token_id": 0,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 6,
+          "input_pos": 6,
+          "token_id": 14,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 7,
+          "input_pos": 2,
+          "token_id": 2,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 8,
+          "input_pos": 3,
+          "token_id": 2,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 9,
+          "input_pos": 2,
+          "token_id": 13,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 10,
+          "input_pos": 7,
+          "token_id": 10,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 11,
+          "input_pos": 6,
+          "token_id": 9,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 12,
+          "input_pos": 0,
+          "token_id": 1,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 13,
+          "input_pos": 7,
+          "token_id": 7,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 14,
+          "input_pos": 0,
+          "token_id": 5,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 15,
+          "input_pos": 0,
+          "token_id": 4,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 16,
+          "input_pos": 0,
+          "token_id": 8,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 17,
+          "input_pos": 0,
+          "token_id": 3,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 18,
+          "input_pos": 6,
+          "token_id": 8,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 19,
+          "input_pos": 6,
+          "token_id": 10,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 20,
+          "input_pos": 7,
+          "token_id": 4,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 21,
+          "input_pos": 7,
+          "token_id": 13,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 22,
+          "input_pos": 3,
+          "token_id": 4,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 23,
+          "input_pos": 1,
+          "token_id": 4,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        }
+      ]
+    },
+    {
+      "dim": 64,
+      "overall_pass": true,
+      "token_count": 24,
+      "token_pass_count": 24,
+      "token_fail_count": 0,
+      "tokens": [
+        {
+          "position_index": 0,
+          "input_pos": 2,
+          "token_id": 5,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 1,
+          "input_pos": 0,
+          "token_id": 15,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 2,
+          "input_pos": 4,
+          "token_id": 7,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 3,
+          "input_pos": 5,
+          "token_id": 4,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 4,
+          "input_pos": 6,
+          "token_id": 13,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 5,
+          "input_pos": 5,
+          "token_id": 0,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 6,
+          "input_pos": 6,
+          "token_id": 14,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 7,
+          "input_pos": 2,
+          "token_id": 2,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 8,
+          "input_pos": 3,
+          "token_id": 2,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 9,
+          "input_pos": 2,
+          "token_id": 13,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 10,
+          "input_pos": 7,
+          "token_id": 10,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 11,
+          "input_pos": 6,
+          "token_id": 9,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 12,
+          "input_pos": 0,
+          "token_id": 1,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 13,
+          "input_pos": 7,
+          "token_id": 7,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 14,
+          "input_pos": 0,
+          "token_id": 5,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 15,
+          "input_pos": 0,
+          "token_id": 4,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 16,
+          "input_pos": 0,
+          "token_id": 8,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 17,
+          "input_pos": 0,
+          "token_id": 3,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 18,
+          "input_pos": 6,
+          "token_id": 8,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 19,
+          "input_pos": 6,
+          "token_id": 10,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 20,
+          "input_pos": 7,
+          "token_id": 4,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 21,
+          "input_pos": 7,
+          "token_id": 13,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 22,
+          "input_pos": 3,
+          "token_id": 4,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        },
+        {
+          "position_index": 23,
+          "input_pos": 1,
+          "token_id": 4,
+          "logits": {
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true,
+            "tolerance": 2.0
+          },
+          "layers": [
+            {
+              "layer": 0,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            },
+            {
+              "layer": 1,
+              "missing": false,
+              "mean_abs_error": 0.0,
+              "max_abs_error": 0.0,
+              "mse": 0.0,
+              "pass": true
+            }
+          ],
+          "final_ln": {
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          "pass": true
+        }
+      ]
+    }
+  ],
+  "overall_pass": true
+}

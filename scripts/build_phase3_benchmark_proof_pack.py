@@ -17,6 +17,7 @@ import json
 import math
 import re
 import statistics
+import sys
 from pathlib import Path
 
 
@@ -515,5 +516,13 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+        raise SystemExit(0)
+    except (ValueError, FileNotFoundError) as exc:
+        print(f"[FAIL-CLOSE] {exc}", file=sys.stderr)
+        raise SystemExit(1)
+    except Exception as exc:
+        print(f"[FATAL] Unexpected benchmark proof-pack error: {exc}", file=sys.stderr)
+        raise SystemExit(2)
 

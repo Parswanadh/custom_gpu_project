@@ -1,0 +1,1025 @@
+{
+  "run_id": "20260401-020725",
+  "config": {
+    "dim": 64,
+    "ffn_dim": 256,
+    "vocab": 16,
+    "seq_len": 32,
+    "layers": 2,
+    "heads": 8,
+    "head_dim": 8,
+    "clock_mhz": 100
+  },
+  "input": {
+    "sentence": "<token-seq>",
+    "token_sequence": [
+      5,
+      15,
+      7,
+      4,
+      13,
+      0,
+      14,
+      2,
+      2,
+      13,
+      10,
+      9,
+      1,
+      7,
+      5,
+      4,
+      8,
+      3,
+      8,
+      10,
+      4,
+      13,
+      4,
+      4
+    ],
+    "position_sequence": [
+      2,
+      0,
+      4,
+      5,
+      6,
+      5,
+      6,
+      2,
+      3,
+      2,
+      7,
+      6,
+      0,
+      7,
+      0,
+      0,
+      0,
+      0,
+      6,
+      6,
+      7,
+      7,
+      3,
+      1
+    ],
+    "warmup_token_sequence": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "warmup_position_sequence": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ]
+  },
+  "aggregate": {
+    "total_tokens": 24,
+    "total_cycles": 50142,
+    "avg_cycles_per_token": 2089.25,
+    "latency_us": 501.42,
+    "verilog_vs_q88_matches": 24,
+    "verilog_vs_float32_matches": 0,
+    "avg_mse_vs_q88": 0.0,
+    "zero_skip_rate_pct": 13.073536706349206,
+    "throughput_boost_estimate": 1.1503976604015835,
+    "sim_time_seconds": 15.924333095550537
+  },
+  "parity": {
+    "emit_checkpoints": true,
+    "logit_tolerance": 2.0,
+    "checkpoint_tolerance": 2.0,
+    "overall_pass": true,
+    "tokens": [
+      {
+        "position_index": 0,
+        "input_pos": 2,
+        "token_id": 5,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 1,
+        "input_pos": 0,
+        "token_id": 15,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 2,
+        "input_pos": 4,
+        "token_id": 7,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 3,
+        "input_pos": 5,
+        "token_id": 4,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 4,
+        "input_pos": 6,
+        "token_id": 13,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 5,
+        "input_pos": 5,
+        "token_id": 0,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 6,
+        "input_pos": 6,
+        "token_id": 14,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 7,
+        "input_pos": 2,
+        "token_id": 2,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 8,
+        "input_pos": 3,
+        "token_id": 2,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 9,
+        "input_pos": 2,
+        "token_id": 13,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 10,
+        "input_pos": 7,
+        "token_id": 10,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 11,
+        "input_pos": 6,
+        "token_id": 9,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 12,
+        "input_pos": 0,
+        "token_id": 1,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 13,
+        "input_pos": 7,
+        "token_id": 7,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 14,
+        "input_pos": 0,
+        "token_id": 5,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 15,
+        "input_pos": 0,
+        "token_id": 4,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 16,
+        "input_pos": 0,
+        "token_id": 8,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 17,
+        "input_pos": 0,
+        "token_id": 3,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 18,
+        "input_pos": 6,
+        "token_id": 8,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 19,
+        "input_pos": 6,
+        "token_id": 10,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 20,
+        "input_pos": 7,
+        "token_id": 4,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 21,
+        "input_pos": 7,
+        "token_id": 13,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 22,
+        "input_pos": 3,
+        "token_id": 4,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      },
+      {
+        "position_index": 23,
+        "input_pos": 1,
+        "token_id": 4,
+        "logits": {
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true,
+          "tolerance": 2.0
+        },
+        "layers": [
+          {
+            "layer": 0,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          },
+          {
+            "layer": 1,
+            "missing": false,
+            "mean_abs_error": 0.0,
+            "max_abs_error": 0.0,
+            "mse": 0.0,
+            "pass": true
+          }
+        ],
+        "final_ln": {
+          "missing": false,
+          "mean_abs_error": 0.0,
+          "max_abs_error": 0.0,
+          "mse": 0.0,
+          "pass": true
+        },
+        "pass": true
+      }
+    ]
+  },
+  "verilog_config": {
+    "dim": "64",
+    "ffn": "256",
+    "vocab": "16",
+    "layers": "2",
+    "heads": "8"
+  }
+}
