@@ -1979,6 +1979,36 @@ GPT-2 (GELU activation):
 
 ---
 
+## Continuation Update (2026-04-22) - India FPGA Research + Procurement Decision
+
+### Work completed today
+- Completed full-repo technical and documentation audit (core markdown set + key bottleneck/cosim text artifacts).
+- Produced dated planning document: **`docs/22_4_2026.md`**.
+- Built India-focused FPGA shortlist with specs, procurement signals, and pricing bands.
+- Mapped project architecture maturity against practical FPGA bring-up risk.
+- Prepared supplier-facing minimum specification checklist.
+
+### Primary hardware recommendation
+- **Primary first board:** **Arty Z7-20 (XC7Z020)** or equivalent Zynq-7020 board.
+- **Stretch board (higher budget):** **Kria KV260 (K26 MPSoC)**.
+
+### Why this recommendation
+- Your current design already has AXI/control/memory orchestration that benefits from SoC-style board bring-up.
+- Zynq-7020 class resources are sufficient for staged validation without forcing high-end board spend on day 1.
+- KV260 gives clear scale-up headroom (DSP + memory) after first stable closure.
+
+### Feasibility outlook (simulation vs FPGA)
+- Functional reproducibility is high if fixed-point path and interface sequencing are preserved.
+- First-pass FPGA performance will likely trail ideal simulation until timing/memory closure work is done.
+- Relative architectural gains should transfer; absolute throughput numbers must be re-measured on board.
+
+### Next execution gates
+1. Procure Arty Z7-20 (or Zynq-7020 equivalent) with confirmed lead time and landed INR quote.
+2. Freeze first bring-up subset (top-level + core pipeline + essential AXI path).
+3. Run synthesis + timing closure loop, then hardware validation against known cosim vectors.
+
+---
+
 ## Continuation Update (31-03-2026, Wave 4 WS1 Fix)
 
 ### Root cause resolved
