@@ -1,10 +1,23 @@
-iverilog.exe : D:\Tools\iverilog\lib\ivl\ivlpp: No input files given.
-At D:\Projects\BitbyBit\custom_gpu_project\scripts\run_all_tests.ps1:73 char:26
+iverilog.exe : D:\Projects\BitbyBit\custom_gpu_project\rtl\transformer\rope_encoder.v:35: error: Unknown module type: 
+dual_port_lut
+At D:\Projects\BitbyBit\custom_gpu_project\scripts\run_all_tests.ps1:74 char:26
 +         $compileResult = & $iverilog @compileArgs 2>&1
 +                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (D:\Tools\iveril...ut files given. 
-   :String) [], RemoteException
+    + CategoryInfo          : NotSpecified: (D:\Projects\Bit...: dual_port_lut:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
-No top level modules, and no -s option.
+D:\Projects\BitbyBit\custom_gpu_project\rtl\transformer\rope_encoder.v:41: error: Unknown module type: dual_port_lut
+D:\Projects\BitbyBit\custom_gpu_project\rtl\integration\optimized_transformer_layer.v:65: error: Unknown module type: 
+skid_buffer
+D:\Projects\BitbyBit\custom_gpu_project\rtl\integration\optimized_transformer_layer.v:104: error: Unknown module type: 
+skid_buffer
+D:\Projects\BitbyBit\custom_gpu_project\rtl\integration\optimized_transformer_layer.v:135: error: Unknown module type: 
+skid_buffer
+D:\Projects\BitbyBit\custom_gpu_project\rtl\integration\optimized_transformer_layer.v:168: error: Unknown module type: 
+skid_buffer
+8 error(s) during elaboration.
+*** These modules were missing:
+        dual_port_lut referenced 2 times.
+        skid_buffer referenced 4 times.
+***
 

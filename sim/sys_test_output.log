@@ -1,24 +1,13 @@
-============================================
-  GPU System Top Integration Testbench
-============================================
-[1] Testing reset...
-[PASS] System ready after reset
-[2] Reading GPU_ID via AXI...
-[PASS] GPU_ID = 0xb17b0001
-[3] Config register write/read...
-[PASS] EMBED_DIM = 768
-[4] Dispatching NOP command...
-[PASS] NOP completed, GPU idle
-[5] Dispatching MATMUL command...
-[PASS] MATMUL completed with expected compute-stub error latch
-[6] Dispatching FENCE command...
-[PASS] FENCE generated interrupt
-[7] Checking performance counters...
-[PASS] Cycle counter running: 71
-[8] Multiple commands in sequence...
-[PASS] Multiple commands completed and stub error remained visible
-============================================
-  Results: 8 PASSED, 0 FAILED
-============================================
-TB_RESULT pass=8 fail=0
-D:\Projects\BitbyBit\custom_gpu_project\tb/top/gpu_system_top_tb.v:318: $finish called at 1275000 (1ps)
+iverilog.exe : D:\Projects\BitbyBit\custom_gpu_project\rtl\top\gpu_system_top.v:297: error: Unknown module type: 
+banked_scratchpad
+At D:\Projects\BitbyBit\custom_gpu_project\scripts\run_all_tests.ps1:74 char:26
++         $compileResult = & $iverilog @compileArgs 2>&1
++                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (D:\Projects\Bit...nked_scratchpad:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+3 error(s) during elaboration.
+*** These modules were missing:
+        banked_scratchpad referenced 1 times.
+***
+

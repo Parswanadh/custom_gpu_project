@@ -3,33 +3,7 @@
 // ============================================================================
 // Module: rope_encoder
 // Description: Rotary Positional Encoding (RoPE) Hardware Engine.
-//
-//   PAPER: "RoFormer: Enhanced Transformer with Rotary Position Embedding"
-//          (Su et al., 2021)
-//
-//   RATIONALE: RoPE is used by ALL modern LLMs:
-//     - Llama 1/2/3 (Meta)
-//     - Mistral/Mixtral (Mistral AI)
-//     - Qwen (Alibaba)
-//     - GPT-NeoX (EleutherAI)
-//   Without RoPE, the model has NO position awareness — it can't tell
-//   if "The cat sat on the mat" vs "mat the on sat cat The".
-//
-//   WHY HARDWARE: RoPE applies rotations to Q and K vectors EVERY token.
-//   A dedicated hardware unit with precomputed sin/cos LUTs makes this
-//   single-cycle instead of multi-cycle software computation.
-//
-//   MATH:
-//     Q_rot[2i]   = Q[2i]   × cos(θ_i × pos) - Q[2i+1] × sin(θ_i × pos)
-//     Q_rot[2i+1] = Q[2i]   × sin(θ_i × pos) + Q[2i+1] × cos(θ_i × pos)
-//   where θ_i = 10000^(-2i/d_model) — precomputed per dimension pair
-//
-//   IMPLEMENTATION:
-//     - 64-entry sin + cos LUT (covers positions 0-63 for 6-bit address)
-//     - Processes dimension pairs sequentially (2 dims per cycle)
-//     - Q8.8 fixed-point arithmetic throughout
-//
-// Parameters: DIM, DATA_WIDTH, MAX_POS
+//   Upgraded to use Dual-Port Synchronous LUTs for SOTA Edge AI efficiency.
 // ============================================================================
 module rope_encoder #(
     parameter DIM        = 8,       // Embedding dimension (must be even)
@@ -48,104 +22,109 @@ module rope_encoder #(
     output reg                        valid_out
 );
 
-    // Sin/Cos LUT — 64 entries, Q8.8 fixed-point
-    // These represent sin(pos × θ_i) and cos(pos × θ_i)
-    // For simplicity, θ = pos × (2π/64) = pos × π/32
-    // In Q8.8: cos(0)=256, sin(0)=0, cos(π/4)=181, sin(π/4)=181
-    reg signed [DATA_WIDTH-1:0] cos_lut [0:63];
-    reg signed [DATA_WIDTH-1:0] sin_lut [0:63];
+    // Sin/Cos Synchronous Dual-Port LUTs
+    wire signed [DATA_WIDTH-1:0] cos_val, sin_val;
+    wire [5:0] lut_addr;
     
-    // Initialize LUTs with precomputed values (Q8.8 format)
-    // cos(n × 2π/64) × 256 and sin(n × 2π/64) × 256
-    integer init_i;
+    // Address and control logic
+    reg [$clog2(DIM/2):0] pair_idx;
+    assign lut_addr = (position * (pair_idx + 1)) & 6'h3F;
+
+    // LUT Instantiations
+    // Port 2 is unused here but available for future parallel head access.
+    dual_port_lut #(.ADDR_WIDTH(6), .DATA_WIDTH(DATA_WIDTH), .DEPTH(64)) u_cos_lut (
+        .clk(clk), .we(1'b0), .waddr(6'd0), .din(16'd0),
+        .raddr1(lut_addr), .dout1(cos_val),
+        .raddr2(6'd0), .dout2()
+    );
+
+    dual_port_lut #(.ADDR_WIDTH(6), .DATA_WIDTH(DATA_WIDTH), .DEPTH(64)) u_sin_lut (
+        .clk(clk), .we(1'b0), .waddr(6'd0), .din(16'd0),
+        .raddr1(lut_addr), .dout1(sin_val),
+        .raddr2(6'd0), .dout2()
+    );
+
+    // Initial values for LUTs (Copied from original)
     initial begin
-        // Quadrant 1: 0 to π/2
-        cos_lut[0]  = 16'sd256;  sin_lut[0]  = 16'sd0;
-        cos_lut[1]  = 16'sd255;  sin_lut[1]  = 16'sd25;
-        cos_lut[2]  = 16'sd251;  sin_lut[2]  = 16'sd50;
-        cos_lut[3]  = 16'sd245;  sin_lut[3]  = 16'sd74;
-        cos_lut[4]  = 16'sd236;  sin_lut[4]  = 16'sd98;
-        cos_lut[5]  = 16'sd225;  sin_lut[5]  = 16'sd120;
-        cos_lut[6]  = 16'sd212;  sin_lut[6]  = 16'sd142;
-        cos_lut[7]  = 16'sd197;  sin_lut[7]  = 16'sd162;
-        cos_lut[8]  = 16'sd181;  sin_lut[8]  = 16'sd181;
-        cos_lut[9]  = 16'sd162;  sin_lut[9]  = 16'sd197;
-        cos_lut[10] = 16'sd142;  sin_lut[10] = 16'sd212;
-        cos_lut[11] = 16'sd120;  sin_lut[11] = 16'sd225;
-        cos_lut[12] = 16'sd98;   sin_lut[12] = 16'sd236;
-        cos_lut[13] = 16'sd74;   sin_lut[13] = 16'sd245;
-        cos_lut[14] = 16'sd50;   sin_lut[14] = 16'sd251;
-        cos_lut[15] = 16'sd25;   sin_lut[15] = 16'sd255;
-        // Quadrant 2: π/2 to π
-        cos_lut[16] = 16'sd0;    sin_lut[16] = 16'sd256;
-        cos_lut[17] = -16'sd25;  sin_lut[17] = 16'sd255;
-        cos_lut[18] = -16'sd50;  sin_lut[18] = 16'sd251;
-        cos_lut[19] = -16'sd74;  sin_lut[19] = 16'sd245;
-        cos_lut[20] = -16'sd98;  sin_lut[20] = 16'sd236;
-        cos_lut[21] = -16'sd120; sin_lut[21] = 16'sd225;
-        cos_lut[22] = -16'sd142; sin_lut[22] = 16'sd212;
-        cos_lut[23] = -16'sd162; sin_lut[23] = 16'sd197;
-        cos_lut[24] = -16'sd181; sin_lut[24] = 16'sd181;
-        cos_lut[25] = -16'sd197; sin_lut[25] = 16'sd162;
-        cos_lut[26] = -16'sd212; sin_lut[26] = 16'sd142;
-        cos_lut[27] = -16'sd225; sin_lut[27] = 16'sd120;
-        cos_lut[28] = -16'sd236; sin_lut[28] = 16'sd98;
-        cos_lut[29] = -16'sd245; sin_lut[29] = 16'sd74;
-        cos_lut[30] = -16'sd251; sin_lut[30] = 16'sd50;
-        cos_lut[31] = -16'sd255; sin_lut[31] = 16'sd25;
-        // Quadrant 3: π to 3π/2
-        cos_lut[32] = -16'sd256; sin_lut[32] = 16'sd0;
-        cos_lut[33] = -16'sd255; sin_lut[33] = -16'sd25;
-        cos_lut[34] = -16'sd251; sin_lut[34] = -16'sd50;
-        cos_lut[35] = -16'sd245; sin_lut[35] = -16'sd74;
-        cos_lut[36] = -16'sd236; sin_lut[36] = -16'sd98;
-        cos_lut[37] = -16'sd225; sin_lut[37] = -16'sd120;
-        cos_lut[38] = -16'sd212; sin_lut[38] = -16'sd142;
-        cos_lut[39] = -16'sd197; sin_lut[39] = -16'sd162;
-        cos_lut[40] = -16'sd181; sin_lut[40] = -16'sd181;
-        cos_lut[41] = -16'sd162; sin_lut[41] = -16'sd197;
-        cos_lut[42] = -16'sd142; sin_lut[42] = -16'sd212;
-        cos_lut[43] = -16'sd120; sin_lut[43] = -16'sd225;
-        cos_lut[44] = -16'sd98;  sin_lut[44] = -16'sd236;
-        cos_lut[45] = -16'sd74;  sin_lut[45] = -16'sd245;
-        cos_lut[46] = -16'sd50;  sin_lut[46] = -16'sd251;
-        cos_lut[47] = -16'sd25;  sin_lut[47] = -16'sd255;
-        // Quadrant 4: 3π/2 to 2π
-        cos_lut[48] = 16'sd0;    sin_lut[48] = -16'sd256;
-        cos_lut[49] = 16'sd25;   sin_lut[49] = -16'sd255;
-        cos_lut[50] = 16'sd50;   sin_lut[50] = -16'sd251;
-        cos_lut[51] = 16'sd74;   sin_lut[51] = -16'sd245;
-        cos_lut[52] = 16'sd98;   sin_lut[52] = -16'sd236;
-        cos_lut[53] = 16'sd120;  sin_lut[53] = -16'sd225;
-        cos_lut[54] = 16'sd142;  sin_lut[54] = -16'sd212;
-        cos_lut[55] = 16'sd162;  sin_lut[55] = -16'sd197;
-        cos_lut[56] = 16'sd181;  sin_lut[56] = -16'sd181;
-        cos_lut[57] = 16'sd197;  sin_lut[57] = -16'sd162;
-        cos_lut[58] = 16'sd212;  sin_lut[58] = -16'sd142;
-        cos_lut[59] = 16'sd225;  sin_lut[59] = -16'sd120;
-        cos_lut[60] = 16'sd236;  sin_lut[60] = -16'sd98;
-        cos_lut[61] = 16'sd245;  sin_lut[61] = -16'sd74;
-        cos_lut[62] = 16'sd251;  sin_lut[62] = -16'sd50;
-        cos_lut[63] = 16'sd255;  sin_lut[63] = -16'sd25;
+        // These are written to the 'mem' inside u_cos_lut and u_sin_lut via hierarchical paths for simulation.
+        // In a real synthesis, $readmemh or a ROM primitive would be used.
+        u_cos_lut.mem[0]  = 16'sd256;  u_sin_lut.mem[0]  = 16'sd0;
+        u_cos_lut.mem[1]  = 16'sd255;  u_sin_lut.mem[1]  = 16'sd25;
+        u_cos_lut.mem[2]  = 16'sd251;  u_sin_lut.mem[2]  = 16'sd50;
+        u_cos_lut.mem[3]  = 16'sd245;  u_sin_lut.mem[3]  = 16'sd74;
+        u_cos_lut.mem[4]  = 16'sd236;  u_sin_lut.mem[4]  = 16'sd98;
+        u_cos_lut.mem[5]  = 16'sd225;  u_sin_lut.mem[5]  = 16'sd120;
+        u_cos_lut.mem[6]  = 16'sd212;  u_sin_lut.mem[6]  = 16'sd142;
+        u_cos_lut.mem[7]  = 16'sd197;  u_sin_lut.mem[7]  = 16'sd162;
+        u_cos_lut.mem[8]  = 16'sd181;  u_sin_lut.mem[8]  = 16'sd181;
+        u_cos_lut.mem[9]  = 16'sd162;  u_sin_lut.mem[9]  = 16'sd197;
+        u_cos_lut.mem[10] = 16'sd142;  u_sin_lut.mem[10] = 16'sd212;
+        u_cos_lut.mem[11] = 16'sd120;  u_sin_lut.mem[11] = 16'sd225;
+        u_cos_lut.mem[12] = 16'sd98;   u_sin_lut.mem[12] = 16'sd236;
+        u_cos_lut.mem[13] = 16'sd74;   u_sin_lut.mem[13] = 16'sd245;
+        u_cos_lut.mem[14] = 16'sd50;   u_sin_lut.mem[14] = 16'sd251;
+        u_cos_lut.mem[15] = 16'sd25;   u_sin_lut.mem[15] = 16'sd255;
+        u_cos_lut.mem[16] = 16'sd0;    u_sin_lut.mem[16] = 16'sd256;
+        u_cos_lut.mem[17] = -16'sd25;  u_sin_lut.mem[17] = 16'sd255;
+        u_cos_lut.mem[18] = -16'sd50;  u_sin_lut.mem[18] = 16'sd251;
+        u_cos_lut.mem[19] = -16'sd74;  u_sin_lut.mem[19] = 16'sd245;
+        u_cos_lut.mem[20] = -16'sd98;  u_sin_lut.mem[20] = 16'sd236;
+        u_cos_lut.mem[21] = -16'sd120; u_sin_lut.mem[21] = 16'sd225;
+        u_cos_lut.mem[22] = -16'sd142; u_sin_lut.mem[22] = 16'sd212;
+        u_cos_lut.mem[23] = -16'sd162; u_sin_lut.mem[23] = 16'sd197;
+        u_cos_lut.mem[24] = -16'sd181; u_sin_lut.mem[24] = 16'sd181;
+        u_cos_lut.mem[25] = -16'sd197; u_sin_lut.mem[25] = 16'sd162;
+        u_cos_lut.mem[26] = -16'sd212; u_sin_lut.mem[26] = 16'sd142;
+        u_cos_lut.mem[27] = -16'sd225; u_sin_lut.mem[27] = 16'sd120;
+        u_cos_lut.mem[28] = -16'sd236; u_sin_lut.mem[28] = 16'sd98;
+        u_cos_lut.mem[29] = -16'sd245; u_sin_lut.mem[29] = 16'sd74;
+        u_cos_lut.mem[30] = -16'sd251; u_sin_lut.mem[30] = 16'sd50;
+        u_cos_lut.mem[31] = -16'sd255; u_sin_lut.mem[31] = 16'sd25;
+        u_cos_lut.mem[32] = -16'sd256; u_sin_lut.mem[32] = 16'sd0;
+        u_cos_lut.mem[33] = -16'sd255; u_sin_lut.mem[33] = -16'sd25;
+        u_cos_lut.mem[34] = -16'sd251; u_sin_lut.mem[34] = -16'sd50;
+        u_cos_lut.mem[35] = -16'sd245; u_sin_lut.mem[35] = -16'sd74;
+        u_cos_lut.mem[36] = -16'sd236; u_sin_lut.mem[36] = -16'sd98;
+        u_cos_lut.mem[37] = -16'sd225; u_sin_lut.mem[37] = -16'sd120;
+        u_cos_lut.mem[38] = -16'sd212; u_sin_lut.mem[38] = -16'sd142;
+        u_cos_lut.mem[39] = -16'sd197; u_sin_lut.mem[39] = -16'sd162;
+        u_cos_lut.mem[40] = -16'sd181; u_sin_lut.mem[40] = -16'sd181;
+        u_cos_lut.mem[41] = -16'sd162; u_sin_lut.mem[41] = -16'sd197;
+        u_cos_lut.mem[42] = -16'sd142; u_sin_lut.mem[42] = -16'sd212;
+        u_cos_lut.mem[43] = -16'sd120; u_sin_lut.mem[43] = -16'sd225;
+        u_cos_lut.mem[44] = -16'sd98;  u_sin_lut.mem[44] = -16'sd236;
+        u_cos_lut.mem[45] = -16'sd74;  u_sin_lut.mem[45] = -16'sd245;
+        u_cos_lut.mem[46] = -16'sd50;  u_sin_lut.mem[46] = -16'sd251;
+        u_cos_lut.mem[47] = -16'sd25;  u_sin_lut.mem[47] = -16'sd255;
+        u_cos_lut.mem[48] = 16'sd0;    u_sin_lut.mem[48] = -16'sd256;
+        u_cos_lut.mem[49] = 16'sd25;   u_sin_lut.mem[49] = -16'sd255;
+        u_cos_lut.mem[50] = 16'sd50;   u_sin_lut.mem[50] = -16'sd251;
+        u_cos_lut.mem[51] = 16'sd74;   u_sin_lut.mem[51] = -16'sd245;
+        u_cos_lut.mem[52] = 16'sd98;   u_sin_lut.mem[52] = -16'sd236;
+        u_cos_lut.mem[53] = 16'sd120;  u_sin_lut.mem[53] = -16'sd225;
+        u_cos_lut.mem[54] = 16'sd142;  u_sin_lut.mem[54] = -16'sd212;
+        u_cos_lut.mem[55] = 16'sd162;  u_sin_lut.mem[55] = -16'sd197;
+        u_cos_lut.mem[56] = 16'sd181;  u_sin_lut.mem[56] = -16'sd181;
+        u_cos_lut.mem[57] = 16'sd197;  u_sin_lut.mem[57] = -16'sd162;
+        u_cos_lut.mem[58] = 16'sd212;  u_sin_lut.mem[58] = -16'sd142;
+        u_cos_lut.mem[59] = 16'sd225;  u_sin_lut.mem[59] = -16'sd120;
+        u_cos_lut.mem[60] = 16'sd236;  u_sin_lut.mem[60] = -16'sd98;
+        u_cos_lut.mem[61] = 16'sd245;  u_sin_lut.mem[61] = -16'sd74;
+        u_cos_lut.mem[62] = 16'sd251;  u_sin_lut.mem[62] = -16'sd50;
+        u_cos_lut.mem[63] = 16'sd255;  u_sin_lut.mem[63] = -16'sd25;
     end
 
     // FSM
     reg [2:0] state;
     localparam IDLE     = 3'd0;
-    localparam ROTATE   = 3'd1;
-    localparam DONE_ST  = 3'd2;
-    
-    reg [$clog2(DIM/2):0] pair_idx;  // Current dimension pair
+    localparam PREFETCH = 3'd1;
+    localparam ROTATE   = 3'd2;
+    localparam DONE_ST  = 3'd3;
     
     // Working registers
     reg signed [DATA_WIDTH-1:0] q_even, q_odd, k_even, k_odd;
-    reg signed [DATA_WIDTH-1:0] cos_val, sin_val;
     reg signed [2*DATA_WIDTH-1:0] prod1, prod2;
     
-    // LUT address: combine position and dimension index
-    // θ_i × pos = (pos * (i+1)) mod 64 — simplified frequency mapping
-    wire [5:0] lut_addr = (position * (pair_idx + 1)) & 6'h3F;
-
     always @(posedge clk) begin
         if (rst) begin
             state     <= IDLE;
@@ -159,24 +138,24 @@ module rope_encoder #(
                     valid_out <= 1'b0;
                     if (valid_in) begin
                         pair_idx <= 0;
-                        state <= ROTATE;
+                        state <= PREFETCH;
                     end
                 end
                 
+                PREFETCH: begin
+                    // Address 'lut_addr' is already presented to dual_port_lut.
+                    // Data will be available on the next cycle (ROTATE state).
+                    state <= ROTATE;
+                end
+
                 ROTATE: begin
-                    // Extract dimension pair from Q and K
+                    // Sample dimension pair from Q and K
                     q_even = $signed(q_in[(pair_idx*2)*DATA_WIDTH +: DATA_WIDTH]);
                     q_odd  = $signed(q_in[(pair_idx*2+1)*DATA_WIDTH +: DATA_WIDTH]);
                     k_even = $signed(k_in[(pair_idx*2)*DATA_WIDTH +: DATA_WIDTH]);
                     k_odd  = $signed(k_in[(pair_idx*2+1)*DATA_WIDTH +: DATA_WIDTH]);
                     
-                    // Get sin/cos for this position + dimension
-                    cos_val = cos_lut[lut_addr];
-                    sin_val = sin_lut[lut_addr];
-                    
-                    // Apply rotation to Q:
-                    // Q_rot[2i]   = Q[2i] * cos - Q[2i+1] * sin
-                    // Q_rot[2i+1] = Q[2i] * sin + Q[2i+1] * cos
+                    // Apply rotation to Q using synchronous LUT outputs:
                     prod1 = q_even * cos_val - q_odd * sin_val;
                     prod2 = q_even * sin_val + q_odd * cos_val;
                     q_rot[(pair_idx*2)*DATA_WIDTH +: DATA_WIDTH]   <= prod1 >>> 8;
@@ -190,8 +169,10 @@ module rope_encoder #(
                     
                     if (pair_idx == DIM/2 - 1)
                         state <= DONE_ST;
-                    else
+                    else begin
                         pair_idx <= pair_idx + 1;
+                        state <= PREFETCH; // Need another cycle to prefetch next sine/cosine
+                    end
                 end
                 
                 DONE_ST: begin

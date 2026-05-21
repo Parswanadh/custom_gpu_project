@@ -1,0 +1,14 @@
+iverilog.exe : D:\Projects\BitbyBit\custom_gpu_project\rtl\transformer\rope_encoder.v:35: error: Unknown module type: 
+dual_port_lut
+At D:\Projects\BitbyBit\custom_gpu_project\scripts\run_all_tests.ps1:74 char:26
++         $compileResult = & $iverilog @compileArgs 2>&1
++                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (D:\Projects\Bit...: dual_port_lut:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+D:\Projects\BitbyBit\custom_gpu_project\rtl\transformer\rope_encoder.v:41: error: Unknown module type: dual_port_lut
+3 error(s) during elaboration.
+*** These modules were missing:
+        dual_port_lut referenced 2 times.
+***
+

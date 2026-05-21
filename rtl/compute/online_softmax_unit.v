@@ -27,19 +27,21 @@ module online_softmax_unit #(
 )(
     input  wire                               clk,
     input  wire                               rst,
+    input  wire                               ready_in,   // Downstream ready signal for pipeline separation
 
     // Streaming input: feed one (score, value_vector) per cycle
     input  wire                               score_valid,
     input  wire signed [DATA_WIDTH-1:0]       score_in,
-    input  wire [EMBED_DIM*DATA_WIDTH-1:0]    value_in,
+    input  wire signed [EMBED_DIM*DATA_WIDTH-1:0] value_in,
 
     // Control
     input  wire                               start,      // Pulse: reset for new softmax
     input  wire                               finalize,   // Pulse: trigger final division
 
     // Output
-    output reg  [EMBED_DIM*DATA_WIDTH-1:0]    result_out,
-    output reg                                result_valid
+    output  reg   [EMBED_DIM*DATA_WIDTH-1:0]    result_out,
+    output  reg                                 result_valid,
+    output  reg                                 ready_out   // Upstream ready signal for pipeline separation
 );
 
     // ---- Running state ----
@@ -65,8 +67,9 @@ module online_softmax_unit #(
 
     // When new max: correction = exp(old_max - new_score), new_term = exp(0) = 255
     // When no new max: correction = exp(0) = 255 (no change), new_term = exp(score - max)
-    assign lut_a_in = new_max_needed ? (running_max - score_in) : 16'sd0;
-    assign lut_b_in = new_max_needed ? 16'sd0 : (score_in - running_max);
+    // Proper sign extension for LUT inputs
+    assign lut_a_in = new_max_needed ? {{8{running_max[DATA_WIDTH-1]}}, running_max[DATA_WIDTH-1:0]} - {{8{score_in[DATA_WIDTH-1]}}, score_in[DATA_WIDTH-1:0]} : 16'sd0;
+    assign lut_b_in = new_max_needed ? 16'sd0 : {{8{score_in[DATA_WIDTH-1]}}, score_in[DATA_WIDTH-1:0]} - {{8{running_max[DATA_WIDTH-1]}}, running_max[DATA_WIDTH-1:0]};
 
     // Unpacked value vector (combinational)
     wire signed [DATA_WIDTH-1:0] v_unpacked [0:EMBED_DIM-1];
@@ -83,82 +86,111 @@ module online_softmax_unit #(
 
     integer d;
 
+    // Pipeline registers for output handshake
+    reg [EMBED_DIM*DATA_WIDTH-1:0] result_out_reg;
+    reg                            result_valid_reg;
+    reg                            ready_out_reg;
+
+    // Combinational ready_out: we are ready to accept new input if we don't have valid output holding or if downstream is ready to take our current output
+    assign ready_out = ready_in || !result_valid_reg;
+
     always @(posedge clk) begin
         if (rst || start) begin
             running_max   <= -16'sd32767;
             running_denom <= 0;
             for (d = 0; d < EMBED_DIM; d = d + 1)
                 running_acc[d] <= 0;
-            result_valid  <= 1'b0;
-            finalizing    <= 1'b0;
-            fin_dim       <= 0;
+            result_valid_reg <= 1'b0;
+            finalizing       <= 1'b0;
+            fin_dim          <= 0;
+            ready_out_reg    <= 1'b1; // Initially ready to accept input
         end else begin
+            // Handle ready/valid handshake for input
+            if (ready_in || !result_valid_reg) begin
+                // We can accept new input
+                
+                 result_valid_reg <= 1'b0; // Default to invalid output
+                
+                // ====================================================
+                // ACCUMULATE: On each valid score, update running state
+                // LUT outputs are COMBINATIONAL — available this cycle
+                // ====================================================
+                if (score_valid) begin
+                    // Update running max
+                    if (new_max_needed)
+                        running_max <= score_in;
 
-            result_valid <= 1'b0;
+                    // lut_a_out = correction factor (exp(m_old - m_new))
+                    // lut_b_out = new exp term (exp(s_j - m_new))
+                    // Both are Q0.8 unsigned [0..255] where 255 = 1.0
 
-            // ====================================================
-            // ACCUMULATE: On each valid score, update running state
-            // LUT outputs are COMBINATIONAL — available this cycle
-            // ====================================================
-            if (score_valid) begin
-                // Update running max
-                if (new_max_needed)
-                    running_max <= score_in;
-
-                // lut_a_out = correction factor (exp(m_old - m_new))
-                // lut_b_out = new exp term (exp(s_j - m_new))
-                // Both are Q0.8 unsigned [0..255] where 255 = 1.0
-
-                // Update denominator: denom = denom * corr/255 + exp_term
-                begin : denom_blk
-                    reg [2*DATA_WIDTH-1:0] corrected;
-                    corrected = (running_denom * {24'd0, lut_a_out}) >> 8;
-                    running_denom <= corrected + {24'd0, lut_b_out};
-                end
-
-                // Update accumulators: acc[d] = acc[d] * corr/255 + exp_term * v[d]
-                for (d = 0; d < EMBED_DIM; d = d + 1) begin : acc_blk
-                    reg signed [2*DATA_WIDTH-1:0] corrected_a;
-                    reg signed [2*DATA_WIDTH-1:0] new_contrib;
-                    // Multiply by correction (Q0.8), shift back
-                    corrected_a = (running_acc[d] * $signed({1'b0, lut_a_out})) >>> 8;
-                    // New contribution: exp_term × v[d] (Q0.8 × Q8.8 = Q8.16)
-                    new_contrib = $signed({1'b0, lut_b_out}) * v_unpacked[d];
-                    running_acc[d] <= corrected_a + new_contrib;
-                end
-            end
-
-            // ====================================================
-            // FINALIZE: Divide accumulators by denominator
-            // Process one dimension per cycle
-            // ====================================================
-            if (finalize && !finalizing) begin
-                finalizing <= 1'b1;
-                fin_dim    <= 0;
-            end
-
-            if (finalizing) begin
-                if (fin_dim < EMBED_DIM) begin
-                    begin : div_blk
-                        reg signed [2*DATA_WIDTH-1:0] num;
-                        reg signed [DATA_WIDTH-1:0] quotient;
-                        num = running_acc[fin_dim];
-                        if (running_denom != 0)
-                            // acc is in Q8.16 (from Q0.8 × Q8.8), denom is in Q0.8
-                            // result = acc / denom → Q8.8
-                            quotient = num / $signed({1'b0, running_denom[DATA_WIDTH-1:0]});
-                        else
-                            quotient = 0;
-                        result_out[fin_dim*DATA_WIDTH +: DATA_WIDTH] <= quotient;
+                    // Update denominator: denom = denom * corr/255 + exp_term
+                    begin : denom_blk
+                        reg [2*DATA_WIDTH-1:0] corrected;
+                        corrected = (running_denom * {24'd0, lut_a_out}) >> 8;
+                        running_denom <= corrected + {24'd0, lut_b_out};
                     end
-                    fin_dim <= fin_dim + 1;
-                end else begin
-                    result_valid <= 1'b1;
-                    finalizing   <= 1'b0;
-                end
-            end
 
+                    // Update accumulators: acc[d] = acc[d] * corr/255 + exp_term * v[d]
+                    for (d = 0; d < EMBED_DIM; d = d + 1) begin : acc_blk
+                        reg signed [2*DATA_WIDTH-1:0] corrected_a;
+                        reg signed [2*DATA_WIDTH-1:0] new_contrib;
+                        // Multiply by correction (Q0.8), shift back
+                        corrected_a = (running_acc[d] * $signed({1'b0, lut_a_out})) >>> 8;
+                        // New contribution: exp_term × v[d] (Q0.8 × Q8.8 = Q8.16)
+                        new_contrib = $signed({1'b0, lut_b_out}) * v_unpacked[d];
+                        running_acc[d] <= corrected_a + new_contrib;
+                    end
+                end
+
+                // ====================================================
+                // FINALIZE: Divide accumulators by denominator
+                // Process one dimension per cycle
+                // ====================================================
+                if (finalize && !finalizing) begin
+                    finalizing <= 1'b1;
+                    fin_dim    <= 0;
+                end
+
+                 if (finalizing) begin
+                     if (fin_dim < EMBED_DIM) begin
+                         begin : div_blk
+                             reg signed [2*DATA_WIDTH-1:0] num;
+                             reg signed [DATA_WIDTH-1:0] quotient;
+                             num = running_acc[fin_dim];
+                             // Division by zero protection with proper handling
+                             if (running_denom[DATA_WIDTH-1:0] == 0) begin
+                                 quotient = 0;
+                             end else begin
+                                 // acc is in Q8.16 (from Q0.8 × Q8.8), denom is in Q0.8
+                                 // result = acc / denom → Q8.8
+                                 quotient = num / $signed({1'b0, running_denom[DATA_WIDTH-1:0]});
+                             end
+                             result_out_reg[fin_dim*DATA_WIDTH +: DATA_WIDTH] <= quotient;
+                         end
+                         fin_dim <= fin_dim + 1;
+                     end else begin
+                         result_valid_reg <= 1'b1;
+                         finalizing       <= 1'b0;
+                         result_out_reg   <= result_out_reg; // Hold final result
+                     end
+                 end else begin
+                     // Not finalizing, hold current result
+                     result_out_reg <= result_out_reg;
+                 end
+                
+                // Update ready_out based on whether we can accept new input
+                ready_out_reg <= ready_in || !result_valid_reg;
+            end else begin
+                // We cannot accept new input because we have valid output and downstream is not ready
+                // Hold all registers
+                result_out_reg <= result_out_reg;
+                result_valid_reg <= result_valid_reg;
+                ready_out_reg <= ready_out_reg;
+            end
         end
     end
 
+        // Output assignments - drive outputs from registers (updated in always block)
+        // These are already declared as reg above, so no assign statements needed
 endmodule

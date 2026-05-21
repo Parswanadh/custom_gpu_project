@@ -369,9 +369,11 @@ module gpu_system_top_v2 #(
         .clk(clk),
         .rst(rst_sync),
         .start(opt_start),
+        .ready_for_upstream(), 
         .token_embedding(opt_token_embedding),
         .position(opt_position),
         .done(opt_done),
+        .ready_from_downstream(1'b1),
         .layer_output(opt_layer_output),
         .rope_complete(opt_rope_done),
         .gqa_complete(opt_gqa_done),
@@ -681,32 +683,36 @@ module gpu_system_top_v2 #(
         .mac_total(mac_total)
     );
 
-    // 5. Scratchpad (Dual-Port SRAM)
-    //    Port A: Command processor (compute pipeline side)
-    //    Port B: DMA engine (data transfer side)
-    scratchpad #(
-        .DEPTH(SP_DEPTH),
-        .DATA_W(SP_DATA_W)
-    ) u_scratchpad (
-        .clk(clk), .rst(rst_sync),
-        // Port A: Command processor
-        .a_read_en(cp_sp_read_en_safe),
-        .a_read_addr(cp_sp_read_addr[$clog2(SP_DEPTH)-1:0]),
-        .a_read_data(sp_a_read_data),
-        .a_read_valid(),
-        .a_write_en(sp_a_write_en),
-        .a_write_addr(sp_a_write_addr[$clog2(SP_DEPTH)-1:0]),
-        .a_write_data(sp_a_write_data),
-        // Port B: DMA engine
-        .b_read_en(dma_local_read_en),
-        .b_read_addr(dma_local_read_addr[$clog2(SP_DEPTH)-1:0]),
-        .b_read_data(sp_b_read_data),
-        .b_read_valid(sp_b_read_valid),
-        .b_write_en(dma_split_write_ok),
-        .b_write_addr(dma_word_addr_lo[$clog2(SP_DEPTH)-1:0]),
-        .b_write_data(dma_local_write_data[15:0]),
-        .usage_count()
-    );
+     // 5. Scratchpad (Banked SRAM with conflict avoidance)
+     //    Port A: Command processor (compute pipeline side)
+     //    Port B: DMA engine (data transfer side)
+     banked_scratchpad #(
+         .TOTAL_DEPTH(SP_DEPTH),
+         .NUM_BANKS(8),
+         .DATA_W(SP_DATA_W)
+     ) u_scratchpad (
+         .clk(clk), .rst(rst_sync),
+         // Port A: Command processor
+         .a_read_en(cp_sp_read_en_safe),
+         .a_read_addr(cp_sp_read_addr[$clog2(SP_DEPTH)-1:0]),
+         .a_read_data(sp_a_read_data),
+         .a_read_valid(),
+         .a_write_en(sp_a_write_en),
+         .a_write_addr(sp_a_write_addr[$clog2(SP_DEPTH)-1:0]),
+         .a_write_data(sp_a_write_data),
+         // Port B: DMA engine
+         .b_read_en(dma_local_read_en),
+         .b_read_addr(dma_local_read_addr[$clog2(SP_DEPTH)-1:0]),
+         .b_read_data(dma_local_read_data),
+         .b_read_valid(),
+         .b_write_en(dma_local_write_en),
+         .b_write_addr(dma_local_write_addr[$clog2(SP_DEPTH)-1:0]),
+         .b_write_data(dma_local_write_data),
+         .b_write_valid(),
+         // Status (optional, for monitoring)
+         .bank_conflicts(),
+         .usage_count()
+     );
 
     // 6. Optional prefetch engine (feature-gated via compute_flags[4])
     prefetch_engine #(
@@ -793,6 +799,66 @@ module gpu_system_top_v2 #(
         .local_read_addr(dma_local_read_addr),
         .local_read_data(dma_local_read_data_wire),
         .interrupt(dma_interrupt)
+    );
+
+    // 10. Gemma-3 SOTA Compute Modules (Integrated in Track 3)
+    rmsnorm_vp #(
+        .MAX_VEC_LEN(256)
+    ) u_rmsnorm_vp (
+        .clk(clk),
+        .rst_n(~rst_sync),
+        .start(opt_start),
+        .precision_ctrl(cfg_precision_mode),
+        .data_in(opt_token_embedding[15:0]), // Map 16 bits from the embedding bus
+        .data_in_valid(opt_active),
+        .end_vector(1'b0),
+        .data_out(),
+        .data_out_valid(),
+        .ready()
+    );
+
+    rope_unit_v2 #(
+        .DATA_WIDTH(16),
+        .LUT_ADDR_WIDTH(6),
+        .LUT_DATA_WIDTH(32),
+        .LUT_DEPTH(64),
+        .FRAC_BITS(8)
+    ) u_rope_v2 (
+        .clk(clk),
+        .rst_n(~rst_sync),
+        .enable(opt_active),
+        .q_in_0(opt_token_embedding[15:0]),
+        .q_in_1(opt_token_embedding[31:16]),
+        .k_in_0(opt_token_embedding[15:0]),
+        .k_in_1(opt_token_embedding[31:16]),
+        .sin_addr(opt_position[5:0]),
+        .cos_addr(opt_position[5:0]),
+        .lut_we(1'b0),
+        .lut_waddr(6'd0),
+        .lut_din(32'd0),
+        .q_out_0(),
+        .q_out_1(),
+        .k_out_0(),
+        .k_out_1(),
+        .valid_out()
+    );
+
+    gated_mlp_da u_gated_mlp_da (
+        .clk(clk),
+        .rst_n(~rst_sync),
+        .start(opt_start),
+        .done(),
+        .x_addr(),
+        .x_data(opt_token_embedding[15:0]),
+        .gw_addr(),
+        .gw_data(8'd0),
+        .uw_addr(),
+        .uw_data(8'd0),
+        .dw_addr(),
+        .dw_data(8'd0),
+        .out_addr(),
+        .out_data(),
+        .out_we()
     );
 
 endmodule

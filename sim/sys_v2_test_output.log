@@ -1,10 +1,31 @@
-iverilog.exe : D:\Tools\iverilog\lib\ivl\ivlpp: No input files given.
-At D:\Projects\BitbyBit\custom_gpu_project\scripts\run_all_tests.ps1:73 char:26
+iverilog.exe : D:\Projects\BitbyBit\custom_gpu_project\rtl\transformer\rope_encoder.v:35: error: Unknown module type: 
+dual_port_lut
+At D:\Projects\BitbyBit\custom_gpu_project\scripts\run_all_tests.ps1:74 char:26
 +         $compileResult = & $iverilog @compileArgs 2>&1
 +                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (D:\Tools\iveril...ut files given. 
-   :String) [], RemoteException
+    + CategoryInfo          : NotSpecified: (D:\Projects\Bit...: dual_port_lut:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
-No top level modules, and no -s option.
+D:\Projects\BitbyBit\custom_gpu_project\rtl\transformer\rope_encoder.v:41: error: Unknown module type: dual_port_lut
+D:\Projects\BitbyBit\custom_gpu_project\rtl\integration\optimized_transformer_layer.v:65: error: Unknown module type: 
+skid_buffer
+D:\Projects\BitbyBit\custom_gpu_project\rtl\integration\optimized_transformer_layer.v:104: error: Unknown module type: 
+skid_buffer
+D:\Projects\BitbyBit\custom_gpu_project\rtl\integration\optimized_transformer_layer.v:135: error: Unknown module type: 
+skid_buffer
+D:\Projects\BitbyBit\custom_gpu_project\rtl\integration\optimized_transformer_layer.v:168: error: Unknown module type: 
+skid_buffer
+D:\Projects\BitbyBit\custom_gpu_project\rtl\top\gpu_system_top_v2.v:693: error: Unknown module type: banked_scratchpad
+D:\Projects\BitbyBit\custom_gpu_project\rtl\top\gpu_system_top_v2.v:807: error: Unknown module type: rmsnorm_vp
+D:\Projects\BitbyBit\custom_gpu_project\rtl\top\gpu_system_top_v2.v:826: error: Unknown module type: rope_unit_v2
+D:\Projects\BitbyBit\custom_gpu_project\rtl\top\gpu_system_top_v2.v:846: error: Unknown module type: gated_mlp_da
+13 error(s) during elaboration.
+*** These modules were missing:
+        banked_scratchpad referenced 1 times.
+        dual_port_lut referenced 2 times.
+        gated_mlp_da referenced 1 times.
+        rmsnorm_vp referenced 1 times.
+        rope_unit_v2 referenced 1 times.
+        skid_buffer referenced 4 times.
+***
 

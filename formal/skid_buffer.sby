@@ -1,0 +1,18 @@
+[tasks]
+prove: bmc
+
+[options]
+mode bmc
+depth 20
+
+[engines]
+smtbmc
+
+[script]
+read -formal skid_buffer_proof.sv
+read -formal rtl/integration/skid_buffer.v
+prep -top skid_buffer
+
+[files]
+../rtl/integration/skid_buffer.v
+skid_buffer_proof.sv

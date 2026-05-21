@@ -287,32 +287,36 @@ module gpu_system_top #(
         .mac_total(mac_total)
     );
 
-    // 5. Scratchpad (Dual-Port SRAM)
-    //    Port A: Command processor (compute pipeline side)
-    //    Port B: DMA engine (data transfer side)
-    scratchpad #(
-        .DEPTH(SP_DEPTH),
-        .DATA_W(SP_DATA_W)
-    ) u_scratchpad (
-        .clk(clk), .rst(rst_sync),
-        // Port A: Command processor
-        .a_read_en(cp_sp_read_en),
-        .a_read_addr(cp_sp_read_addr[$clog2(SP_DEPTH)-1:0]),
-        .a_read_data(cp_sp_read_data),
-        .a_read_valid(),
-        .a_write_en(sp_a_write_en),
-        .a_write_addr(sp_a_write_addr[$clog2(SP_DEPTH)-1:0]),
-        .a_write_data(sp_a_write_data),
-        // Port B: DMA engine
-        .b_read_en(dma_local_read_en),
-        .b_read_addr(dma_local_read_addr[$clog2(SP_DEPTH)-1:0]),
-        .b_read_data(sp_b_read_data),
-        .b_read_valid(sp_b_read_valid),
-        .b_write_en(dma_b_write_en),
-        .b_write_addr(dma_b_write_addr[$clog2(SP_DEPTH)-1:0]),
-        .b_write_data(dma_b_write_data),
-        .usage_count()
-    );
+     // 5. Scratchpad (Banked SRAM with conflict avoidance)
+     //    Port A: Command processor (compute pipeline side)
+     //    Port B: DMA engine (data transfer side)
+     banked_scratchpad #(
+         .TOTAL_DEPTH(SP_DEPTH),
+         .NUM_BANKS(8),
+         .DATA_W(SP_DATA_W)
+     ) u_scratchpad (
+         .clk(clk), .rst(rst_sync),
+         // Port A: Command processor
+         .a_read_en(cp_sp_read_en),
+         .a_read_addr(cp_sp_read_addr[$clog2(SP_DEPTH)-1:0]),
+         .a_read_data(cp_sp_read_data),
+         .a_read_valid(),
+         .a_write_en(sp_a_write_en),
+         .a_write_addr(sp_a_write_addr[$clog2(SP_DEPTH)-1:0]),
+         .a_write_data(sp_a_write_data),
+         // Port B: DMA engine
+         .b_read_en(dma_local_read_en),
+         .b_read_addr(dma_local_read_addr[$clog2(SP_DEPTH)-1:0]),
+         .b_read_data(sp_b_read_data),
+         .b_read_valid(sp_b_read_valid),
+         .b_write_en(dma_b_write_en),
+         .b_write_addr(dma_b_write_addr[$clog2(SP_DEPTH)-1:0]),
+         .b_write_data(dma_b_write_data),
+         .b_write_valid(),
+         // Status (optional, for monitoring)
+         .bank_conflicts(),
+         .usage_count()
+     );
 
     // 6. DMA Engine
     dma_engine #(

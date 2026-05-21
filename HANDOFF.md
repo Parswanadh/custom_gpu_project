@@ -374,11 +374,12 @@ D:\Projects\BitbyBit\custom_gpu_project\
 │   ├── benchmark_throughput.py         # Throughput benchmarking
 │   └── [+ 12 more utility scripts]
 │
-├── docs/                               # 12 documentation files
-│   ├── progress.md                     # 74KB — full development log
-│   ├── BitbyBit_Complete_Guide.md      # 45KB project guide
-│   ├── Judge_QA.md                     # 29KB Q&A for evaluators
-│   ├── hardware_improvements_research.md # 33KB research notes
+├── docs/                               # 13 Documentation
+- `docs/Website_Reference.md`: Truthful, verified claims for the Science Fest website.
+- `docs/BitbyBit_Complete_Guide.md`: Detailed technical guide on the architecture.
+- `docs/hardware_improvements_research.md`: Research on the implemented P0/P1 hardware improvements.
+- `docs/BitbyBit_Architecture_Whitepaper.md`: **[NEW]** Professional-grade launch whitepaper detailing the entire GPU microarchitecture and hardware innovations, including a comprehensive Mermaid diagram.
+- `docs/Detailed_Architecture_Diagrams.md`: **[NEW]** Component-level detailed Mermaid diagrams covering the Datapath, Memory Subsystem, and Hardware Accelerators.
 │   ├── Simulation_Commands.md          # All individual sim commands
 │   ├── architecture.md                 # Architecture diagrams
 │   ├── system_architecture.md          # Post-audit system architecture

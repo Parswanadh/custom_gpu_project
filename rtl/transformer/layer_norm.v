@@ -60,8 +60,9 @@ module layer_norm #(
     assign inv_sqrt_var_input = (var_val < 0) ? 16'd0 : var_val;
 
     inv_sqrt_lut_256 u_inv_sqrt (
-        .var_in(inv_sqrt_var_input),
-        .inv_sqrt_out(inv_sqrt_result)
+        .clk(clk),
+        .addr(inv_sqrt_var_input[7:0]),
+        .dout(inv_sqrt_result)
     );
 
     always @(posedge clk) begin

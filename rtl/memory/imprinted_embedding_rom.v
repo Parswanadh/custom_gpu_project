@@ -16,7 +16,7 @@
 module imprinted_embedding_rom #(
     parameter DIM        = 8,
     parameter DATA_WIDTH = 16,
-    parameter GEMMA_TOKEN_COUNT = 256,
+    parameter GEMMA_TOKEN_COUNT = 16,
     parameter GEMMA_POS_COUNT   = 64,
     parameter GEMMA_TOKEN_HEX   = "weights/imprint/gemma3_270m_token_emb_q88.hex",
     parameter GEMMA_POS_HEX     = "weights/imprint/gemma3_270m_pos_emb_q88.hex"

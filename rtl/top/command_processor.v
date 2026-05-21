@@ -74,12 +74,15 @@ module command_processor #(
     // Opcodes
     localparam CMD_NOP          = 8'h00;
     localparam CMD_LOAD_WEIGHTS = 8'h01;
-    localparam CMD_MATMUL       = 8'h02;
-    localparam CMD_ACTIVATION   = 8'h03;
-    localparam CMD_LAYERNORM    = 8'h04;
+    localparam CMD_RMSNORM_VP   = 8'h0A;
+    localparam CMD_ROPE_V2      = 8'h0B;
+    localparam CMD_GATED_MLP_DA = 8'h0C;
     localparam CMD_SOFTMAX      = 8'h05;
     localparam CMD_RESIDUAL_ADD = 8'h06;
     localparam CMD_EMBEDDING    = 8'h07;
+    localparam CMD_RMSNORM      = 8'h08;
+    localparam CMD_ROPE         = 8'h09;
+    localparam CMD_GATED_MLP    = 8'h0A;
     localparam CMD_FENCE        = 8'h0F;
 
     // Command FIFO
@@ -176,8 +179,9 @@ module command_processor #(
                             state <= WAIT_DMA;
                         end
 
-                        CMD_MATMUL, CMD_ACTIVATION, CMD_LAYERNORM,
-                        CMD_SOFTMAX, CMD_RESIDUAL_ADD, CMD_EMBEDDING: begin
+                        CMD_RMSNORM_VP, CMD_ROPE_V2, CMD_GATED_MLP_DA,
+                        CMD_SOFTMAX, CMD_RESIDUAL_ADD, CMD_EMBEDDING,
+                        CMD_FENCE: begin
                             compute_start    <= 1'b1;
                             compute_opcode   <= cur_opcode;
                             compute_src_addr <= cur_src;

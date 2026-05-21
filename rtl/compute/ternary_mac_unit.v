@@ -29,48 +29,94 @@ module ternary_mac_unit #(
     input  wire                              clk,
     input  wire                              rst,
     input  wire                              valid_in,
+    input  wire                              ready_in,           // Downstream ready signal for pipeline separation
+    input  wire                              acc_clear,          // Accumulator clear without full reset
 
     // Ternary weight inputs: 2 bits each
     input  wire [2*NUM_WEIGHTS-1:0]          weights_packed,  // 2 bits per weight
 
     // Activation input (broadcast to all weights)
-    input  wire [ACT_WIDTH-1:0]              activation_in,
+    input  wire signed [ACT_WIDTH-1:0]       activation_in,
 
     // Accumulated output
     output reg  signed [2*ACT_WIDTH-1:0]     acc_out,
     output reg                               valid_out,
-    output reg  [7:0]                        zero_count       // How many were zero
+    output reg                               ready_out,        // Pipeline ready signal
+    output reg  [7:0]                        zero_count,       // How many were zero
+    output reg  [7:0]                        skipped_count     // How many MACs were skipped
 );
 
     integer i;
     reg signed [2*ACT_WIDTH-1:0] partial_sum;
     reg [7:0] zeros;
     reg [1:0] w;
+    reg signed [2*ACT_WIDTH:0] temp_sum;
+    reg skipped;
+
+    // Pipeline registers for proper handshake
+    reg signed [ACT_WIDTH-1:0] activation_d;
+    reg [2*NUM_WEIGHTS-1:0] weights_packed_d;
+    reg valid_in_d;
+    reg ready_in_d;
 
     always @(posedge clk) begin
-        if (rst) begin
-            acc_out    <= 0;
+        // Pipeline registers for input data
+        if (valid_in && ready_in) begin
+            activation_d <= activation_in;
+            weights_packed_d <= weights_packed;
+            valid_in_d <= valid_in;
+            ready_in_d <= ready_in;
+        end
+
+        if (rst || acc_clear) begin
+            acc_out    <= {2*ACT_WIDTH{1'b0}};
             valid_out  <= 1'b0;
+            ready_out  <= 1'b0;
             zero_count <= 0;
-        end else if (valid_in) begin
+            skipped_count <= 0;
+        end else if (valid_in_d && ready_in_d) begin
             partial_sum = 0;
             zeros = 0;
+            skipped = 0;
 
-            for (i = 0; i < NUM_WEIGHTS; i = i + 1) begin
-                w = weights_packed[2*i +: 2];
-                case (w)
-                    2'b01:   partial_sum = partial_sum + $signed({1'b0, activation_in});  // +1
-                    2'b10:   partial_sum = partial_sum - $signed({1'b0, activation_in});  // -1
-                    default: begin partial_sum = partial_sum; zeros = zeros + 1; end       //  0
-                endcase
-            end
+             for (i = 0; i < NUM_WEIGHTS; i = i + 1) begin
+                 w = weights_packed_d[2*i +: 2];
+                 case (w)
+                     2'b01: begin
+                         partial_sum = partial_sum + activation_d;  // +1 with proper sign extension
+                     end
+                     2'b10: begin
+                         partial_sum = partial_sum - activation_d;  // -1 with proper sign extension
+                     end
+                     default: begin 
+                         zeros = zeros + 1; 
+                         skipped = skipped + 1;  // Track actual zero-skipped operations
+                     end
+                 endcase
+             end
 
-            acc_out    <= acc_out + partial_sum;
+             // Proper signed accumulation with saturation
+             if (skipped < NUM_WEIGHTS) begin  // Only update if we have non-skipped operations
+                 // Check for overflow before adding
+                 temp_sum = acc_out + partial_sum;
+                 if ((temp_sum[2*ACT_WIDTH] && !partial_sum[2*ACT_WIDTH-1]) ||  // Positive overflow
+                     (!temp_sum[2*ACT_WIDTH] && partial_sum[2*ACT_WIDTH-1])) begin  // Negative overflow
+                     if (temp_sum[2*ACT_WIDTH])
+                         acc_out <= {1'b1, {(2*ACT_WIDTH-1){1'b0}}};  // Max negative
+                     else
+                         acc_out <= {1'b0, {(2*ACT_WIDTH-1){1'b1}}};  // Max positive
+                 end else begin
+                     acc_out <= temp_sum[2*ACT_WIDTH-1:0];
+                 end
+             end
+            
             valid_out  <= 1'b1;
+            ready_out  <= 1'b1;
             zero_count <= zero_count + zeros;
+            skipped_count <= skipped_count + skipped;
         end else begin
             valid_out <= 1'b0;
+            ready_out <= 1'b0;
         end
     end
-
 endmodule
