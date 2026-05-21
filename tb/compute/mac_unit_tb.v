@@ -6,13 +6,15 @@
 
 module mac_unit_tb;
 
-    reg         clk, rst, clear_acc, valid_in;
+    reg         clk, rst, clear_acc, valid_in, ready_in;
     reg  [15:0] a, b;
     wire [31:0] acc_out;
     wire        valid_out;
+    wire        ready_out;
 
     mac_unit #(.DATA_WIDTH(16), .ACC_WIDTH(32)) uut (
         .clk(clk), .rst(rst), .clear_acc(clear_acc), .valid_in(valid_in),
+        .ready_in(ready_in), .ready_out(ready_out),
         .a(a), .b(b), .acc_out(acc_out), .valid_out(valid_out)
     );
 
@@ -36,6 +38,9 @@ module mac_unit_tb;
         input [31:0] expected;
         input [80*8-1:0] test_name;
         begin
+            // MAC pipelines valid_in -> a_d/b_d -> acc_en_reg -> acc_out (2 cycles)
+            @(posedge clk);
+            @(posedge clk);
             #1;
             if (acc_out === expected) begin
                 $display("[PASS] %0s | acc=%0d", test_name, acc_out);
@@ -57,7 +62,7 @@ module mac_unit_tb;
         $display("  MAC Unit Testbench");
         $display("============================================");
 
-        rst = 1; clear_acc = 0; valid_in = 0; a = 0; b = 0;
+        rst = 1; clear_acc = 0; valid_in = 0; ready_in = 1'b1; a = 0; b = 0;
         #25; rst = 0; #15;
 
         // Dot product: [3,4,5] . [2,6,1] = 6+24+5 = 35
@@ -80,6 +85,8 @@ module mac_unit_tb;
         // Clear accumulator
         @(negedge clk); clear_acc = 1'b1;
         @(negedge clk); clear_acc = 1'b0;
+        @(posedge clk);
+        @(posedge clk);
         #1;
         check_acc(32'd0, "Clear: acc=0");
 

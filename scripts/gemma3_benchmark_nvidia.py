@@ -5,6 +5,9 @@ Gemma 3 270M — NVIDIA RTX 4070 Benchmark + INT4 Weight Export
 2. Benchmarks inference on RTX 4070 (tok/sec, latency, memory)
 3. Exports INT4 quantized weights as hex files for FPGA Verilog $readmemh
 4. Generates per-layer golden vectors for RTL validation
+
+Fair comparison: use output JSON with compare_bitbybit_vs_rtx.py --nvidia-json
+after FPGA runs the same model. See docs/PERFORMANCE_VALIDATION.md.
 """
 
 import os

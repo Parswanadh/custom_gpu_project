@@ -312,7 +312,6 @@ module gpu_system_top #(
          .b_write_en(dma_b_write_en),
          .b_write_addr(dma_b_write_addr[$clog2(SP_DEPTH)-1:0]),
          .b_write_data(dma_b_write_data),
-         .b_write_valid(),
          // Status (optional, for monitoring)
          .bank_conflicts(),
          .usage_count()

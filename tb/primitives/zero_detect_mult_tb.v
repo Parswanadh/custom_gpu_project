@@ -9,15 +9,18 @@ module zero_detect_mult_tb;
     reg        clk;
     reg        rst;
     reg        valid_in;
+    reg        ready_in;
     reg  [7:0] a, b;
     wire [15:0] result;
     wire       skipped;
     wire       valid_out;
+    wire       ready_out;
 
     zero_detect_mult uut (
-        .clk(clk), .rst(rst), .valid_in(valid_in),
+        .clk(clk), .rst(rst), .valid_in(valid_in), .ready_in(ready_in),
         .a(a), .b(b),
-        .result(result), .skipped(skipped), .valid_out(valid_out)
+        .result(result), .skipped(skipped), .valid_out(valid_out),
+        .ready_out(ready_out)
     );
 
     initial clk = 0;
@@ -68,7 +71,7 @@ module zero_detect_mult_tb;
         $display("  Zero Detect Multiplier Testbench");
         $display("============================================");
 
-        rst = 1; valid_in = 0; a = 0; b = 0;
+        rst = 1; valid_in = 0; ready_in = 1'b1; a = 0; b = 0;
         #25; rst = 0; #15;
 
         // Module uses signed 8-bit inputs: range [-128, 127]

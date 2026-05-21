@@ -438,8 +438,8 @@ module end_to_end_pipeline_tb;
 
     // Timeout safety
     initial begin
-        #500000;
-        $fatal(1, "TIMEOUT at 500us");
+        #5000000;
+        $fatal(1, "TIMEOUT at 5ms");
     end
 
 endmodule

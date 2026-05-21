@@ -60,12 +60,15 @@ module mac_unit #(
     reg signed [DATA_WIDTH-1:0] b_d;
 
     always @(posedge clk) begin
-        // Pipeline registers for input data
+        // Pipeline registers for input data (one-shot per valid_in pulse)
         if (valid_in && ready_in) begin
             a_d <= a;
             b_d <= b;
-            valid_in_d <= valid_in;
+            valid_in_d <= 1'b1;
             ready_in_d <= ready_in;
+        end else begin
+            valid_in_d <= 1'b0;
+            ready_in_d <= 1'b0;
         end
 
         if (rst || clear_acc) begin

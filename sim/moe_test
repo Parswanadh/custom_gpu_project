@@ -8,21 +8,21 @@
 :vpi_module "D:\Tools\iverilog\lib\ivl\v2005_math.vpi";
 :vpi_module "D:\Tools\iverilog\lib\ivl\va_math.vpi";
 :vpi_module "D:\Tools\iverilog\lib\ivl\v2009.vpi";
-S_00000234944fed20 .scope package, "$unit" "$unit" 2 1;
+S_00000289943ded20 .scope package, "$unit" "$unit" 2 1;
  .timescale 0 0;
-S_00000234944feeb0 .scope module, "moe_router_tb" "moe_router_tb" 3 3;
+S_00000289943deeb0 .scope module, "moe_router_tb" "moe_router_tb" 3 3;
  .timescale -9 -12;
-v0000023494569ab0_0 .var "clk", 0 0;
-v0000023494568890_0 .net "expert_id_out", 1 0, v00000234944edad0_0;  1 drivers
-v0000023494568e30_0 .net "expert_mask_out", 3 0, v00000234944ed5d0_0;  1 drivers
-v000002349456a050_0 .var "rst_n", 0 0;
-v0000023494568cf0_0 .var "scores_in", 63 0;
-v00000234945696f0_0 .var/i "tests_passed", 31 0;
-v0000023494569d30_0 .var/i "tests_total", 31 0;
-v00000234945693d0_0 .var "valid_in", 0 0;
-v0000023494569f10_0 .net "valid_out", 0 0, v0000023494569e70_0;  1 drivers
-E_00000234944f2a30 .event negedge, v00000234944ed8f0_0;
-S_00000234944c2ce0 .scope module, "dut" "moe_router" 3 21, 4 11 0, S_00000234944feeb0;
+v0000028994448e30_0 .var "clk", 0 0;
+v000002899444a370_0 .net "expert_id_out", 1 0, v00000289943cd670_0;  1 drivers
+v00000289944486b0_0 .net "expert_mask_out", 3 0, v00000289943cd7b0_0;  1 drivers
+v0000028994448750_0 .var "rst_n", 0 0;
+v0000028994449a10_0 .var "scores_in", 63 0;
+v0000028994449e70_0 .var/i "tests_passed", 31 0;
+v0000028994449330_0 .var/i "tests_total", 31 0;
+v0000028994449290_0 .var "valid_in", 0 0;
+v000002899444a550_0 .net "valid_out", 0 0, v000002899444a4b0_0;  1 drivers
+E_00000289943d1a30 .event negedge, v00000289943cd350_0;
+S_00000289943a2ce0 .scope module, "dut" "moe_router" 3 21, 4 11 0, S_00000289943deeb0;
  .timescale -9 -12;
     .port_info 0 /INPUT 1 "clk";
     .port_info 1 /INPUT 1 "rst_n";
@@ -31,141 +31,141 @@ S_00000234944c2ce0 .scope module, "dut" "moe_router" 3 21, 4 11 0, S_00000234944
     .port_info 4 /OUTPUT 2 "expert_id_out";
     .port_info 5 /OUTPUT 4 "expert_mask_out";
     .port_info 6 /OUTPUT 1 "valid_out";
-P_00000234944f3ad0 .param/l "NUM_EXPERTS" 0 4 12, +C4<00000000000000000000000000000100>;
-P_00000234944f3b08 .param/l "SCORE_WIDTH" 0 4 13, +C4<00000000000000000000000000010000>;
-v00000234944ed850_0 .net *"_ivl_12", 0 0, L_0000023494569dd0;  1 drivers
-L_00000234945b0088 .functor BUFT 1, C4<00>, C4<0>, C4<0>, C4<0>;
-v00000234944ed710_0 .net/2u *"_ivl_14", 1 0, L_00000234945b0088;  1 drivers
-L_00000234945b00d0 .functor BUFT 1, C4<01>, C4<0>, C4<0>, C4<0>;
-v00000234944ed210_0 .net/2u *"_ivl_16", 1 0, L_00000234945b00d0;  1 drivers
-v00000234944ed030_0 .net *"_ivl_20", 0 0, L_0000023494569790;  1 drivers
-v00000234944ed170_0 .net *"_ivl_24", 0 0, L_0000023494568f70;  1 drivers
-L_00000234945b0118 .functor BUFT 1, C4<10>, C4<0>, C4<0>, C4<0>;
-v00000234944ed0d0_0 .net/2u *"_ivl_26", 1 0, L_00000234945b0118;  1 drivers
-L_00000234945b0160 .functor BUFT 1, C4<11>, C4<0>, C4<0>, C4<0>;
-v00000234944ed530_0 .net/2u *"_ivl_28", 1 0, L_00000234945b0160;  1 drivers
-v00000234944ecf90_0 .net *"_ivl_32", 0 0, L_0000023494569fb0;  1 drivers
-v00000234944edb70_0 .net *"_ivl_36", 0 0, L_0000023494569290;  1 drivers
-L_00000234945b01a8 .functor BUFT 1, C4<0001>, C4<0>, C4<0>, C4<0>;
-v00000234944ed2b0_0 .net/2s *"_ivl_40", 3 0, L_00000234945b01a8;  1 drivers
-v00000234944ecd10_0 .net *"_ivl_8", 0 0, L_00000234945691f0;  1 drivers
-v00000234944ed8f0_0 .net "clk", 0 0, v0000023494569ab0_0;  1 drivers
-v00000234944edad0_0 .var "expert_id_out", 1 0;
-v00000234944ed5d0_0 .var "expert_mask_out", 3 0;
-v00000234944ecdb0_0 .net "final_id", 1 0, L_0000023494569510;  1 drivers
-v00000234944eda30_0 .net "final_mask", 3 0, L_00000234945687f0;  1 drivers
-v00000234944edc10_0 .net "id_01", 1 0, L_0000023494568ed0;  1 drivers
-v00000234944ed7b0_0 .net "id_23", 1 0, L_0000023494568a70;  1 drivers
-v00000234944ecef0_0 .net/s "max_01", 15 0, L_00000234945686b0;  1 drivers
-v00000234944ed350_0 .net/s "max_23", 15 0, L_0000023494569150;  1 drivers
-v00000234944ed3f0_0 .net/s "max_final_val", 15 0, L_0000023494569010;  1 drivers
-v00000234944ed490_0 .net "rst_n", 0 0, v000002349456a050_0;  1 drivers
-v00000234944ece50_0 .net/s "s0", 15 0, L_00000234945689d0;  1 drivers
-v00000234945690b0_0 .net/s "s1", 15 0, L_0000023494569650;  1 drivers
-v0000023494568930_0 .net/s "s2", 15 0, L_0000023494569470;  1 drivers
-v0000023494569330_0 .net/s "s3", 15 0, L_0000023494568bb0;  1 drivers
-v0000023494568d90_0 .net "scores_in", 63 0, v0000023494568cf0_0;  1 drivers
-v0000023494569c90_0 .net "valid_in", 0 0, v00000234945693d0_0;  1 drivers
-v0000023494569e70_0 .var "valid_out", 0 0;
-E_00000234944f1770/0 .event negedge, v00000234944ed490_0;
-E_00000234944f1770/1 .event posedge, v00000234944ed8f0_0;
-E_00000234944f1770 .event/or E_00000234944f1770/0, E_00000234944f1770/1;
-L_00000234945689d0 .part v0000023494568cf0_0, 0, 16;
-L_0000023494569650 .part v0000023494568cf0_0, 16, 16;
-L_0000023494569470 .part v0000023494568cf0_0, 32, 16;
-L_0000023494568bb0 .part v0000023494568cf0_0, 48, 16;
-L_00000234945691f0 .cmp/gt.s 16, L_00000234945689d0, L_0000023494569650;
-L_00000234945686b0 .functor MUXZ 16, L_0000023494569650, L_00000234945689d0, L_00000234945691f0, C4<>;
-L_0000023494569dd0 .cmp/gt.s 16, L_00000234945689d0, L_0000023494569650;
-L_0000023494568ed0 .functor MUXZ 2, L_00000234945b00d0, L_00000234945b0088, L_0000023494569dd0, C4<>;
-L_0000023494569790 .cmp/gt.s 16, L_0000023494569470, L_0000023494568bb0;
-L_0000023494569150 .functor MUXZ 16, L_0000023494568bb0, L_0000023494569470, L_0000023494569790, C4<>;
-L_0000023494568f70 .cmp/gt.s 16, L_0000023494569470, L_0000023494568bb0;
-L_0000023494568a70 .functor MUXZ 2, L_00000234945b0160, L_00000234945b0118, L_0000023494568f70, C4<>;
-L_0000023494569fb0 .cmp/gt.s 16, L_00000234945686b0, L_0000023494569150;
-L_0000023494569010 .functor MUXZ 16, L_0000023494569150, L_00000234945686b0, L_0000023494569fb0, C4<>;
-L_0000023494569290 .cmp/gt.s 16, L_00000234945686b0, L_0000023494569150;
-L_0000023494569510 .functor MUXZ 2, L_0000023494568a70, L_0000023494568ed0, L_0000023494569290, C4<>;
-L_00000234945687f0 .shift/l 4, L_00000234945b01a8, L_0000023494569510;
-    .scope S_00000234944c2ce0;
+P_00000289943d45d0 .param/l "NUM_EXPERTS" 0 4 12, +C4<00000000000000000000000000000100>;
+P_00000289943d4608 .param/l "SCORE_WIDTH" 0 4 13, +C4<00000000000000000000000000010000>;
+v00000289943cdad0_0 .net *"_ivl_12", 0 0, L_0000028994449790;  1 drivers
+L_0000028994490088 .functor BUFT 1, C4<00>, C4<0>, C4<0>, C4<0>;
+v00000289943cd490_0 .net/2u *"_ivl_14", 1 0, L_0000028994490088;  1 drivers
+L_00000289944900d0 .functor BUFT 1, C4<01>, C4<0>, C4<0>, C4<0>;
+v00000289943ccd10_0 .net/2u *"_ivl_16", 1 0, L_00000289944900d0;  1 drivers
+v00000289943cd2b0_0 .net *"_ivl_20", 0 0, L_0000028994449f10;  1 drivers
+v00000289943cd5d0_0 .net *"_ivl_24", 0 0, L_0000028994448a70;  1 drivers
+L_0000028994490118 .functor BUFT 1, C4<10>, C4<0>, C4<0>, C4<0>;
+v00000289943cd710_0 .net/2u *"_ivl_26", 1 0, L_0000028994490118;  1 drivers
+L_0000028994490160 .functor BUFT 1, C4<11>, C4<0>, C4<0>, C4<0>;
+v00000289943ccef0_0 .net/2u *"_ivl_28", 1 0, L_0000028994490160;  1 drivers
+v00000289943cd8f0_0 .net *"_ivl_32", 0 0, L_000002899444a410;  1 drivers
+v00000289943cd530_0 .net *"_ivl_36", 0 0, L_00000289944495b0;  1 drivers
+L_00000289944901a8 .functor BUFT 1, C4<0001>, C4<0>, C4<0>, C4<0>;
+v00000289943cd990_0 .net/2s *"_ivl_40", 3 0, L_00000289944901a8;  1 drivers
+v00000289943ccf90_0 .net *"_ivl_8", 0 0, L_0000028994449150;  1 drivers
+v00000289943cd350_0 .net "clk", 0 0, v0000028994448e30_0;  1 drivers
+v00000289943cd670_0 .var "expert_id_out", 1 0;
+v00000289943cd7b0_0 .var "expert_mask_out", 3 0;
+v00000289943cd030_0 .net "final_id", 1 0, L_0000028994448b10;  1 drivers
+v00000289943cd0d0_0 .net "final_mask", 3 0, L_0000028994449fb0;  1 drivers
+v00000289943cd850_0 .net "id_01", 1 0, L_0000028994449830;  1 drivers
+v00000289943cda30_0 .net "id_23", 1 0, L_000002899444a050;  1 drivers
+v00000289943cdb70_0 .net/s "max_01", 15 0, L_00000289944489d0;  1 drivers
+v00000289943cd170_0 .net/s "max_23", 15 0, L_0000028994449510;  1 drivers
+v00000289943cdc10_0 .net/s "max_final_val", 15 0, L_00000289944496f0;  1 drivers
+v00000289943cd210_0 .net "rst_n", 0 0, v0000028994448750_0;  1 drivers
+v00000289943cd3f0_0 .net/s "s0", 15 0, L_0000028994448890;  1 drivers
+v00000289944487f0_0 .net/s "s1", 15 0, L_0000028994449ab0;  1 drivers
+v00000289944491f0_0 .net/s "s2", 15 0, L_0000028994448d90;  1 drivers
+v0000028994448f70_0 .net/s "s3", 15 0, L_0000028994448930;  1 drivers
+v0000028994448c50_0 .net "scores_in", 63 0, v0000028994449a10_0;  1 drivers
+v0000028994449970_0 .net "valid_in", 0 0, v0000028994449290_0;  1 drivers
+v000002899444a4b0_0 .var "valid_out", 0 0;
+E_00000289943d0c70/0 .event negedge, v00000289943cd210_0;
+E_00000289943d0c70/1 .event posedge, v00000289943cd350_0;
+E_00000289943d0c70 .event/or E_00000289943d0c70/0, E_00000289943d0c70/1;
+L_0000028994448890 .part v0000028994449a10_0, 0, 16;
+L_0000028994449ab0 .part v0000028994449a10_0, 16, 16;
+L_0000028994448d90 .part v0000028994449a10_0, 32, 16;
+L_0000028994448930 .part v0000028994449a10_0, 48, 16;
+L_0000028994449150 .cmp/gt.s 16, L_0000028994448890, L_0000028994449ab0;
+L_00000289944489d0 .functor MUXZ 16, L_0000028994449ab0, L_0000028994448890, L_0000028994449150, C4<>;
+L_0000028994449790 .cmp/gt.s 16, L_0000028994448890, L_0000028994449ab0;
+L_0000028994449830 .functor MUXZ 2, L_00000289944900d0, L_0000028994490088, L_0000028994449790, C4<>;
+L_0000028994449f10 .cmp/gt.s 16, L_0000028994448d90, L_0000028994448930;
+L_0000028994449510 .functor MUXZ 16, L_0000028994448930, L_0000028994448d90, L_0000028994449f10, C4<>;
+L_0000028994448a70 .cmp/gt.s 16, L_0000028994448d90, L_0000028994448930;
+L_000002899444a050 .functor MUXZ 2, L_0000028994490160, L_0000028994490118, L_0000028994448a70, C4<>;
+L_000002899444a410 .cmp/gt.s 16, L_00000289944489d0, L_0000028994449510;
+L_00000289944496f0 .functor MUXZ 16, L_0000028994449510, L_00000289944489d0, L_000002899444a410, C4<>;
+L_00000289944495b0 .cmp/gt.s 16, L_00000289944489d0, L_0000028994449510;
+L_0000028994448b10 .functor MUXZ 2, L_000002899444a050, L_0000028994449830, L_00000289944495b0, C4<>;
+L_0000028994449fb0 .shift/l 4, L_00000289944901a8, L_0000028994448b10;
+    .scope S_00000289943a2ce0;
 T_0 ;
-    %wait E_00000234944f1770;
-    %load/vec4 v00000234944ed490_0;
+    %wait E_00000289943d0c70;
+    %load/vec4 v00000289943cd210_0;
     %nor/r;
     %flag_set/vec4 8;
     %jmp/0xz  T_0.0, 8;
     %pushi/vec4 0, 0, 2;
-    %assign/vec4 v00000234944edad0_0, 0;
+    %assign/vec4 v00000289943cd670_0, 0;
     %pushi/vec4 0, 0, 4;
-    %assign/vec4 v00000234944ed5d0_0, 0;
+    %assign/vec4 v00000289943cd7b0_0, 0;
     %pushi/vec4 0, 0, 1;
-    %assign/vec4 v0000023494569e70_0, 0;
+    %assign/vec4 v000002899444a4b0_0, 0;
     %jmp T_0.1;
 T_0.0 ;
-    %load/vec4 v0000023494569c90_0;
-    %assign/vec4 v0000023494569e70_0, 0;
-    %load/vec4 v0000023494569c90_0;
+    %load/vec4 v0000028994449970_0;
+    %assign/vec4 v000002899444a4b0_0, 0;
+    %load/vec4 v0000028994449970_0;
     %flag_set/vec4 8;
     %jmp/0xz  T_0.2, 8;
-    %load/vec4 v00000234944ecdb0_0;
-    %assign/vec4 v00000234944edad0_0, 0;
-    %load/vec4 v00000234944eda30_0;
-    %assign/vec4 v00000234944ed5d0_0, 0;
+    %load/vec4 v00000289943cd030_0;
+    %assign/vec4 v00000289943cd670_0, 0;
+    %load/vec4 v00000289943cd0d0_0;
+    %assign/vec4 v00000289943cd7b0_0, 0;
 T_0.2 ;
 T_0.1 ;
     %jmp T_0;
     .thread T_0;
-    .scope S_00000234944feeb0;
+    .scope S_00000289943deeb0;
 T_1 ;
     %pushi/vec4 0, 0, 32;
-    %store/vec4 v00000234945696f0_0, 0, 32;
+    %store/vec4 v0000028994449e70_0, 0, 32;
     %pushi/vec4 0, 0, 32;
-    %store/vec4 v0000023494569d30_0, 0, 32;
+    %store/vec4 v0000028994449330_0, 0, 32;
     %end;
     .thread T_1, $init;
-    .scope S_00000234944feeb0;
+    .scope S_00000289943deeb0;
 T_2 ;
     %delay 5000, 0;
-    %load/vec4 v0000023494569ab0_0;
+    %load/vec4 v0000028994448e30_0;
     %inv;
-    %store/vec4 v0000023494569ab0_0, 0, 1;
+    %store/vec4 v0000028994448e30_0, 0, 1;
     %jmp T_2;
     .thread T_2;
-    .scope S_00000234944feeb0;
+    .scope S_00000289943deeb0;
 T_3 ;
     %pushi/vec4 0, 0, 1;
-    %store/vec4 v0000023494569ab0_0, 0, 1;
+    %store/vec4 v0000028994448e30_0, 0, 1;
     %pushi/vec4 0, 0, 1;
-    %store/vec4 v000002349456a050_0, 0, 1;
+    %store/vec4 v0000028994448750_0, 0, 1;
     %pushi/vec4 0, 0, 64;
-    %store/vec4 v0000023494568cf0_0, 0, 64;
+    %store/vec4 v0000028994449a10_0, 0, 64;
     %pushi/vec4 0, 0, 1;
-    %store/vec4 v00000234945693d0_0, 0, 1;
+    %store/vec4 v0000028994449290_0, 0, 1;
     %delay 20000, 0;
     %pushi/vec4 1, 0, 1;
-    %store/vec4 v000002349456a050_0, 0, 1;
+    %store/vec4 v0000028994448750_0, 0, 1;
     %vpi_call/w 3 45 "$display", "=================================================" {0 0 0};
     %vpi_call/w 3 46 "$display", "   MoE Top-1 Router Tests Starting" {0 0 0};
     %vpi_call/w 3 47 "$display", "   (4 Experts, 16-bit Signed Gating Scores)" {0 0 0};
     %vpi_call/w 3 48 "$display", "=================================================" {0 0 0};
-    %load/vec4 v0000023494569d30_0;
+    %load/vec4 v0000028994449330_0;
     %addi 1, 0, 32;
-    %store/vec4 v0000023494569d30_0, 0, 32;
-    %wait E_00000234944f2a30;
+    %store/vec4 v0000028994449330_0, 0, 32;
+    %wait E_00000289943d1a30;
     %pushi/vec4 1, 0, 1;
-    %store/vec4 v00000234945693d0_0, 0, 1;
+    %store/vec4 v0000028994449290_0, 0, 1;
     %pushi/vec4 4294639666, 0, 32;
     %concati/vec4 655360, 0, 32;
-    %store/vec4 v0000023494568cf0_0, 0, 64;
-    %wait E_00000234944f2a30;
+    %store/vec4 v0000028994449a10_0, 0, 64;
+    %wait E_00000289943d1a30;
     %pushi/vec4 0, 0, 1;
-    %store/vec4 v00000234945693d0_0, 0, 1;
-    %load/vec4 v0000023494568890_0;
+    %store/vec4 v0000028994449290_0, 0, 1;
+    %load/vec4 v000002899444a370_0;
     %pad/u 32;
     %cmpi/e 2, 0, 32;
     %flag_get/vec4 4;
     %jmp/0 T_3.3, 4;
-    %load/vec4 v0000023494568e30_0;
+    %load/vec4 v00000289944486b0_0;
     %pushi/vec4 4, 0, 4;
     %cmp/e;
     %flag_get/vec4 4;
@@ -174,7 +174,7 @@ T_3.3;
     %flag_set/vec4 9;
     %flag_get/vec4 9;
     %jmp/0 T_3.2, 9;
-    %load/vec4 v0000023494569f10_0;
+    %load/vec4 v000002899444a550_0;
     %pad/u 32;
     %pushi/vec4 1, 0, 32;
     %cmp/e;
@@ -184,31 +184,31 @@ T_3.2;
     %flag_set/vec4 8;
     %jmp/0xz  T_3.0, 8;
     %vpi_call/w 3 68 "$display", "[PASS] Test 1: Expert 2 correctly selected" {0 0 0};
-    %load/vec4 v00000234945696f0_0;
+    %load/vec4 v0000028994449e70_0;
     %addi 1, 0, 32;
-    %store/vec4 v00000234945696f0_0, 0, 32;
+    %store/vec4 v0000028994449e70_0, 0, 32;
     %jmp T_3.1;
 T_3.0 ;
-    %vpi_call/w 3 71 "$display", "[FAIL] Test 1: Expected 2 / 0100, got %d / %b (valid_out=%b)", v0000023494568890_0, v0000023494568e30_0, v0000023494569f10_0 {0 0 0};
+    %vpi_call/w 3 71 "$display", "[FAIL] Test 1: Expected 2 / 0100, got %d / %b (valid_out=%b)", v000002899444a370_0, v00000289944486b0_0, v000002899444a550_0 {0 0 0};
 T_3.1 ;
-    %load/vec4 v0000023494569d30_0;
+    %load/vec4 v0000028994449330_0;
     %addi 1, 0, 32;
-    %store/vec4 v0000023494569d30_0, 0, 32;
-    %wait E_00000234944f2a30;
+    %store/vec4 v0000028994449330_0, 0, 32;
+    %wait E_00000289943d1a30;
     %pushi/vec4 1, 0, 1;
-    %store/vec4 v00000234945693d0_0, 0, 1;
+    %store/vec4 v0000028994449290_0, 0, 1;
     %pushi/vec4 4288479182, 0, 32;
     %concati/vec4 4293394422, 0, 32;
-    %store/vec4 v0000023494568cf0_0, 0, 64;
-    %wait E_00000234944f2a30;
+    %store/vec4 v0000028994449a10_0, 0, 64;
+    %wait E_00000289943d1a30;
     %pushi/vec4 0, 0, 1;
-    %store/vec4 v00000234945693d0_0, 0, 1;
-    %load/vec4 v0000023494568890_0;
+    %store/vec4 v0000028994449290_0, 0, 1;
+    %load/vec4 v000002899444a370_0;
     %pad/u 32;
     %cmpi/e 0, 0, 32;
     %flag_get/vec4 4;
     %jmp/0 T_3.7, 4;
-    %load/vec4 v0000023494568e30_0;
+    %load/vec4 v00000289944486b0_0;
     %pushi/vec4 1, 0, 4;
     %cmp/e;
     %flag_get/vec4 4;
@@ -217,7 +217,7 @@ T_3.7;
     %flag_set/vec4 9;
     %flag_get/vec4 9;
     %jmp/0 T_3.6, 9;
-    %load/vec4 v0000023494569f10_0;
+    %load/vec4 v000002899444a550_0;
     %pad/u 32;
     %pushi/vec4 1, 0, 32;
     %cmp/e;
@@ -227,31 +227,31 @@ T_3.6;
     %flag_set/vec4 8;
     %jmp/0xz  T_3.4, 8;
     %vpi_call/w 3 89 "$display", "[PASS] Test 2: Expert 0 (all-negative scenario) correctly selected" {0 0 0};
-    %load/vec4 v00000234945696f0_0;
+    %load/vec4 v0000028994449e70_0;
     %addi 1, 0, 32;
-    %store/vec4 v00000234945696f0_0, 0, 32;
+    %store/vec4 v0000028994449e70_0, 0, 32;
     %jmp T_3.5;
 T_3.4 ;
-    %vpi_call/w 3 92 "$display", "[FAIL] Test 2: Expected 0 / 0001, got %d / %b", v0000023494568890_0, v0000023494568e30_0 {0 0 0};
+    %vpi_call/w 3 92 "$display", "[FAIL] Test 2: Expected 0 / 0001, got %d / %b", v000002899444a370_0, v00000289944486b0_0 {0 0 0};
 T_3.5 ;
-    %load/vec4 v0000023494569d30_0;
+    %load/vec4 v0000028994449330_0;
     %addi 1, 0, 32;
-    %store/vec4 v0000023494569d30_0, 0, 32;
-    %wait E_00000234944f2a30;
+    %store/vec4 v0000028994449330_0, 0, 32;
+    %wait E_00000289943d1a30;
     %pushi/vec4 1, 0, 1;
-    %store/vec4 v00000234945693d0_0, 0, 1;
+    %store/vec4 v0000028994449290_0, 0, 1;
     %pushi/vec4 4194304010, 0, 33;
     %concati/vec4 32768100, 0, 31;
-    %store/vec4 v0000023494568cf0_0, 0, 64;
-    %wait E_00000234944f2a30;
+    %store/vec4 v0000028994449a10_0, 0, 64;
+    %wait E_00000289943d1a30;
     %pushi/vec4 0, 0, 1;
-    %store/vec4 v00000234945693d0_0, 0, 1;
-    %load/vec4 v0000023494568890_0;
+    %store/vec4 v0000028994449290_0, 0, 1;
+    %load/vec4 v000002899444a370_0;
     %pad/u 32;
     %cmpi/e 3, 0, 32;
     %flag_get/vec4 4;
     %jmp/0 T_3.11, 4;
-    %load/vec4 v0000023494568e30_0;
+    %load/vec4 v00000289944486b0_0;
     %pushi/vec4 8, 0, 4;
     %cmp/e;
     %flag_get/vec4 4;
@@ -260,7 +260,7 @@ T_3.11;
     %flag_set/vec4 9;
     %flag_get/vec4 9;
     %jmp/0 T_3.10, 9;
-    %load/vec4 v0000023494569f10_0;
+    %load/vec4 v000002899444a550_0;
     %pad/u 32;
     %pushi/vec4 1, 0, 32;
     %cmp/e;
@@ -270,38 +270,38 @@ T_3.10;
     %flag_set/vec4 8;
     %jmp/0xz  T_3.8, 8;
     %vpi_call/w 3 110 "$display", "[PASS] Test 3: Expert 3 properly selected" {0 0 0};
-    %load/vec4 v00000234945696f0_0;
+    %load/vec4 v0000028994449e70_0;
     %addi 1, 0, 32;
-    %store/vec4 v00000234945696f0_0, 0, 32;
+    %store/vec4 v0000028994449e70_0, 0, 32;
     %jmp T_3.9;
 T_3.8 ;
-    %vpi_call/w 3 113 "$display", "[FAIL] Test 3: Expected 3 / 1000, got %d / %b", v0000023494568890_0, v0000023494568e30_0 {0 0 0};
+    %vpi_call/w 3 113 "$display", "[FAIL] Test 3: Expected 3 / 1000, got %d / %b", v000002899444a370_0, v00000289944486b0_0 {0 0 0};
 T_3.9 ;
-    %load/vec4 v0000023494569d30_0;
+    %load/vec4 v0000028994449330_0;
     %addi 1, 0, 32;
-    %store/vec4 v0000023494569d30_0, 0, 32;
-    %wait E_00000234944f2a30;
+    %store/vec4 v0000028994449330_0, 0, 32;
+    %wait E_00000289943d1a30;
     %pushi/vec4 1, 0, 1;
-    %store/vec4 v00000234945693d0_0, 0, 1;
+    %store/vec4 v0000028994449290_0, 0, 1;
     %pushi/vec4 3355494400, 0, 58;
     %concati/vec4 0, 0, 6;
-    %store/vec4 v0000023494568cf0_0, 0, 64;
-    %wait E_00000234944f2a30;
+    %store/vec4 v0000028994449a10_0, 0, 64;
+    %wait E_00000289943d1a30;
     %pushi/vec4 0, 0, 1;
-    %store/vec4 v00000234945693d0_0, 0, 1;
-    %load/vec4 v0000023494568890_0;
+    %store/vec4 v0000028994449290_0, 0, 1;
+    %load/vec4 v000002899444a370_0;
     %pad/u 32;
     %cmpi/e 1, 0, 32;
     %jmp/1 T_3.15, 4;
     %flag_mov 9, 4;
-    %load/vec4 v0000023494568890_0;
+    %load/vec4 v000002899444a370_0;
     %pad/u 32;
     %cmpi/e 2, 0, 32;
     %flag_or 4, 9;
 T_3.15;
     %flag_get/vec4 4;
     %jmp/0 T_3.14, 4;
-    %load/vec4 v0000023494569f10_0;
+    %load/vec4 v000002899444a550_0;
     %pad/u 32;
     %pushi/vec4 1, 0, 32;
     %cmp/e;
@@ -310,22 +310,22 @@ T_3.15;
 T_3.14;
     %flag_set/vec4 8;
     %jmp/0xz  T_3.12, 8;
-    %vpi_call/w 3 133 "$display", "[PASS] Test 4: Tie-breaker resolved safely (Picked Expert %d)", v0000023494568890_0 {0 0 0};
-    %load/vec4 v00000234945696f0_0;
+    %vpi_call/w 3 133 "$display", "[PASS] Test 4: Tie-breaker resolved safely (Picked Expert %d)", v000002899444a370_0 {0 0 0};
+    %load/vec4 v0000028994449e70_0;
     %addi 1, 0, 32;
-    %store/vec4 v00000234945696f0_0, 0, 32;
+    %store/vec4 v0000028994449e70_0, 0, 32;
     %jmp T_3.13;
 T_3.12 ;
-    %vpi_call/w 3 136 "$display", "[FAIL] Test 4: Tie failed, got ID %d valid %b", v0000023494568890_0, v0000023494569f10_0 {0 0 0};
+    %vpi_call/w 3 136 "$display", "[FAIL] Test 4: Tie failed, got ID %d valid %b", v000002899444a370_0, v000002899444a550_0 {0 0 0};
 T_3.13 ;
     %vpi_call/w 3 140 "$display", "=================================================" {0 0 0};
-    %vpi_call/w 3 141 "$display", "   MoE Router Tests Complete: %0d / %0d PASSED", v00000234945696f0_0, v0000023494569d30_0 {0 0 0};
+    %vpi_call/w 3 141 "$display", "   MoE Router Tests Complete: %0d / %0d PASSED", v0000028994449e70_0, v0000028994449330_0 {0 0 0};
     %vpi_call/w 3 142 "$display", "=================================================" {0 0 0};
     %delay 10000, 0;
     %vpi_call/w 3 144 "$finish" {0 0 0};
     %end;
     .thread T_3;
-    .scope S_00000234944feeb0;
+    .scope S_00000289943deeb0;
 T_4 ;
     %delay 5000000, 0;
     %vpi_call/w 3 150 "$display", "TIMEOUT" {0 0 0};

@@ -102,16 +102,19 @@ module gpu_top (
         .valid_out(dequant_valid)
     );
 
-    // Module 3: Zero Detect Multiplier
+    // Module 3: Zero Detect Multiplier (always ready — no downstream backpressure in gpu_top)
+    wire zd_ready_out;
     zero_detect_mult u_zero_det (
         .clk(clk),
         .rst(rst),
         .valid_in(zd_valid_in),
+        .ready_in(1'b1),
         .a(zd_a),
         .b(zd_b),
         .result(zd_result),
         .skipped(zd_skipped),
-        .valid_out(zd_valid)
+        .valid_out(zd_valid),
+        .ready_out(zd_ready_out)
     );
 
     // Module 4: Variable Precision ALU

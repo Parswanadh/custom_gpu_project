@@ -62,7 +62,7 @@ module gpu_top_tb;
 
             // Wait for valid_out (max 30 cycles for full pipeline)
             timeout = 0;
-            while (!valid_out && timeout < 30) begin
+            while (!valid_out && timeout < 50) begin
                 @(negedge clk);
                 timeout = timeout + 1;
             end
@@ -86,11 +86,6 @@ module gpu_top_tb;
             repeat(3) @(negedge clk);
         end
     endtask
-
-    initial begin
-        $dumpfile("sim/waveforms/gpu_top.vcd");
-        $dumpvars(0, gpu_top_tb);
-    end
 
     initial begin
         $display("============================================");

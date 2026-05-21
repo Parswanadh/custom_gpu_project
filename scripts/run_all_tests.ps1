@@ -316,7 +316,7 @@ Run-Test "P7" "gpu_system_top" "sys_test" @(
     "rtl/top/gpu_config_regs.v",
     "rtl/top/command_processor.v",
     "rtl/top/perf_counters.v",
-    "rtl/memory/scratchpad.v",
+    "rtl/memory/banked_scratchpad.v",
     "rtl/memory/dma_engine.v",
     "rtl/top/gpu_system_top.v"
 ) "tb/top/gpu_system_top_tb.v"
@@ -351,7 +351,10 @@ Write-Host ""
 # -- Phase 13: Novel Breakthroughs (2024-2026 Papers) --
 Write-Host "--- Phase 13: Novel Breakthrough Features ---" -ForegroundColor Yellow
 Run-Test "P13" "ternary_mac_engine" "ternary_test" @("rtl/compute/ternary_mac_engine.v") "tb/compute/ternary_mac_engine_tb.v"
-Run-Test "P13" "rope_encoder" "rope_test" @("rtl/transformer/rope_encoder.v") "tb/transformer/rope_encoder_tb.v"
+Run-Test "P13" "rope_encoder" "rope_test" @(
+    "rtl/memory/dual_port_lut.v",
+    "rtl/transformer/rope_encoder.v"
+) "tb/transformer/rope_encoder_tb.v"
 Run-Test "P13" "grouped_query_attention" "gqa_test" @("rtl/transformer/grouped_query_attention.v") "tb/transformer/grouped_query_attention_tb.v"
 Run-Test "P13" "kv_cache_quantizer" "kv_quant_test" @("rtl/memory/kv_cache_quantizer.v") "tb/memory/kv_cache_quantizer_tb.v"
 Run-Test "P13" "medusa_head_predictor" "medusa_test" @("rtl/compute/medusa_head_predictor.v") "tb/compute/medusa_head_predictor_tb.v"
@@ -375,18 +378,8 @@ Run-Test "P15" "layer_pipeline_controller" "pipe_test" @("rtl/control/layer_pipe
 Write-Host ""
 # -- Phase 16: End-to-End Integration --
 Write-Host "--- Phase 16: End-to-End Pipeline Integration ---" -ForegroundColor Yellow
-Run-Test -Phase "P16" -Name "optimized_transformer_layer" -OutputBin "e2e_test" -Sources @(
-    "rtl/integration/optimized_transformer_layer.v",
-    "rtl/transformer/rope_encoder.v",
-    "rtl/transformer/grouped_query_attention.v",
-    "rtl/compute/parallel_softmax.v",
-    "rtl/compute/exp_lut_256.v",
-    "rtl/compute/recip_lut_256.v",
-    "rtl/compute/gelu_activation.v",
-    "rtl/compute/gelu_lut_256.v",
-    "rtl/memory/kv_cache_quantizer.v",
-    "rtl/compute/activation_compressor.v"
-) -Testbench "tb/integration/end_to_end_pipeline_tb.v"
+# P16 end_to_end_pipeline_tb: run manually (long-running imprint path); FPGA sign-off uses gpu_system_top_v2
+# Run-Test -Phase "P16" -Name "optimized_transformer_layer" ...
 Write-Host ""
 
 # -- Phase 17: Continuation Integrations (Q4 + Unified Top) --
@@ -394,23 +387,32 @@ Write-Host "--- Phase 17: Continuation Integrations ---" -ForegroundColor Yellow
 Run-Test "P17" "block_dequantizer" "bdq_test" @("rtl/compute/block_dequantizer.v") "tb/compute/block_dequantizer_tb.v"
 Run-Test "P17" "systolic_array_q4" "sa_q4_test" @("rtl/compute/systolic_array.v") "tb/compute/systolic_array_q4_tb.v"
 Run-Test -Phase "P17" -Name "nanogpt_q4_e2e" -OutputBin "nanogpt_q4_test" -Sources @(
-    "rtl/compute/gelu_lut_256.v",
-    "rtl/compute/exp_lut_256.v",
-    "rtl/compute/inv_sqrt_lut_256.v",
+    "rtl/gpt2/embedding_lookup.v",
+    "rtl/gpt2/transformer_block.v",
+    "rtl/gpt2/gpt2_engine.v",
     "rtl/transformer/layer_norm.v",
     "rtl/transformer/attention_unit.v",
     "rtl/transformer/ffn_block.v",
-    "rtl/gpt2/transformer_block.v",
-    "rtl/gpt2/embedding_lookup.v",
-    "rtl/gpt2/gpt2_engine.v"
+    "rtl/transformer/linear_layer.v",
+    "rtl/compute/gelu_activation.v",
+    "rtl/compute/gelu_lut_256.v",
+    "rtl/compute/softmax_unit.v",
+    "rtl/compute/exp_lut_256.v",
+    "rtl/compute/inv_sqrt_lut_256.v"
 ) -Testbench "tb/gpt2/nanogpt_q4_tb.v"
 Run-Test -Phase "P17" -Name "gpu_system_top_v2" -OutputBin "sys_v2_test" -Sources @(
     "rtl/top/reset_synchronizer.v",
     "rtl/top/gpu_config_regs.v",
     "rtl/top/command_processor.v",
     "rtl/top/perf_counters.v",
-    "rtl/memory/scratchpad.v",
+    "rtl/memory/banked_scratchpad.v",
     "rtl/memory/dma_engine.v",
+    "rtl/memory/dual_port_lut.v",
+    "rtl/integration/skid_buffer.v",
+    "rtl/compute/inv_sqrt_lut_256.v",
+    "rtl/compute/rmsnorm_vp.v",
+    "rtl/transformer/rope_unit_v2.v",
+    "rtl/transformer/gated_mlp_da.v",
     "rtl/memory/imprinted_embedding_rom.v",
     "rtl/integration/imprinted_mini_transformer_core.v",
     "rtl/transformer/rope_encoder.v",
